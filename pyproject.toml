@@ -1,0 +1,96 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hermes-tescmd-plugin"
+version = "0.5.0a10"
+description = "Native Hermes plugin for Tesla Fleet API operations"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Sean McLellan" }]
+license = { text = "MIT" }
+dependencies = [
+  "cryptography>=42.0",
+  "httpx>=0.27",
+  "protobuf>=4.25",
+]
+keywords = ["hermes", "plugin", "tesla", "fleet-api", "oauth"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+  "Topic :: Software Development :: Libraries",
+]
+
+[project.urls]
+Homepage = "https://github.com/oceanswave/hermes-tescmd-plugin"
+Repository = "https://github.com/oceanswave/hermes-tescmd-plugin"
+Issues = "https://github.com/oceanswave/hermes-tescmd-plugin/issues"
+Source = "https://github.com/oceanswave/hermes-tescmd-plugin"
+Reference = "https://github.com/oceanswave/tescmd"
+
+[project.optional-dependencies]
+dev = [
+  "build>=1.2",
+  "pytest>=8.0",
+  "twine>=5.0",
+]
+
+[project.entry-points."hermes_agent.plugins"]
+hermes-tescmd-plugin = "hermes_tescmd_plugin"
+
+[tool.hatch.build]
+exclude = [
+  "/.upstream-audit",
+  "/.verify-venv",
+  "/.venv",
+  "/.pytest_cache",
+  "/dist",
+  "/build",
+  "/e2e-readonly-redacted.json",
+  "/live-fire-redacted.json",
+  "/key-enroll-private.json",
+  "/tool-inventory.json",
+  "/endpoint-tool-manifest.json",
+  "**/__pycache__",
+  "**/*.pyc",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hermes_tescmd_plugin"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+  "/docs",
+  "/scripts",
+  "/README.md",
+  "/INSTALL.md",
+  "/RELEASE.md",
+  "/ENDPOINT_COVERAGE.md",
+  "/CHANGELOG.md",
+  "/pyproject.toml",
+]
+exclude = [
+  "/tests",
+  "/.upstream-audit",
+  "/.verify-venv",
+  "/.venv",
+  "/.pytest_cache",
+  "/.ruff_cache",
+  "/.mypy_cache",
+  "/dist",
+  "/build",
+  "/*.json",
+  "**/__pycache__",
+  "**/*.pyc",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
