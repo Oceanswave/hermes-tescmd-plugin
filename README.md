@@ -148,24 +148,21 @@ Normal daily use should stay in the dedicated operational families: `vehicle_*`,
 
 ## Slash commands and dashboard
 
-Hermes also registers a small quick-command surface for frequent reads and low-impact guarded actions:
+Hermes also registers a broader quick-command surface for frequent reads and guarded operational actions:
 
-| Slash command | Purpose |
+| Group | Slash commands |
 | --- | --- |
-| `/tescmd-status [profile=default]` | Show plugin/auth/key readiness and next steps. |
-| `/tescmd-vehicles [profile=default] [region=na|eu|cn]` | List account vehicles. |
-| `/tescmd-vehicle-status [vin] [endpoints=charge_state,drive_state] [wake=true confirm=true]` | Read vehicle state, optionally limited to selected endpoints. |
-| `/tescmd-charge [vin] [wake=true confirm=true]` | Read charge state. |
-| `/tescmd-climate [vin] [wake=true confirm=true]` | Read climate state. |
-| `/tescmd-location [vin] [wake=true confirm=true]` | Read location state. |
-| `/tescmd-wake [vin] confirm=true` | Wake the selected/default vehicle. |
-| `/tescmd-flash [vin] confirm=true` | Flash lights. |
-| `/tescmd-honk [vin] confirm=true` | Honk horn. |
-| `/tescmd-lock [vin] confirm=true` | Lock the vehicle. |
+| Readiness/admin | `/tescmd-status`, `/tescmd-auth-status`, `/tescmd-key-show`, `/tescmd-key-validate`, `/tescmd-cache-status`, `/tescmd-cache-clear confirm=true` |
+| Vehicle reads | `/tescmd-vehicles`, `/tescmd-vehicle-status`, `/tescmd-drive`, `/tescmd-closures`, `/tescmd-config`, `/tescmd-gui`, `/tescmd-security-status`, `/tescmd-software`, `/tescmd-nearby-chargers`, `/tescmd-alerts`, `/tescmd-release-notes`, `/tescmd-charge`, `/tescmd-climate`, `/tescmd-location` |
+| Security/attention | `/tescmd-wake`, `/tescmd-flash`, `/tescmd-honk`, `/tescmd-lock`, `/tescmd-unlock`, `/tescmd-sentry enabled=true|false` |
+| Climate/charging | `/tescmd-climate-start`, `/tescmd-climate-stop`, `/tescmd-set-temp driver_temp=70 passenger_temp=70`, `/tescmd-charge-start`, `/tescmd-charge-stop`, `/tescmd-charge-limit percent=80`, `/tescmd-charge-amps amps=32`, `/tescmd-charge-port-open`, `/tescmd-charge-port-close` |
+| Body/media/navigation | `/tescmd-frunk`, `/tescmd-trunk-open`, `/tescmd-trunk-close`, `/tescmd-window-vent`, `/tescmd-window-close`, `/tescmd-media-play`, `/tescmd-media-next`, `/tescmd-media-prev`, `/tescmd-media-volume-up`, `/tescmd-media-volume-down`, `/tescmd-media-volume-set volume=3`, `/tescmd-nav destination='address'`, `/tescmd-nav-search query='place'`, `/tescmd-nav-waypoints place_ids=id1,id2` |
+
+Side-effecting slash commands require `confirm=true`. Read commands that wake a sleeping vehicle require both `wake=true` and `confirm=true`.
 
 Arguments use terse shell-style tokens: `key=value`, `key:value`, booleans like `confirm=true`, comma-separated lists like `endpoints=charge_state,drive_state`, and one bare positional vehicle identifier.
 
-The Hermes web dashboard gets a native Tesla tab at `/tescmd`. It uses the same existing native tool handlers as Hermes tools, so confirm-gated actions still fail closed when `confirm=true` is missing.
+The Hermes web dashboard gets a native Tesla tab at `/tescmd`. It uses the same existing native tool handlers as Hermes tools, so confirm-gated actions still fail closed when `confirm=true` is missing. The dashboard now includes grouped read panels, wake/no-cache/unit read options, status/auth/key/cache panels, and guarded control groups for security, climate, charging, body, media, and navigation. Higher-risk flows such as remote start, speed-limit PINs, valet/PIN-to-drive, erase-user-data, and raw Fleet API calls remain tool-only.
 
 ## Tool surface
 

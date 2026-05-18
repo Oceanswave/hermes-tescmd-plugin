@@ -5,7 +5,7 @@ from pathlib import Path
 
 from hermes_tescmd_plugin import config, slash
 from hermes_tescmd_plugin.dashboard import ensure_dashboard_installed
-from hermes_tescmd_plugin.dashboard.plugin_api import QuickActionBody, quick_action
+from hermes_tescmd_plugin.dashboard.plugin_api import QuickActionBody, quick_action, read, tools
 
 
 class FakeContext:
@@ -32,8 +32,60 @@ def test_registers_tescmd_slash_commands_and_status_handler(tmp_path, monkeypatc
     slash.register_commands(ctx)
 
     by_name = {command["name"]: command for command in ctx.commands}
-    assert "tescmd-status" in by_name
+    expected_commands = {
+        "tescmd-status",
+        "tescmd-auth-status",
+        "tescmd-key-show",
+        "tescmd-key-validate",
+        "tescmd-cache-status",
+        "tescmd-cache-clear",
+        "tescmd-vehicles",
+        "tescmd-vehicle-status",
+        "tescmd-drive",
+        "tescmd-closures",
+        "tescmd-config",
+        "tescmd-gui",
+        "tescmd-security-status",
+        "tescmd-software",
+        "tescmd-nearby-chargers",
+        "tescmd-alerts",
+        "tescmd-release-notes",
+        "tescmd-charge",
+        "tescmd-climate",
+        "tescmd-location",
+        "tescmd-wake",
+        "tescmd-flash",
+        "tescmd-honk",
+        "tescmd-lock",
+        "tescmd-unlock",
+        "tescmd-sentry",
+        "tescmd-climate-start",
+        "tescmd-climate-stop",
+        "tescmd-set-temp",
+        "tescmd-charge-start",
+        "tescmd-charge-stop",
+        "tescmd-charge-limit",
+        "tescmd-charge-amps",
+        "tescmd-charge-port-open",
+        "tescmd-charge-port-close",
+        "tescmd-frunk",
+        "tescmd-trunk-open",
+        "tescmd-trunk-close",
+        "tescmd-window-vent",
+        "tescmd-window-close",
+        "tescmd-media-play",
+        "tescmd-media-next",
+        "tescmd-media-prev",
+        "tescmd-media-volume-up",
+        "tescmd-media-volume-down",
+        "tescmd-media-volume-set",
+        "tescmd-nav",
+        "tescmd-nav-search",
+        "tescmd-nav-waypoints",
+    }
+    assert expected_commands <= set(by_name)
     assert by_name["tescmd-honk"]["args_hint"] == "[vin] confirm=true"
+    assert by_name["tescmd-charge-limit"]["args_hint"] == "[vin] percent=80 confirm=true"
 
     config.save_config(config.PluginConfig(profile="default", client_id="client-123"))
     output = by_name["tescmd-status"]["handler"]("")
@@ -64,6 +116,90 @@ def test_side_effect_slash_command_requires_confirm_before_network(tmp_path, mon
     assert payload["ok"] is False
     assert "confirm=true is required" in payload["error"]
     assert calls == []
+
+
+def test_dashboard_catalog_includes_expanded_reads_and_actions() -> None:
+    catalog = tools()
+
+    assert catalog["reads"]["closures"] == "tescmd_vehicle_closures_status"
+    assert catalog["reads"]["software"] == "tescmd_software_status"
+    assert catalog["reads"]["nearby-chargers"] == "tescmd_vehicle_nearby_chargers"
+    assert catalog["quick_actions"]["unlock"] == "tescmd_security_unlock"
+    assert catalog["quick_actions"]["charge-limit"] == "tescmd_charge_limit"
+    assert catalog["quick_actions"]["window-vent"] == "tescmd_vehicle_window_control"
+    assert catalog["quick_actions"]["nav"] == "tescmd_navigation_send"
+
+
+def test_dashboard_read_passes_wake_confirm_no_cache_and_units(monkeypatch) -> None:
+    calls: list[tuple[str, dict]] = []
+
+    def fake_run(tool_name, args=None):
+        calls.append((tool_name, args or {}))
+        return {"ok": True}
+
+    monkeypatch.setattr("hermes_tescmd_plugin.dashboard.plugin_api._run", fake_run)
+
+    payload = read(
+        "software",
+        vin="5YJ3E1EA7JF000001",
+        profile="daily",
+        region="eu",
+        wake=True,
+        confirm=True,
+        no_cache=True,
+        units="metric",
+    )
+
+    assert payload == {"ok": True}
+    assert calls == [
+        (
+            "tescmd_software_status",
+            {
+                "profile": "daily",
+                "vin": "5YJ3E1EA7JF000001",
+                "region": "eu",
+                "wake": True,
+                "confirm": True,
+                "no_cache": True,
+                "units": "metric",
+            },
+        )
+    ]
+
+
+def test_dashboard_quick_action_passes_extra_action_arguments(monkeypatch) -> None:
+    calls: list[tuple[str, dict]] = []
+
+    def fake_run(tool_name, args=None):
+        calls.append((tool_name, args or {}))
+        return {"ok": True}
+
+    monkeypatch.setattr("hermes_tescmd_plugin.dashboard.plugin_api._run", fake_run)
+
+    payload = quick_action(
+        QuickActionBody(
+            action="charge-limit",
+            vin="5YJ3E1EA7JF000001",
+            profile="daily",
+            region="na",
+            confirm=True,
+            percent=80,
+        )
+    )
+
+    assert payload == {"ok": True}
+    assert calls == [
+        (
+            "tescmd_charge_limit",
+            {
+                "profile": "daily",
+                "confirm": True,
+                "vin": "5YJ3E1EA7JF000001",
+                "region": "na",
+                "percent": 80,
+            },
+        )
+    ]
 
 
 def test_dashboard_quick_action_requires_confirm_before_network(tmp_path, monkeypatch) -> None:

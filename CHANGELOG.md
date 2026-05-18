@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0a13
+
+- Expanded `/tescmd-*` slash commands with readiness/admin checks, richer vehicle-state reads, unlock/Sentry, climate/charging controls, body controls, media controls, and navigation helpers while keeping physical actions confirm-gated.
+- Expanded the `/tescmd` Hermes dashboard with grouped read panels, wake/no-cache/unit read options, extra status/auth/key/cache panels, and guarded security, climate, charging, body, media, and navigation action groups.
+- Added dashboard API catalog/read/action coverage for the expanded read/action surface, including action-specific arguments such as charge limit, amperage, temperature, Sentry enabled state, media volume, destination, GPS coordinates, and waypoint Place IDs.
+- Kept higher-risk flows such as remote start, speed-limit PINs, valet/PIN-to-drive, erase-user-data, and raw Fleet API calls out of the dashboard quick-action surface.
+
 ## 0.5.0a12
 
 - Added Hermes plugin slash commands for common Tesla operations: `/tescmd-status`, `/tescmd-vehicles`, `/tescmd-vehicle-status`, `/tescmd-charge`, `/tescmd-climate`, `/tescmd-location`, `/tescmd-wake`, `/tescmd-flash`, `/tescmd-honk`, and `/tescmd-lock`.

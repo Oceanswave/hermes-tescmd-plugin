@@ -12,6 +12,22 @@
   align-items: end;
 }
 
+.tescmd-group {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.tescmd-group h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--color-muted-foreground);
+}
+
+.tescmd-primary-actions {
+  margin-top: 1rem;
+}
+
 .tescmd-field {
   display: grid;
   gap: 0.35rem;
@@ -56,10 +72,14 @@
   font-size: 0.875rem;
 }
 
-.tescmd-confirm {
+.tescmd-confirm,
+.tescmd-inline {
   display: inline-flex;
   gap: 0.5rem;
   align-items: center;
+}
+
+.tescmd-confirm {
   margin-bottom: 0.75rem;
 }
 
