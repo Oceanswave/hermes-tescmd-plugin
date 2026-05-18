@@ -283,12 +283,131 @@
 
 .tescmd-map-shell .tescmd-map,
 .tescmd-map-shell .leaflet-container {
+  position: relative;
   height: 100% !important;
   min-height: 0 !important;
   max-height: none !important;
   width: 100%;
   z-index: 0;
+  overflow: hidden;
   background: color-mix(in srgb, #020617 25%, var(--color-card));
+}
+
+/* Keep the vehicle map self-contained. Hermes may block or delay the CDN
+   Leaflet stylesheet, and without these layout rules tiles become normal
+   document-flow images stacked far outside the compact map panel. */
+.tescmd-map .leaflet-pane,
+.tescmd-map .leaflet-tile,
+.tescmd-map .leaflet-marker-icon,
+.tescmd-map .leaflet-marker-shadow,
+.tescmd-map .leaflet-tile-container,
+.tescmd-map .leaflet-pane > svg,
+.tescmd-map .leaflet-pane > canvas,
+.tescmd-map .leaflet-zoom-box,
+.tescmd-map .leaflet-image-layer,
+.tescmd-map .leaflet-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.tescmd-map .leaflet-container,
+.tescmd-map.leaflet-container {
+  overflow: hidden;
+}
+
+.tescmd-map .leaflet-tile,
+.tescmd-map .leaflet-marker-icon,
+.tescmd-map .leaflet-marker-shadow {
+  max-width: none !important;
+  max-height: none !important;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.tescmd-map .leaflet-tile {
+  border: 0;
+  visibility: hidden;
+}
+
+.tescmd-map .leaflet-tile-loaded {
+  visibility: inherit;
+}
+
+.tescmd-map .leaflet-control-container .leaflet-top,
+.tescmd-map .leaflet-control-container .leaflet-bottom {
+  position: absolute;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.tescmd-map .leaflet-control {
+  position: relative;
+  z-index: 1000;
+  pointer-events: auto;
+  background: color-mix(in srgb, var(--color-card) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
+  box-shadow: 0 8px 18px color-mix(in srgb, black 18%, transparent);
+}
+
+.tescmd-map .leaflet-top {
+  top: 0.45rem;
+}
+
+.tescmd-map .leaflet-right {
+  right: 0.45rem;
+}
+
+.tescmd-map .leaflet-bottom {
+  bottom: 0.45rem;
+}
+
+.tescmd-map .leaflet-left {
+  left: 0.45rem;
+}
+
+.tescmd-map .leaflet-control-zoom a {
+  display: block;
+  width: 1.55rem;
+  height: 1.55rem;
+  line-height: 1.48rem;
+  color: var(--color-foreground);
+  text-align: center;
+  text-decoration: none;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tescmd-map .leaflet-control-zoom a:last-child {
+  border-bottom: 0;
+}
+
+.tescmd-map .leaflet-control-attribution {
+  padding: 0.08rem 0.28rem;
+  color: var(--color-muted-foreground);
+  font-size: 0.58rem;
+}
+
+.tescmd-map .tescmd-map-marker {
+  display: grid;
+  place-items: center;
+  width: 22px !important;
+  height: 22px !important;
+  margin: 0 !important;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tescmd-blue) 18%, transparent);
+}
+
+.tescmd-map .tescmd-map-marker span {
+  width: 12px;
+  height: 12px;
+  display: block;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: var(--tescmd-blue);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--tescmd-blue) 25%, transparent),
+    0 0 18px color-mix(in srgb, var(--tescmd-blue) 80%, transparent),
+    0 2px 8px color-mix(in srgb, black 45%, transparent);
 }
 
 .tescmd-map-empty {

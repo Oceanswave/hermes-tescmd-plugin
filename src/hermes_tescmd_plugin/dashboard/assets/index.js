@@ -248,7 +248,13 @@
             maxZoom: 19,
             attribution: "&copy; OpenStreetMap contributors",
           }).addTo(mapRef.current);
-          markerRef.current = L.marker([lat, lon]).addTo(mapRef.current);
+          const markerIcon = L.divIcon({
+            className: "tescmd-map-marker",
+            html: "<span></span>",
+            iconSize: [22, 22],
+            iconAnchor: [11, 11],
+          });
+          markerRef.current = L.marker([lat, lon], { icon: markerIcon }).addTo(mapRef.current);
         } else {
           mapRef.current.setView([lat, lon], mapRef.current.getZoom() || 14);
           markerRef.current.setLatLng([lat, lon]);

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.0a19
+
+- Made the `/tescmd` vehicle map self-contained by bundling the Leaflet layout rules needed for panes, tiles, controls, and attribution inside the plugin stylesheet.
+- Fixed broken-looking map tiles when the external Leaflet CSS is blocked, delayed, or not applied by the Hermes dashboard shell.
+
 ## 0.5.0a18
 
 - Tightened the `/tescmd` dashboard density so the vehicle overview appears immediately below the header and widgets use compact cards.
