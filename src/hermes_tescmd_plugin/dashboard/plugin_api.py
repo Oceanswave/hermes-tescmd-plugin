@@ -165,6 +165,49 @@ def vehicles(profile: str = "default", region: str | None = None) -> dict[str, A
     return _run("tescmd_vehicle_list", args)
 
 
+def _safe_run(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+    try:
+        payload = _run(tool_name, args)
+    except Exception as exc:  # Keep the visual dashboard resilient when one read fails.
+        return {"ok": False, "error": str(exc), "tool": tool_name}
+    if not isinstance(payload, dict):
+        return {"ok": False, "error": "Unexpected non-object payload", "tool": tool_name}
+    return payload
+
+
+@router.get("/overview")
+def overview(
+    vin: str | None = None,
+    profile: str = "default",
+    region: str | None = None,
+    no_cache: bool = False,
+    units: str | None = None,
+) -> dict[str, Any]:
+    """Visual dashboard snapshot assembled from safe read-only native tools."""
+    base_args = _base_vehicle_args(profile, vin, region)
+    read_args = dict(base_args)
+    read_args.update({"wake": False, "confirm": False, "no_cache": no_cache})
+    if units:
+        read_args["units"] = units
+    sections = {
+        "charge": _safe_run("tescmd_charge_status", read_args),
+        "location": _safe_run("tescmd_vehicle_location", read_args),
+        "drive": _safe_run("tescmd_vehicle_drive_status", read_args),
+        "climate": _safe_run("tescmd_climate_status", read_args),
+        "closures": _safe_run("tescmd_vehicle_closures_status", read_args),
+        "security": _safe_run("tescmd_security_status", read_args),
+    }
+    return {
+        "ok": True,
+        "profile": profile,
+        "vin": vin,
+        "region": region,
+        "status": _safe_run("tescmd_status", {"profile": profile}),
+        "vehicles": _safe_run("tescmd_vehicle_list", {k: v for k, v in {"profile": profile, "region": region}.items() if v}),
+        "sections": sections,
+    }
+
+
 @router.get("/vehicle")
 def vehicle(
     vin: str | None = None,

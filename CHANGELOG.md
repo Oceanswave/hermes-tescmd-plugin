@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0a16
+
+- Added a visual Tesla dashboard overview endpoint and UI with read-only vehicle snapshot cards.
+- Added a Leaflet/OpenStreetMap vehicle-location map when coordinates are available.
+- Added charge, climate, security/closure, and location summary widgets above the raw payload panel.
+
 ## 0.5.0a15
 
 - Improved `/tescmd-*` slash-command confirmation failures so side-effect denials include the exact retry command, for example `/tescmd-honk confirm=true`, and a short explanation of why explicit confirmation is required.

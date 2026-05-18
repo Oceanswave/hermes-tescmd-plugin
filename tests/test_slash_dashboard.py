@@ -5,7 +5,7 @@ from pathlib import Path
 
 from hermes_tescmd_plugin import config, slash
 from hermes_tescmd_plugin.dashboard import ensure_dashboard_installed
-from hermes_tescmd_plugin.dashboard.plugin_api import QuickActionBody, quick_action, read, tools
+from hermes_tescmd_plugin.dashboard.plugin_api import QuickActionBody, overview, quick_action, read, tools
 
 
 class FakeContext:
@@ -130,6 +130,35 @@ def test_dashboard_catalog_includes_expanded_reads_and_actions() -> None:
     assert catalog["quick_actions"]["charge-limit"] == "tescmd_charge_limit"
     assert catalog["quick_actions"]["window-vent"] == "tescmd_vehicle_window_control"
     assert catalog["quick_actions"]["nav"] == "tescmd_navigation_send"
+
+
+def test_dashboard_overview_collects_visual_read_sections_without_wake(monkeypatch) -> None:
+    calls: list[tuple[str, dict]] = []
+
+    def fake_run(tool_name, args=None):
+        calls.append((tool_name, args or {}))
+        return {"ok": True, "tool": tool_name}
+
+    monkeypatch.setattr("hermes_tescmd_plugin.dashboard.plugin_api._run", fake_run)
+
+    payload = overview(vin="5YJ3E1EA7JF000001", profile="daily", region="na", no_cache=True, units="metric")
+
+    assert payload["ok"] is True
+    assert payload["sections"]["charge"]["tool"] == "tescmd_charge_status"
+    assert payload["sections"]["location"]["tool"] == "tescmd_vehicle_location"
+    assert payload["sections"]["climate"]["tool"] == "tescmd_climate_status"
+    assert (
+        "tescmd_charge_status",
+        {
+            "profile": "daily",
+            "vin": "5YJ3E1EA7JF000001",
+            "region": "na",
+            "wake": False,
+            "confirm": False,
+            "no_cache": True,
+            "units": "metric",
+        },
+    ) in calls
 
 
 def test_dashboard_read_passes_wake_confirm_no_cache_and_units(monkeypatch) -> None:

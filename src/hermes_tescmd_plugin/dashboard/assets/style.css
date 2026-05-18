@@ -1,6 +1,48 @@
 .tescmd-page {
   display: grid;
   gap: 1rem;
+  --tescmd-green: #34d399;
+  --tescmd-lime: #a3e635;
+  --tescmd-blue: #38bdf8;
+  --tescmd-amber: #f59e0b;
+  --tescmd-red: #fb7185;
+}
+
+.tescmd-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--tescmd-green) 25%, var(--color-border));
+  border-radius: calc(var(--radius) * 1.5);
+  padding: 1.25rem;
+  background:
+    radial-gradient(circle at 12% 20%, color-mix(in srgb, var(--tescmd-green) 22%, transparent), transparent 30%),
+    radial-gradient(circle at 90% 10%, color-mix(in srgb, var(--tescmd-blue) 18%, transparent), transparent 34%),
+    linear-gradient(135deg, color-mix(in srgb, #020617 55%, var(--color-card)), color-mix(in srgb, var(--color-card) 88%, transparent));
+}
+
+.tescmd-hero h1 {
+  margin: 0;
+  font-size: clamp(1.75rem, 4vw, 3rem);
+  letter-spacing: -0.05em;
+}
+
+.tescmd-kicker {
+  margin: 0 0 0.35rem;
+  color: var(--tescmd-green);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.tescmd-hero-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
 }
 
 .tescmd-controls,
@@ -58,13 +100,13 @@
 }
 
 .tescmd-ok {
-  border-color: color-mix(in srgb, #34d399 60%, var(--color-border));
-  color: #34d399;
+  border-color: color-mix(in srgb, var(--tescmd-green) 60%, var(--color-border));
+  color: var(--tescmd-green);
 }
 
 .tescmd-warn {
-  border-color: color-mix(in srgb, #f59e0b 60%, var(--color-border));
-  color: #f59e0b;
+  border-color: color-mix(in srgb, var(--tescmd-amber) 60%, var(--color-border));
+  color: var(--tescmd-amber);
 }
 
 .tescmd-muted {
@@ -81,6 +123,162 @@
 
 .tescmd-confirm {
   margin-bottom: 0.75rem;
+}
+
+.tescmd-overview-card {
+  overflow: hidden;
+}
+
+.tescmd-visual-grid {
+  display: grid;
+  grid-template-columns: minmax(16rem, 0.9fr) minmax(15rem, 0.8fr) minmax(22rem, 1.35fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.tescmd-charge-widget,
+.tescmd-mini-widget,
+.tescmd-map-shell,
+.tescmd-map-empty {
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  border-radius: calc(var(--radius) * 1.2);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-card) 94%, white 3%), color-mix(in srgb, var(--color-card) 88%, black 8%));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 8%, transparent), 0 18px 40px color-mix(in srgb, black 18%, transparent);
+}
+
+.tescmd-charge-widget {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.tescmd-widget-label {
+  color: var(--color-muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.tescmd-battery {
+  position: relative;
+  overflow: hidden;
+  min-height: 7rem;
+  display: grid;
+  place-items: center;
+  border: 2px solid color-mix(in srgb, var(--tescmd-green) 48%, var(--color-border));
+  border-radius: 1.2rem;
+  background: color-mix(in srgb, #020617 35%, var(--color-card));
+}
+
+.tescmd-battery::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: var(--tescmd-charge, 0%);
+  background: linear-gradient(0deg, var(--tescmd-green), var(--tescmd-lime));
+  opacity: 0.86;
+  transition: height 280ms ease;
+}
+
+.tescmd-battery::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0 18px, color-mix(in srgb, white 8%, transparent) 18px 19px);
+  mix-blend-mode: overlay;
+}
+
+.tescmd-battery span {
+  position: relative;
+  z-index: 1;
+  font-size: 2.4rem;
+  font-weight: 800;
+  letter-spacing: -0.08em;
+  text-shadow: 0 2px 14px color-mix(in srgb, black 45%, transparent);
+}
+
+.tescmd-metric-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--color-muted-foreground);
+  font-size: 0.875rem;
+}
+
+.tescmd-metric-row strong {
+  color: var(--color-foreground);
+}
+
+.tescmd-stack-widgets {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.tescmd-mini-widget {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.9rem 1rem;
+}
+
+.tescmd-mini-widget span {
+  color: var(--color-muted-foreground);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tescmd-mini-widget strong {
+  font-size: 1.35rem;
+  letter-spacing: -0.04em;
+}
+
+.tescmd-mini-widget small {
+  color: var(--color-muted-foreground);
+}
+
+.tescmd-map-shell {
+  overflow: hidden;
+  min-height: 23rem;
+}
+
+.tescmd-map-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-muted-foreground);
+  font-size: 0.8rem;
+}
+
+.tescmd-map-meta strong {
+  color: var(--color-foreground);
+}
+
+.tescmd-map {
+  min-height: 20rem;
+  width: 100%;
+  z-index: 0;
+}
+
+.tescmd-map-empty {
+  min-height: 23rem;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.3rem;
+  color: var(--color-muted-foreground);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--color-card) 92%, transparent), color-mix(in srgb, #020617 22%, var(--color-card))),
+    repeating-linear-gradient(45deg, transparent 0 12px, color-mix(in srgb, var(--color-border) 45%, transparent) 12px 13px);
+}
+
+.tescmd-map-empty div {
+  color: var(--color-foreground);
+  font-weight: 700;
 }
 
 .tescmd-json {
@@ -100,10 +298,21 @@
 .tescmd-header-pill {
   display: inline-flex;
   align-items: center;
-  border: 1px solid color-mix(in srgb, #34d399 45%, var(--color-border));
-  color: #34d399;
+  border: 1px solid color-mix(in srgb, var(--tescmd-green) 45%, var(--color-border));
+  color: var(--tescmd-green);
   border-radius: 999px;
   padding: 0.15rem 0.5rem;
   font-size: 0.75rem;
   letter-spacing: 0.04em;
+}
+
+@media (max-width: 1100px) {
+  .tescmd-visual-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tescmd-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
