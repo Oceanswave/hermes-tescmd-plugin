@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0a17
+
+- Replaced raw JSON slash-command responses with concise human-readable success/failure summaries.
+- Summarized common read payloads such as charge, climate, location, vehicle context, cache source, and Tesla API command result.
+- Kept explicit retry guidance for side-effect commands that fail closed without `confirm=true`.
+
 ## 0.5.0a16
 
 - Added a visual Tesla dashboard overview endpoint and UI with read-only vehicle snapshot cards.

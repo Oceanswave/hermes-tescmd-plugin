@@ -145,11 +145,139 @@ def _add_slash_confirmation_hint(name: str, payload: dict[str, Any]) -> dict[str
     return hinted
 
 
+def _friendly_label(name: str) -> str:
+    label = name.removeprefix("tescmd-").replace("-", " ")
+    return label[:1].upper() + label[1:]
+
+
+def _stringify(value: Any) -> str:
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    if value is None:
+        return "unknown"
+    return str(value)
+
+
+def _first_dict(*values: Any) -> dict[str, Any]:
+    for value in values:
+        if isinstance(value, dict):
+            return value
+    return {}
+
+
+def _vehicle_hint(payload: dict[str, Any]) -> str | None:
+    vehicle = _first_dict(payload.get("vehicle"))
+    name = vehicle.get("display_name") or vehicle.get("vehicle_name") or vehicle.get("name")
+    vin = payload.get("vin") or vehicle.get("vin") or vehicle.get("id_s") or vehicle.get("vehicle_id")
+    if name and vin:
+        return f"{name} ({vin})"
+    if name:
+        return str(name)
+    if vin:
+        return str(vin)
+    return None
+
+
+def _payload_section(payload: dict[str, Any], *keys: str) -> dict[str, Any]:
+    for container in (payload, payload.get("data") if isinstance(payload.get("data"), dict) else None):
+        if not isinstance(container, dict):
+            continue
+        for key in keys:
+            value = container.get(key)
+            if isinstance(value, dict):
+                return value
+    return {}
+
+
+def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
+    label = _friendly_label(name)
+    lines = [f"/{name}: success — {label} completed."]
+    target = _vehicle_hint(payload)
+    if target:
+        lines.append(f"Vehicle: {target}")
+    profile = payload.get("profile")
+    region = payload.get("region")
+    if profile or region:
+        bits = []
+        if profile:
+            bits.append(f"profile {profile}")
+        if region:
+            bits.append(f"region {region}")
+        lines.append("Context: " + ", ".join(bits))
+
+    charge = _payload_section(payload, "charge_state")
+    if charge:
+        lines.append(
+            "Charge: "
+            + ", ".join(
+                part
+                for part in (
+                    f"{charge.get('battery_level')}%" if charge.get("battery_level") is not None else None,
+                    str(charge.get("charging_state")) if charge.get("charging_state") else None,
+                    f"limit {charge.get('charge_limit_soc')}%" if charge.get("charge_limit_soc") is not None else None,
+                )
+                if part
+            )
+        )
+
+    climate = _payload_section(payload, "climate_state")
+    if climate:
+        lines.append(
+            "Climate: "
+            + ", ".join(
+                part
+                for part in (
+                    "on" if climate.get("is_climate_on") else "off" if climate.get("is_climate_on") is not None else None,
+                    f"inside {climate.get('inside_temp')}°" if climate.get("inside_temp") is not None else None,
+                    f"outside {climate.get('outside_temp')}°" if climate.get("outside_temp") is not None else None,
+                )
+                if part
+            )
+        )
+
+    location = _payload_section(payload, "location", "location_data", "drive_state")
+    lat = location.get("latitude") or location.get("lat")
+    lon = location.get("longitude") or location.get("lon") or location.get("lng")
+    if lat is not None and lon is not None:
+        lines.append(f"Location: {lat}, {lon}")
+
+    response = _first_dict(payload.get("response"), payload.get("result"), payload.get("payload"))
+    result = response.get("result") or response.get("reason") or response.get("message") or payload.get("message")
+    if result:
+        lines.append(f"Result: {_stringify(result)}")
+    elif not any(line.startswith(("Charge:", "Climate:", "Location:")) for line in lines):
+        lines.append("Result: command accepted by Tesla Fleet API.")
+
+    cache = payload.get("cache")
+    if isinstance(cache, dict) and cache.get("hit") is True:
+        lines.append("Source: cached vehicle data")
+    return lines
+
+
+def _summarize_failure(name: str, payload: dict[str, Any]) -> list[str]:
+    label = _friendly_label(name)
+    error = str(payload.get("error") or "Unknown error")
+    lines = [f"/{name}: failed — {label} did not run.", f"Reason: {error}"]
+    retry = payload.get("retry_command")
+    if retry:
+        lines.append(f"Try: {retry}")
+    why = payload.get("why_confirm_is_required")
+    if why:
+        lines.append(str(why))
+    next_action = payload.get("next_action")
+    if next_action:
+        lines.append(f"Next action: {next_action}")
+    status_code = payload.get("status_code")
+    if status_code:
+        lines.append(f"Tesla API status: {status_code}")
+    return lines
+
+
 def _format_command(name: str, payload: dict[str, Any]) -> str:
     payload = _add_slash_confirmation_hint(name, payload)
     if payload.get("ok"):
-        return f"/{name}: ok\n" + _compact_json(payload)
-    return f"/{name}: failed\n" + _compact_json(payload)
+        return "\n".join(_summarize_success(name, payload))
+    return "\n".join(_summarize_failure(name, payload))
 
 
 _COMMANDS: dict[str, tuple[str, str, Callable[[dict[str, Any]], str]]] = {

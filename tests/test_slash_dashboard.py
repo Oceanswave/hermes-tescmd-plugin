@@ -110,14 +110,48 @@ def test_side_effect_slash_command_requires_confirm_before_network(tmp_path, mon
     by_name = {command["name"]: command for command in ctx.commands}
 
     output = by_name["tescmd-honk"]["handler"]("")
-    payload_text = output.split("\n", 1)[1]
-    payload = json.loads(payload_text)
 
-    assert payload["ok"] is False
-    assert "confirm=true is required" in payload["error"]
-    assert payload["retry_command"] == "/tescmd-honk confirm=true"
-    assert "real-world vehicle side effect" in payload["why_confirm_is_required"]
+    assert "/tescmd-honk: failed" in output
+    assert "Reason: confirm=true is required" in output
+    assert "Try: /tescmd-honk confirm=true" in output
+    assert "real-world vehicle side effect" in output
+    assert "{" not in output
     assert calls == []
+
+
+def test_side_effect_slash_command_success_is_human_readable() -> None:
+    output = slash._format_command(
+        "tescmd-honk",
+        {
+            "ok": True,
+            "profile": "default",
+            "region": "na",
+            "vin": "5YJ3E1EA7JF000001",
+            "response": {"result": True},
+        },
+    )
+
+    assert output.startswith("/tescmd-honk: success")
+    assert "Vehicle: 5YJ3E1EA7JF000001" in output
+    assert "Result: yes" in output
+    assert "{" not in output
+
+
+def test_read_slash_command_success_summarizes_vehicle_data() -> None:
+    output = slash._format_command(
+        "tescmd-charge",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "data": {"charge_state": {"battery_level": 65, "charging_state": "Disconnected", "charge_limit_soc": 80}},
+            "cache": {"hit": True},
+        },
+    )
+
+    assert output.startswith("/tescmd-charge: success")
+    assert "Charge: 65%, Disconnected, limit 80%" in output
+    assert "Source: cached vehicle data" in output
+    assert "{" not in output
 
 
 def test_dashboard_catalog_includes_expanded_reads_and_actions() -> None:
