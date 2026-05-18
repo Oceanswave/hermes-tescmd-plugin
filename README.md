@@ -1,23 +1,47 @@
 # Hermes Tesla Fleet plugin
 
-Control and inspect Tesla Fleet API resources directly from Hermes.
+Give Hermes safe, native access to your Tesla.
 
-This is a native, pip-installable Hermes plugin for Tesla owners, operators, and agents that need structured Tesla Fleet API tools instead of a terminal CLI wrapper. After you register your own Tesla Developer app and add your app credentials to the plugin config, Hermes gets a full Tesla tool surface for OAuth, vehicle reads, signed vehicle commands, charging, climate, security, energy sites, sharing, navigation, partner registration, and raw Fleet API escape hatches.
+`tescmd` is the full Tesla Fleet CLI: a rich terminal app, setup wizard, Textual telemetry dashboard, MCP server, OpenClaw bridge, triggers, and streaming telemetry stack. `hermes-tescmd-plugin` is the Hermes-native companion for the moments when you do not want to drive that CLI yourself — you want Hermes to reason over vehicle state, choose the right Fleet operation, and execute it through guarded tools, slash commands, and a web dashboard.
 
-## Why use this
+After you configure your Tesla Developer app and credentials, Hermes can answer and act on requests like:
 
-- Native Hermes tools, not shell commands. The plugin registers through the `hermes_agent.plugins` entry point and returns structured JSON results.
-- Full Tesla Fleet coverage. The runtime registers 173 dedicated tools plus safe raw `/api/...` escape hatches for future endpoints.
-- Fast operations. The plugin also registers `/tescmd-*` slash commands for common reads and guarded quick actions, and installs a Hermes dashboard tab at `/tescmd` for status, vehicle reads, and confirm-gated buttons.
-- Built for real-world controls. Side-effecting commands require `confirm: true` and fail before network/file side effects when confirmation is missing.
-- Plugin-owned state. Tesla app config, OAuth tokens, vehicle-command keys, exports, and response cache live under `HERMES_HOME/plugins/hermes-tescmd-plugin/`, not inside Hermes Agent config or `site-packages`.
-- Signed-command aware. Known Vehicle Command Protocol commands use the plugin-owned P-256 key when required and fail closed if signing prerequisites are missing.
-- Docs-only onboarding. There is intentionally no setup wizard or generic config mutation tool; Tesla app setup, HTTPS hosting, and virtual-key enrollment remain explicit operator-managed steps.
+```text
+Is my car still charging?
+Warm the cabin to 70 before I leave.
+Lock the Cybertruck if it is unlocked.
+Send the charger near the grocery store to navigation.
+Check whether my Fleet app, OAuth token, and virtual key are ready.
+```
+
+The plugin exposes OAuth/admin checks, vehicle reads, signed vehicle commands, charging, climate, security, energy sites, sharing, navigation, partner registration, and raw Fleet API escape hatches as structured Hermes tools. Common operations also show up as `/tescmd-*` slash commands and in the Hermes dashboard at `/tescmd`.
+
+## Why use this with Hermes
+
+- **Natural-language Tesla operations.** Ask Hermes for the outcome, not the exact command. Hermes can inspect vehicle state, resolve the target vehicle, choose the right tool, and summarize the result.
+- **Works wherever Hermes runs.** Use the same Tesla controls from the terminal, gateway chats, cron jobs, webhooks, or other Hermes entry points without installing or running a separate MCP server for each client.
+- **Agent-friendly tool surface.** The plugin registers 173 typed, JSON-returning tools through the `hermes_agent.plugins` entry point. Hermes sees schemas, required args, confirmation markers, and structured errors instead of parsing terminal output.
+- **Fast daily controls.** `/tescmd-*` slash commands cover common reads and guarded quick actions; the `/tescmd` dashboard gives you status panels and confirm-gated buttons for security, climate, charging, body, media, and navigation controls.
+- **Real-world safety gates.** Side-effecting commands require `confirm: true` and fail before network/file side effects when confirmation is missing. Wake-with-read is also treated as a side effect when applicable.
+- **Signed commands without agent-side crypto.** Known Vehicle Command Protocol operations use the plugin-owned P-256 key when required and fail closed if signing prerequisites are missing.
+- **Hermes-owned state boundaries.** Tesla app config, OAuth tokens, vehicle-command keys, exports, and response cache live under `HERMES_HOME/plugins/hermes-tescmd-plugin/`, not inside Hermes Agent config or `site-packages`.
+- **Docs-only onboarding by design.** There is intentionally no Hermes setup wizard or generic config mutation tool; Tesla app setup, HTTPS hosting, and virtual-key enrollment remain explicit operator-managed steps.
+
+## When to use `tescmd` vs this plugin
+
+| Use upstream `tescmd` when you want... | Use `hermes-tescmd-plugin` when you want... |
+| --- | --- |
+| A standalone CLI you drive directly | Hermes to choose and run Tesla operations for you |
+| The `tescmd setup` wizard | Docs-driven, plugin-owned config under `HERMES_HOME` |
+| The Textual live telemetry dashboard from `tescmd serve` | A Hermes dashboard tab for quick status and guarded controls |
+| MCP/OpenClaw bridge daemons or trigger subscriptions | Native Hermes tools available in chats, cron jobs, webhooks, and sessions |
+| Tailscale/GitHub public-key hosting automation from the CLI | Explicit operator-managed HTTPS hosting with local deploy prep |
+| Rich terminal tables and CLI UX | Structured JSON tools, slash commands, and agent-safe summaries |
 
 ## What this is not
 
-- Not a wrapper around the upstream `tescmd` CLI.
-- Not an MCP server, bridge daemon, upstream Textual dashboard, or subprocess launcher.
+- Not a subprocess wrapper around the upstream `tescmd` CLI.
+- Not a replacement for the upstream CLI's setup wizard, MCP server, OpenClaw bridge, trigger engine, streaming telemetry daemon, or Textual dashboard.
 - Not a tool that creates or mutates your Tesla Developer app for you.
 - Not a public-key hosting automation service. `tescmd_key_deploy(method="local")` prepares files; you publish them with your own HTTPS hosting.
 
@@ -124,6 +148,17 @@ tescmd_key_enroll({})
 ```
 
 `docs/ONBOARDING.md` includes a full OAuth + virtual-key enrollment walkthrough and an operator-managed Tailscale Funnel example for prerelease/testing setups.
+
+## What you can do from Hermes
+
+| User intent | Hermes path |
+| --- | --- |
+| "Is my Tesla ready for a road trip?" | Read battery, range, charging, drive state, closures, software, and nearby chargers, then summarize the useful parts. |
+| "Make the car comfortable before I leave." | Start climate, set target temperature, check cabin temperature, and stop climate later through tools, slash commands, or dashboard buttons. |
+| "Make sure I left it secure." | Check locks, closures, Sentry mode, and location; lock or flash/honk with explicit confirmation. |
+| "Send this place to the car." | Search Google Places when configured, disambiguate candidates, and send a destination or waypoint route only after confirmation. |
+| "Build an automation around my car." | Use Hermes cron jobs, webhooks, gateway chats, or agent workflows against the same structured Tesla tools. |
+| "Debug my Tesla Fleet setup." | Ask `tescmd_status`, `tescmd_auth_status`, `tescmd_key_validate`, and cache/key tools for readiness booleans and next steps. |
 
 ## Common Hermes tasks
 
@@ -256,9 +291,11 @@ Use:
 
 Do not invent Place IDs. Use `tescmd_navigation_send` for a single address when multi-stop routing is unnecessary.
 
-## Upstream `tescmd` parity
+## Relationship to upstream `tescmd`
 
-A mechanical audit against the upstream `tescmd` Click tree found 155 upstream leaf commands. This plugin exposes 173 Hermes tools because it splits or renames some flows for native Hermes use.
+This plugin intentionally follows `tescmd`'s capability model, not its runtime model. A mechanical audit against the upstream `tescmd` Click tree found 155 upstream leaf commands. This plugin exposes 173 Hermes tools because some operations are split, renamed, or normalized for agent use.
+
+The practical result: Hermes can reach the same everyday Fleet capabilities — auth checks, vehicle reads, charge/climate/security/body/media/navigation operations, energy/user/billing/sharing/admin flows, signed commands, and raw escape hatches — while staying inside Hermes' tool, approval, memory, cron, webhook, chat, and dashboard environment.
 
 Intentional differences:
 
