@@ -153,7 +153,7 @@ Expected for the current prerelease line:
 ```text
 missing: []
 forbidden_present: []
-tool_count: 49 (default compact surface; set TESCMD_TOOL_SURFACE=full before starting Hermes for 173 dedicated tools)
+tool_count: 173
 skill_count: 1
 ```
 

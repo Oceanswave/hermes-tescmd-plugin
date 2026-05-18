@@ -67,7 +67,7 @@ PY
 
 Expected for the current prerelease line:
 
-- default tool count: 48 compact tools; set `TESCMD_TOOL_SURFACE=full` before starting Hermes to smoke the 173-tool exhaustive dedicated surface
+- tool count: 173
 - one bundled `tescmd-operator` skill
 - no `tescmd_setup`
 - no `tescmd_setup_wizard`
@@ -79,11 +79,11 @@ Do not claim live Tesla E2E until credentials/account/vehicle access have been s
 
 1. Save app/profile config manually in `HERMES_HOME/plugins/hermes-tescmd-plugin/config.json` per README; there is no setup tool.
 2. Complete OAuth with `tescmd_auth_login` + `tescmd_auth_complete`.
-3. Run `TESCMD_E2E_WAKE=true scripts/e2e_readonly_audit.py` when the user has approved wake as part of validation, and record only redacted summaries. The current 0.5.0a10 live read-only audit reached 52/55 successful probes after explicit wake; the remaining probes are Tesla product/account authorization boundaries: business-only charging sessions, ungranted partner `vehicle_specs`, and missing `enterprise_management` grant.
+3. Run `TESCMD_E2E_WAKE=true scripts/e2e_readonly_audit.py` when the user has approved wake as part of validation, and record only redacted summaries. The current 0.5.0a11 live read-only audit reached 52/55 successful probes after explicit wake; the remaining probes are Tesla product/account authorization boundaries: business-only charging sessions, ungranted partner `vehicle_specs`, and missing `enterprise_management` grant.
 4. Host and validate the public key manually if signed commands are needed.
 5. Complete Tesla app virtual-key approval via `tescmd_key_enroll` before signed-command live-fire.
 6. Run any side-effecting command only with explicit user approval and `confirm: true`.
-7. For field-proof, run the guarded non-driving live-fire harness with `TESCMD_LIVE_TARGET=<vehicle name or identifier>` and `TESCMD_LIVE_FIRE_OUT=/tmp/tescmd-live-fire-redacted.json`. The current 0.5.0a10 live-fire pass reached 31 guarded steps with no stopped failure after virtual-key enrollment, including flash lights, climate start/stop, charge-port open/close, media volume, media playback toggle/restore, driver seat heat on/off, and steering-wheel heat on/off. Lock/unlock and charge start/stop were skipped because the observed state did not meet the harness safety conditions.
+7. For field-proof, run the guarded non-driving live-fire harness with `TESCMD_LIVE_TARGET=<vehicle name or identifier>` and `TESCMD_LIVE_FIRE_OUT=/tmp/tescmd-live-fire-redacted.json`. The current 0.5.0a11 live-fire pass reached 31 guarded steps with no stopped failure after virtual-key enrollment, including flash lights, climate start/stop, charge-port open/close, media volume, media playback toggle/restore, driver seat heat on/off, and steering-wheel heat on/off. Lock/unlock and charge start/stop were skipped because the observed state did not meet the harness safety conditions.
 
 Read-only audit command:
 

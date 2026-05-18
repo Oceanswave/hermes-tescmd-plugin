@@ -1,10 +1,10 @@
 # Tesla Fleet API Endpoint Coverage
 
-This file tracks the native Hermes plugin surface against the public Tesla Fleet API endpoint pages audited for the 0.5.0a10 prerelease.
+This file tracks the native Hermes plugin surface against the public Tesla Fleet API endpoint pages audited for the 0.5.0a11 prerelease.
 
 ## Summary
 
-- Default registered Hermes surface: 49 compact tools for lower agent latency; exhaustive dedicated surface: 173 tools with `TESCMD_TOOL_SURFACE=full`.
+- Native Hermes tools registered: 173
 - Generated verification manifests are local artifacts only; `endpoint-tool-manifest.json` is ignored/excluded and should be regenerated during release validation when needed.
 - Current documented vehicle command endpoints: 66/66 covered by dedicated command tools; the manifest contains 84 vehicle-command tool specs and 78 unique command endpoint names including upstream aliases/additions.
 - Current documented vehicle REST endpoints: covered by dedicated tools, except generic future/unknown additions remain reachable through confirm-gated `tescmd_raw_get`, `tescmd_raw_post`, or `tescmd_raw_delete`.

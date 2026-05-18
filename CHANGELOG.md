@@ -1,11 +1,10 @@
 # Changelog
 
-## 0.5.0a10
+## 0.5.0a11
 
-- Reduced default Hermes tool-load latency by registering a 49-tool compact surface instead of injecting all 173 dedicated Tesla tools on every turn; the compact surface keeps common auth/status/key/cache/vehicle/charge/climate/security/media/navigation/energy tools plus raw Fleet GET/POST/DELETE escape hatches for complete endpoint coverage.
-- Added `TESCMD_TOOL_SURFACE=full` to restore the exhaustive 173-tool dedicated surface when a session needs every specialized endpoint tool loaded.
-- Measured registration/schema impact: default compact registration is ~0.28 ms with ~35k schema chars versus full mode ~1.03 ms with ~127k schema chars.
-- Performed a release-readiness architecture review and fixed the remaining release blockers: vehicle commands now fail closed when a command lacks an explicit signed/unsigned registry entry, and runtime tests assert every exposed vehicle-command tool is registered.
+- Reverted the compact default tool surface. Hermes now registers the full 173-tool Tesla Fleet catalog by default again because the observed issue is command-invocation latency, not tool-load latency.
+- Removed the `TESCMD_TOOL_SURFACE` compact/full selector and restored docs/tests/smoke expectations to the full dedicated command set.
+- Kept the prior release-readiness hardening: vehicle commands fail closed when a command lacks an explicit signed/unsigned registry entry, and runtime tests assert every exposed vehicle-command tool is registered.
 - Hardened privacy boundaries by removing private key paths and cache hash keys from public tool output, sanitizing sensitive exception payloads at the `TeslaAPIError` boundary, and adding regression tests for those behaviors.
 - Added an explicit Hatch sdist policy so release source distributions include only the intended package/docs/scripts/release files and exclude tests, local JSON artifacts, caches, build output, and virtual environments.
 - Sanitized release documentation to remove machine-specific absolute development paths from published markdown.

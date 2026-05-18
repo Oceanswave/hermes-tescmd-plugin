@@ -55,35 +55,25 @@ def make_response(method: str, url: str, *, status_code: int = 200, json_body: d
     return httpx.Response(status_code, json=json_body, request=request)
 
 
-def test_register_adds_compact_native_tools_and_skill_by_default(tmp_path, monkeypatch) -> None:
+def test_register_adds_full_native_tools_and_skill_by_default(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    monkeypatch.delenv("TESCMD_TOOL_SURFACE", raising=False)
 
     ctx = FakeContext()
     register(ctx)
 
     registered_names = [tool["name"] for tool in ctx.tools]
+    assert registered_names == [spec.name for spec in runtime.list_tool_specs()]
     assert registered_names == [spec.name for spec in registered_tool_specs()]
-    assert len(ctx.tools) == 49
+    assert len(ctx.tools) == 173
     assert "tescmd_auth_status" in registered_names
     assert "tescmd_vehicle_status" in registered_names
     assert "tescmd_raw_get" in registered_names
     assert "tescmd_raw_post" in registered_names
     assert "tescmd_key_deploy" in registered_names
-    assert "tescmd_vehicle_enterprise_roles" not in registered_names
+    assert "tescmd_vehicle_enterprise_roles" in registered_names
     assert ctx.skills
     assert ctx.skills[0][0] == "tescmd-operator"
     assert ctx.skills[0][1].name == "SKILL.md"
-
-
-def test_register_can_expose_full_tool_surface(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    monkeypatch.setenv("TESCMD_TOOL_SURFACE", "full")
-
-    ctx = FakeContext()
-    register(ctx)
-
-    assert [tool["name"] for tool in ctx.tools] == [spec.name for spec in runtime.list_tool_specs()]
 
 
 def test_runtime_keeps_parity_critical_native_tools() -> None:

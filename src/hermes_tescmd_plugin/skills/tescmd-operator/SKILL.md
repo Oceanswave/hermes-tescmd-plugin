@@ -1,7 +1,7 @@
 ---
 name: tescmd-operator
 description: Use the native hermes-tescmd-plugin tools for Tesla OAuth, readiness checks, vehicle state, navigation, and Fleet API commands without relying on the upstream tescmd CLI.
-version: 0.5.0a10
+version: 0.5.0a11
 ---
 
 # tescmd Operator
@@ -15,14 +15,15 @@ It does not shell out to or depend on the upstream `tescmd` CLI at runtime.
 1. Do Tesla Developer app creation/callback/scope setup outside Hermes, following `docs/ONBOARDING.md` and the README. Tesla app callback URLs must be public HTTPS URLs; configure `domain` for the default `https://<domain>/callback` or set `oauth_redirect_uri` explicitly. Then edit `HERMES_HOME/plugins/hermes-tescmd-plugin/config.json` with the app values; there is intentionally no `tescmd_setup` tool.
 2. Use `tescmd_auth_login` to start OAuth, then `tescmd_auth_complete` to finish it.
 3. Use `tescmd_auth_status` whenever you need to confirm profile state, token status, region, or stored key paths.
-4. Use the compact default dedicated tools for normal work; the full 173-tool dedicated surface is still available if Hermes is started with `TESCMD_TOOL_SURFACE=full`. In compact mode, use raw Fleet tools for rarely used documented endpoints:
+4. Use the dedicated operational tools for normal work:
    - `tescmd_status`
    - `tescmd_vehicle_*`
    - `tescmd_charge_*`
    - `tescmd_climate_*`
    - `tescmd_security_*`
    - `tescmd_energy_*`
-   - full mode or raw Fleet tools for less-common `tescmd_sharing_*`, `tescmd_user_*`, partner, billing, enterprise, telemetry, and specialized vehicle endpoints
+   - `tescmd_sharing_*`
+   - `tescmd_user_*`
 5. Use `tescmd_key_*` tools for plugin-owned vehicle-command key generation, validation, enrollment prep, and deployment prep. Key generation/deploy and auth mutation tools require `confirm: true`.
 6. Use `tescmd_raw_get` / `tescmd_raw_post` / `tescmd_raw_delete` only as escape hatches when the dedicated native tool surface is not enough; raw tools require `confirm: true` and only accept relative `/api/...` paths.
 7. Treat `tescmd_auth_export` as a sensitive file-export operation: it requires `confirm: true`, writes a `0600` file, and does not return token values in tool output.

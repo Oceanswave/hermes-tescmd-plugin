@@ -20,14 +20,9 @@ This package no longer shells out to, imports, or depends on the upstream `tescm
 
 ## Current tool surface
 
-For agent responsiveness, the plugin now registers a **compact default Hermes surface of 49 tools**: common auth/status/key/cache operations, high-frequency vehicle/charge/climate/security/media/navigation controls, energy basics, and raw Fleet API escape hatches.
+The native runtime currently registers the complete **173-tool Hermes surface** by default. Tool-load minimization is intentionally not used; command-dispatch latency should be optimized in the handlers/client path without hiding dedicated Tesla operations from Hermes.
 
-Complete API coverage remains available in two ways:
-
-- default compact surface: use `tescmd_raw_get`, `tescmd_raw_post`, and `tescmd_raw_delete` for documented Fleet endpoints that do not need a dedicated common-action tool loaded on every turn
-- exhaustive dedicated surface: set `TESCMD_TOOL_SURFACE=full` before starting Hermes to register all **173 dedicated Hermes tools**
-
-The exhaustive surface is grouped roughly as:
+The surface is grouped roughly as:
 
 - setup/config mutation: 0 tools (configuration is docs-only via `config.json`)
 - status: 1 tool
@@ -69,7 +64,7 @@ For the canonical source of truth, inspect `src/hermes_tescmd_plugin/runtime.py`
 
 A mechanical audit against the upstream `tescmd` Click command tree currently shows **155 upstream leaf commands**.
 
-The native Hermes plugin intentionally keeps **173 dedicated tools available in full mode** instead of matching that number exactly, because Hermes-native packaging splits or renames a few flows:
+The native Hermes plugin intentionally exposes **173 tools** instead of matching that number exactly, because Hermes-native packaging splits or renames a few flows:
 
 - plugin configuration is intentionally docs-only through `HERMES_HOME/plugins/hermes-tescmd-plugin/config.json`; no `tescmd_setup` or setup wizard is exposed
 - browser callback completion is explicit via `tescmd_auth_complete`
