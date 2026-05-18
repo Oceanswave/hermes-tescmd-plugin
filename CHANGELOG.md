@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0a18
+
+- Tightened the `/tescmd` dashboard density so the vehicle overview appears immediately below the header and widgets use compact cards.
+- Fixed the Leaflet map container sizing regression that could make the map thousands of pixels tall or appear broken.
+- Made the vehicle map controls compact and disabled scroll-wheel zoom to keep the dashboard stable.
+
 ## 0.5.0a17
 
 - Replaced raw JSON slash-command responses with concise human-readable success/failure summaries.

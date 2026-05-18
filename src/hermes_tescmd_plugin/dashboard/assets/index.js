@@ -234,10 +234,16 @@
     hooks.useEffect(() => {
       if (lat == null || lon == null || !ref.current) return undefined;
       let cancelled = false;
+      let resizeObserver = null;
       loadLeaflet().then((L) => {
         if (cancelled || !ref.current) return;
         if (!mapRef.current) {
-          mapRef.current = L.map(ref.current, { zoomControl: true, attributionControl: true }).setView([lat, lon], 14);
+          mapRef.current = L.map(ref.current, {
+            zoomControl: false,
+            attributionControl: true,
+            scrollWheelZoom: false,
+          }).setView([lat, lon], 14);
+          L.control.zoom({ position: "bottomright" }).addTo(mapRef.current);
           L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
             maxZoom: 19,
             attribution: "&copy; OpenStreetMap contributors",
@@ -248,9 +254,18 @@
           markerRef.current.setLatLng([lat, lon]);
         }
         markerRef.current.bindPopup("Vehicle location");
-        setTimeout(() => mapRef.current && mapRef.current.invalidateSize(), 50);
+        if (window.ResizeObserver && !resizeObserver) {
+          resizeObserver = new ResizeObserver(() => mapRef.current && mapRef.current.invalidateSize());
+          resizeObserver.observe(ref.current);
+        }
+        setTimeout(() => mapRef.current && mapRef.current.invalidateSize(), 40);
+        setTimeout(() => mapRef.current && mapRef.current.invalidateSize(), 240);
+        setTimeout(() => mapRef.current && mapRef.current.invalidateSize(), 900);
       }).catch(() => {});
-      return () => { cancelled = true; };
+      return () => {
+        cancelled = true;
+        if (resizeObserver) resizeObserver.disconnect();
+      };
     }, [lat, lon]);
 
     if (lat == null || lon == null) {
@@ -402,8 +417,12 @@
         ),
         h("div", { className: "tescmd-hero-actions" }, h(Button, { onClick: refresh, disabled: loading }, loading ? "Refreshing..." : "Refresh overview"))
       ),
-      h(Card, null,
-        h(CardHeader, null, h(CardTitle, null, "Controls")),
+      h(Card, { className: "tescmd-overview-card" },
+        h(CardHeader, null, h(CardTitle, null, "Vehicle overview")),
+        h(CardContent, null, overview ? h(VehicleSnapshot, { overview }) : h("p", { className: "tescmd-muted" }, "Refresh to load charge, climate, security, and map widgets."))
+      ),
+      h(Card, { className: "tescmd-controls-card" },
+        h(CardHeader, null, h(CardTitle, null, "Options")),
         h(CardContent, null,
           h("div", { className: "tescmd-controls" },
             h(TextInput, { label: "Profile", value: profile, setValue: setProfile, placeholder: "default" }),
@@ -421,10 +440,6 @@
           ),
           status ? h(Readiness, { status }) : null
         )
-      ),
-      h(Card, { className: "tescmd-overview-card" },
-        h(CardHeader, null, h(CardTitle, null, "Vehicle overview")),
-        h(CardContent, null, overview ? h(VehicleSnapshot, { overview }) : h("p", { className: "tescmd-muted" }, "Refresh to load charge, climate, security, and map widgets."))
       ),
       h(Card, null,
         h(CardHeader, null, h(CardTitle, null, "Reads")),
