@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0a14
+
+- Integrated Tesla OAuth token persistence with Hermes' intrinsic auth store when running inside Hermes, while keeping the plugin-local auth mirror for compatibility and standalone package contexts.
+- Added status/readiness metadata that reports whether the active auth store is Hermes-backed or plugin-local.
+- Documented the Hermes auth store relationship and added regression coverage for save, load preference, clear, and status reporting behavior.
+
 ## 0.5.0a13
 
 - Expanded `/tescmd-*` slash commands with readiness/admin checks, richer vehicle-state reads, unlock/Sentry, climate/charging controls, body controls, media controls, and navigation helpers while keeping physical actions confirm-gated.

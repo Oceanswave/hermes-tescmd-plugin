@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import ipaddress
 import json
 import os
 import re
 import tempfile
 import time
+from contextlib import nullcontext
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -239,18 +241,127 @@ def save_config(cfg: PluginConfig) -> PluginConfig:
     return cfg
 
 
+HERMES_AUTH_PROVIDER_ID = "tesla"
+HERMES_AUTH_SOURCE = "hermes-tescmd-plugin"
+
+
+def _hermes_auth_module() -> Any | None:
+    """Return Hermes' intrinsic auth module when running inside Hermes.
+
+    The plugin also runs in standalone test/package contexts where
+    ``hermes_cli`` is intentionally absent. Treat Hermes auth as an optional
+    host capability: use it when present, fall back to plugin-owned auth state
+    when it is not.
+    """
+    try:
+        module = importlib.import_module("hermes_cli.auth")
+    except Exception:
+        return None
+    required = ("_load_auth_store", "_save_auth_store")
+    if not all(hasattr(module, name) for name in required):
+        return None
+    return module
+
+
+def _load_hermes_auth_profiles() -> dict[str, Any]:
+    module = _hermes_auth_module()
+    if module is None:
+        return {}
+    try:
+        store = module._load_auth_store()  # noqa: SLF001 - host auth API has no public plugin writer yet.
+    except Exception:
+        return {}
+    providers = store.get("providers") if isinstance(store, dict) else None
+    provider_state = providers.get(HERMES_AUTH_PROVIDER_ID) if isinstance(providers, dict) else None
+    profiles = provider_state.get("profiles") if isinstance(provider_state, dict) else None
+    return dict(profiles) if isinstance(profiles, dict) else {}
+
+
+def _save_hermes_auth_state(state: AuthState) -> bool:
+    module = _hermes_auth_module()
+    if module is None:
+        return False
+    lock_factory = getattr(module, "_auth_store_lock", None)
+    lock = lock_factory() if callable(lock_factory) else nullcontext()
+    try:
+        with lock:
+            store = module._load_auth_store()  # noqa: SLF001
+            providers = store.setdefault("providers", {})
+            if not isinstance(providers, dict):
+                providers = {}
+                store["providers"] = providers
+            provider_state = providers.get(HERMES_AUTH_PROVIDER_ID)
+            if not isinstance(provider_state, dict):
+                provider_state = {}
+            profiles = provider_state.setdefault("profiles", {})
+            if not isinstance(profiles, dict):
+                profiles = {}
+                provider_state["profiles"] = profiles
+            profiles[state.profile] = asdict(state)
+            provider_state.update(
+                {
+                    "auth_type": "oauth",
+                    "display_name": "Tesla Fleet",
+                    "source": HERMES_AUTH_SOURCE,
+                    "updated_at": int(time.time()),
+                }
+            )
+            providers[HERMES_AUTH_PROVIDER_ID] = provider_state
+            # Do not set active_provider: Tesla auth is service auth, not the
+            # chat model provider selection.
+            module._save_auth_store(store)  # noqa: SLF001
+        return True
+    except Exception:
+        return False
+
+
+def _clear_hermes_auth_state(profile: str) -> bool:
+    module = _hermes_auth_module()
+    if module is None:
+        return False
+    lock_factory = getattr(module, "_auth_store_lock", None)
+    lock = lock_factory() if callable(lock_factory) else nullcontext()
+    try:
+        with lock:
+            store = module._load_auth_store()  # noqa: SLF001
+            providers = store.get("providers")
+            provider_state = providers.get(HERMES_AUTH_PROVIDER_ID) if isinstance(providers, dict) else None
+            profiles = provider_state.get("profiles") if isinstance(provider_state, dict) else None
+            if isinstance(profiles, dict):
+                profiles.pop(profile, None)
+                if not profiles and isinstance(providers, dict):
+                    providers.pop(HERMES_AUTH_PROVIDER_ID, None)
+            module._save_auth_store(store)  # noqa: SLF001
+        return True
+    except Exception:
+        return False
+
+
+def hermes_auth_available() -> bool:
+    return _hermes_auth_module() is not None
+
+
 def load_auth_state(profile: str = DEFAULT_PROFILE) -> AuthState:
     profile = validate_profile(profile)
+    hermes_profiles = _load_hermes_auth_profiles()
+    hermes_payload = hermes_profiles.get(profile)
+    if isinstance(hermes_payload, dict):
+        return AuthState(**hermes_payload)
     payload = _load_profile_map("auth.json")
     profile_payload = payload.get(profile)
     if not profile_payload:
         return AuthState(profile=profile)
-    return AuthState(**profile_payload)
+    state = AuthState(**profile_payload)
+    _save_hermes_auth_state(state)
+    return state
 
 
 def save_auth_state(state: AuthState) -> AuthState:
     state.profile = validate_profile(state.profile)
     state.region = _validate_region(state.region)
+    _save_hermes_auth_state(state)
+    # Keep a plugin-owned mirror for backward compatibility, package tests,
+    # and standalone contexts where Hermes' auth store is unavailable.
     payload = _load_profile_map("auth.json")
     payload[state.profile] = asdict(state)
     _save_profile_map("auth.json", payload)
@@ -259,6 +370,7 @@ def save_auth_state(state: AuthState) -> AuthState:
 
 def clear_auth_state(profile: str = DEFAULT_PROFILE) -> None:
     profile = validate_profile(profile)
+    _clear_hermes_auth_state(profile)
     payload = _load_profile_map("auth.json")
     payload.pop(profile, None)
     _save_profile_map("auth.json", payload)

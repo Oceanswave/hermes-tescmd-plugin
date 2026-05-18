@@ -4,6 +4,8 @@ import base64
 import hashlib
 import hmac
 import json
+import sys
+import types
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -233,6 +235,115 @@ def test_manual_config_file_contract_and_vehicle_key_generation(tmp_path, monkey
     assert Path(cfg.vehicle_command_key_private_path).exists()
     assert Path(key_payload["public_key_path"]).exists()
     assert key_payload["enrollment_url"] == "https://tesla.com/_ak/cars.example.com"
+
+
+
+class DummyLock:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
+def install_fake_hermes_auth(monkeypatch, store: dict) -> None:
+    fake_auth = types.ModuleType("hermes_cli.auth")
+
+    def _load_auth_store():
+        return store
+
+    def _save_auth_store(updated):
+        snapshot = dict(updated)
+        store.clear()
+        store.update(snapshot)
+        return Path("/tmp/auth.json")
+
+    fake_auth._load_auth_store = _load_auth_store
+    fake_auth._save_auth_store = _save_auth_store
+    fake_auth._auth_store_lock = DummyLock
+    fake_hermes_cli = types.ModuleType("hermes_cli")
+    fake_hermes_cli.auth = fake_auth
+    monkeypatch.setitem(sys.modules, "hermes_cli", fake_hermes_cli)
+    monkeypatch.setitem(sys.modules, "hermes_cli.auth", fake_auth)
+
+
+def test_auth_state_uses_hermes_auth_store_when_available(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    store = {"version": 1, "providers": {}}
+    install_fake_hermes_auth(monkeypatch, store)
+
+    state = config.AuthState(
+        profile="default",
+        access_token="access-token",
+        refresh_token="refresh-token",
+        expires_at=123456,
+        scopes=["vehicle_device_data"],
+        region="na",
+    )
+    config.save_auth_state(state)
+
+    provider_state = store["providers"][config.HERMES_AUTH_PROVIDER_ID]
+    assert provider_state["auth_type"] == "oauth"
+    assert provider_state["source"] == config.HERMES_AUTH_SOURCE
+    assert provider_state["profiles"]["default"]["access_token"] == "access-token"
+    assert store.get("active_provider") is None
+
+    plugin_auth_file = tmp_path / "plugins" / "hermes-tescmd-plugin" / "auth.json"
+    assert plugin_auth_file.exists()
+    assert config.load_auth_state("default").refresh_token == "refresh-token"
+
+
+def test_auth_state_prefers_hermes_auth_store_over_legacy_plugin_mirror(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    config.save_auth_state(config.AuthState(profile="default", access_token="legacy", region="na"))
+    store = {
+        "version": 1,
+        "providers": {
+            config.HERMES_AUTH_PROVIDER_ID: {
+                "profiles": {
+                    "default": {
+                        "profile": "default",
+                        "access_token": "hermes",
+                        "refresh_token": "hermes-refresh",
+                        "expires_at": None,
+                        "scopes": [],
+                        "region": "eu",
+                        "token_type": "Bearer",
+                    }
+                }
+            }
+        },
+    }
+    install_fake_hermes_auth(monkeypatch, store)
+
+    loaded = config.load_auth_state("default")
+
+    assert loaded.access_token == "hermes"
+    assert loaded.refresh_token == "hermes-refresh"
+    assert loaded.region == "eu"
+
+
+def test_clear_auth_state_removes_hermes_and_plugin_auth(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    store = {"version": 1, "providers": {}}
+    install_fake_hermes_auth(monkeypatch, store)
+    config.save_auth_state(config.AuthState(profile="default", access_token="access-token", region="na"))
+
+    config.clear_auth_state("default")
+
+    assert config.HERMES_AUTH_PROVIDER_ID not in store["providers"]
+    assert config.load_auth_state("default").access_token is None
+
+
+def test_bootstrap_status_reports_hermes_auth_store(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    install_fake_hermes_auth(monkeypatch, {"version": 1, "providers": {}})
+    cfg = config.save_config(config.PluginConfig(profile="default", client_id="client-123"))
+
+    bootstrap = tools._bootstrap_status(profile="default", cfg=cfg)  # noqa: SLF001
+
+    assert bootstrap["auth_store"] == "hermes"
+    assert bootstrap["auth_mirrored_to_plugin_state"] is True
 
 
 def test_navigation_waypoints_accepts_place_ids_and_encodes_ref_ids(tmp_path, monkeypatch) -> None:

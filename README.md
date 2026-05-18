@@ -24,7 +24,7 @@ The plugin exposes OAuth/admin checks, vehicle reads, signed vehicle commands, c
 - **Fast daily controls.** `/tescmd-*` slash commands cover common reads and guarded quick actions; the `/tescmd` dashboard gives you status panels and confirm-gated buttons for security, climate, charging, body, media, and navigation controls.
 - **Real-world safety gates.** Side-effecting commands require `confirm: true` and fail before network/file side effects when confirmation is missing. Wake-with-read is also treated as a side effect when applicable.
 - **Signed commands without agent-side crypto.** Known Vehicle Command Protocol operations use the plugin-owned P-256 key when required and fail closed if signing prerequisites are missing.
-- **Hermes-owned state boundaries.** Tesla app config, OAuth tokens, vehicle-command keys, exports, and response cache live under `HERMES_HOME/plugins/hermes-tescmd-plugin/`, not inside Hermes Agent config or `site-packages`.
+- **Hermes-owned auth, plugin-owned operational state.** OAuth tokens are written through Hermes' auth store when the plugin is running inside Hermes, with a plugin-local mirror for compatibility. Tesla app config, vehicle-command keys, exports, and response cache stay under `HERMES_HOME/plugins/hermes-tescmd-plugin/`, not inside `site-packages`.
 - **Docs-only onboarding by design.** There is intentionally no Hermes setup wizard or generic config mutation tool; Tesla app setup, HTTPS hosting, and virtual-key enrollment remain explicit operator-managed steps.
 
 ## What this is not
@@ -224,10 +224,11 @@ The plugin stores mutable state under:
 $HERMES_HOME/plugins/hermes-tescmd-plugin/
 ```
 
-Typical files:
+Typical files and stores:
 
+- Hermes auth store (`$HERMES_HOME/auth.json`) — primary Tesla OAuth token store when running inside Hermes, under provider id `tesla`
 - `config.json` — Tesla app/profile config
-- `auth.json` — OAuth token state
+- `auth.json` — plugin-local OAuth token mirror for compatibility and standalone package contexts
 - `pending-auth.json` — short-lived PKCE login state
 - `response-cache.json` — selected read-only Fleet responses; may include sensitive vehicle/location snapshots
 - `keys/<profile>/vehicle-command-key.pem` — private vehicle-command key, written `0600`
@@ -244,7 +245,8 @@ The plugin implements Tesla OAuth directly:
 - browser authorization: `https://auth.tesla.com/oauth2/v3/authorize`
 - token exchange/refresh/partner tokens: `https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token`
 - Fleet API audience derived from the selected region
-- profile-scoped token persistence under plugin-owned state
+- profile-scoped token persistence through Hermes' auth store when available
+- plugin-local token mirroring for compatibility and standalone contexts
 - partner registration via client credentials when configured
 
 Partner/business-only scopes such as `vehicle_specs`, `vehicle_pricing_info`, and `enterprise_management` may be useful for partner flows, but `tescmd_auth_login` intentionally omits them from third-party customer OAuth URLs because Tesla does not grant them to ordinary user tokens.

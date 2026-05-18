@@ -212,6 +212,8 @@ def _bootstrap_status(*, profile: str, cfg: config.PluginConfig, auth_state: con
         "matches_local_key": False,
     }
     return {
+        "auth_store": "hermes" if config.hermes_auth_available() else "plugin",
+        "auth_mirrored_to_plugin_state": True,
         "app_configured": bool(cfg.client_id),
         "login_ready": bool(cfg.client_id),
         "pending_login": pending is not None,
