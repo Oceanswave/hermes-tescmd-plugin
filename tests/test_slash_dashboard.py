@@ -115,6 +115,8 @@ def test_side_effect_slash_command_requires_confirm_before_network(tmp_path, mon
 
     assert payload["ok"] is False
     assert "confirm=true is required" in payload["error"]
+    assert payload["retry_command"] == "/tescmd-honk confirm=true"
+    assert "real-world vehicle side effect" in payload["why_confirm_is_required"]
     assert calls == []
 
 

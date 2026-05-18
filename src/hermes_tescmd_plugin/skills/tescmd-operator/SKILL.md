@@ -1,7 +1,7 @@
 ---
 name: tescmd-operator
 description: Use the native hermes-tescmd-plugin tools for Tesla OAuth, readiness checks, vehicle state, navigation, and Fleet API commands without relying on the upstream tescmd CLI.
-version: 0.5.0a14
+version: 0.5.0a15
 ---
 
 # tescmd Operator

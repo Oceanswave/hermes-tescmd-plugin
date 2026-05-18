@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0a15
+
+- Improved `/tescmd-*` slash-command confirmation failures so side-effect denials include the exact retry command, for example `/tescmd-honk confirm=true`, and a short explanation of why explicit confirmation is required.
+
 ## 0.5.0a14
 
 - Integrated Tesla OAuth token persistence with Hermes' intrinsic auth store when running inside Hermes, while keeping the plugin-local auth mirror for compatibility and standalone package contexts.

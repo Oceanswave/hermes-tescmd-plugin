@@ -129,7 +129,24 @@ def _format_vehicles(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _add_slash_confirmation_hint(name: str, payload: dict[str, Any]) -> dict[str, Any]:
+    if payload.get("ok"):
+        return payload
+    error = str(payload.get("error") or "")
+    if "confirm=true is required" not in error:
+        return payload
+    hinted = dict(payload)
+    hinted.setdefault("how_to_run", f"Retry the slash command with confirm=true, for example: /{name} confirm=true")
+    hinted.setdefault("retry_command", f"/{name} confirm=true")
+    hinted.setdefault(
+        "why_confirm_is_required",
+        "This command has a real-world vehicle side effect. The explicit confirm=true token is the safety acknowledgement.",
+    )
+    return hinted
+
+
 def _format_command(name: str, payload: dict[str, Any]) -> str:
+    payload = _add_slash_confirmation_hint(name, payload)
     if payload.get("ok"):
         return f"/{name}: ok\n" + _compact_json(payload)
     return f"/{name}: failed\n" + _compact_json(payload)
