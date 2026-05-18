@@ -1,0 +1,89 @@
+.tescmd-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.tescmd-controls,
+.tescmd-actions,
+.tescmd-readiness {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.tescmd-field {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 12rem;
+}
+
+.tescmd-select {
+  min-height: 2.25rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-card) 88%, transparent);
+  color: var(--color-foreground);
+  padding: 0 0.65rem;
+}
+
+.tescmd-readiness {
+  margin-top: 1rem;
+}
+
+.tescmd-readiness-item {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--color-card) 70%, transparent);
+}
+
+.tescmd-ok {
+  border-color: color-mix(in srgb, #34d399 60%, var(--color-border));
+  color: #34d399;
+}
+
+.tescmd-warn {
+  border-color: color-mix(in srgb, #f59e0b 60%, var(--color-border));
+  color: #f59e0b;
+}
+
+.tescmd-muted {
+  color: var(--color-muted-foreground);
+  font-size: 0.875rem;
+}
+
+.tescmd-confirm {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.tescmd-json {
+  max-height: 34rem;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  background: color-mix(in srgb, #000 35%, var(--color-card));
+  font-size: 0.75rem;
+}
+
+.tescmd-error {
+  color: var(--color-destructive);
+}
+
+.tescmd-header-pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, #34d399 45%, var(--color-border));
+  color: #34d399;
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+}

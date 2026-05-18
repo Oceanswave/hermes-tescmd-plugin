@@ -8,6 +8,7 @@ This is a native, pip-installable Hermes plugin for Tesla owners, operators, and
 
 - Native Hermes tools, not shell commands. The plugin registers through the `hermes_agent.plugins` entry point and returns structured JSON results.
 - Full Tesla Fleet coverage. The runtime registers 173 dedicated tools plus safe raw `/api/...` escape hatches for future endpoints.
+- Fast operations. The plugin also registers `/tescmd-*` slash commands for common reads and guarded quick actions, and installs a Hermes dashboard tab at `/tescmd` for status, vehicle reads, and confirm-gated buttons.
 - Built for real-world controls. Side-effecting commands require `confirm: true` and fail before network/file side effects when confirmation is missing.
 - Plugin-owned state. Tesla app config, OAuth tokens, vehicle-command keys, exports, and response cache live under `HERMES_HOME/plugins/hermes-tescmd-plugin/`, not inside Hermes Agent config or `site-packages`.
 - Signed-command aware. Known Vehicle Command Protocol commands use the plugin-owned P-256 key when required and fail closed if signing prerequisites are missing.
@@ -16,7 +17,7 @@ This is a native, pip-installable Hermes plugin for Tesla owners, operators, and
 ## What this is not
 
 - Not a wrapper around the upstream `tescmd` CLI.
-- Not an MCP server, bridge daemon, Textual dashboard, or subprocess launcher.
+- Not an MCP server, bridge daemon, upstream Textual dashboard, or subprocess launcher.
 - Not a tool that creates or mutates your Tesla Developer app for you.
 - Not a public-key hosting automation service. `tescmd_key_deploy(method="local")` prepares files; you publish them with your own HTTPS hosting.
 
@@ -98,7 +99,7 @@ Minimal single-profile shape:
 
 4. Ask Hermes to run `tescmd_status`.
 
-That status response is the best next-step dashboard. It reports readiness booleans, missing prerequisites, derived callback/public-key URLs, and recommended next actions.
+That status response is the best next-step dashboard. It reports readiness booleans, missing prerequisites, derived callback/public-key URLs, and recommended next actions. The Hermes web dashboard also gets a Tesla tab at `/tescmd` after the plugin registers; restart `hermes dashboard` or use the dashboard plugin rescan button if it was already running.
 
 5. Start OAuth with `tescmd_auth_login`, open the returned Tesla URL, then complete with `tescmd_auth_complete` using either the full callback URL or `code` + `state`.
 
@@ -144,6 +145,27 @@ tescmd_key_enroll({})
 | Reach a future Fleet endpoint | `tescmd_raw_get`, `tescmd_raw_post`, or `tescmd_raw_delete` |
 
 Normal daily use should stay in the dedicated operational families: `vehicle_*`, `charge_*`, `climate_*`, `security_*`, `media_*`, `navigation_*`, `energy_*`, and `sharing_*`.
+
+## Slash commands and dashboard
+
+Hermes also registers a small quick-command surface for frequent reads and low-impact guarded actions:
+
+| Slash command | Purpose |
+| --- | --- |
+| `/tescmd-status [profile=default]` | Show plugin/auth/key readiness and next steps. |
+| `/tescmd-vehicles [profile=default] [region=na|eu|cn]` | List account vehicles. |
+| `/tescmd-vehicle-status [vin] [endpoints=charge_state,drive_state] [wake=true confirm=true]` | Read vehicle state, optionally limited to selected endpoints. |
+| `/tescmd-charge [vin] [wake=true confirm=true]` | Read charge state. |
+| `/tescmd-climate [vin] [wake=true confirm=true]` | Read climate state. |
+| `/tescmd-location [vin] [wake=true confirm=true]` | Read location state. |
+| `/tescmd-wake [vin] confirm=true` | Wake the selected/default vehicle. |
+| `/tescmd-flash [vin] confirm=true` | Flash lights. |
+| `/tescmd-honk [vin] confirm=true` | Honk horn. |
+| `/tescmd-lock [vin] confirm=true` | Lock the vehicle. |
+
+Arguments use terse shell-style tokens: `key=value`, `key:value`, booleans like `confirm=true`, comma-separated lists like `endpoints=charge_state,drive_state`, and one bare positional vehicle identifier.
+
+The Hermes web dashboard gets a native Tesla tab at `/tescmd`. It uses the same existing native tool handlers as Hermes tools, so confirm-gated actions still fail closed when `confirm=true` is missing.
 
 ## Tool surface
 

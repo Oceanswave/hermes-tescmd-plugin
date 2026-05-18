@@ -42,12 +42,16 @@ class FakeContext:
     def __init__(self) -> None:
         self.tools: list[dict] = []
         self.skills: list[tuple[str, Path]] = []
+        self.commands: list[dict] = []
 
     def register_tool(self, **kwargs) -> None:
         self.tools.append(kwargs)
 
     def register_skill(self, name: str, path: Path, description: str | None = None) -> None:
         self.skills.append((name, path))
+
+    def register_command(self, **kwargs) -> None:
+        self.commands.append(kwargs)
 
 
 def make_response(method: str, url: str, *, status_code: int = 200, json_body: dict | list | None = None) -> httpx.Response:
@@ -74,6 +78,22 @@ def test_register_adds_full_native_tools_and_skill_by_default(tmp_path, monkeypa
     assert ctx.skills
     assert ctx.skills[0][0] == "tescmd-operator"
     assert ctx.skills[0][1].name == "SKILL.md"
+    registered_commands = {command["name"] for command in ctx.commands}
+    assert {
+        "tescmd-status",
+        "tescmd-vehicles",
+        "tescmd-vehicle-status",
+        "tescmd-charge",
+        "tescmd-climate",
+        "tescmd-location",
+        "tescmd-wake",
+        "tescmd-flash",
+        "tescmd-honk",
+        "tescmd-lock",
+    } <= registered_commands
+    dashboard_manifest = tmp_path / "plugins" / "hermes-tescmd-plugin" / "dashboard" / "manifest.json"
+    assert dashboard_manifest.exists()
+    assert json.loads(dashboard_manifest.read_text())["tab"]["path"] == "/tescmd"
 
 
 def test_runtime_keeps_parity_critical_native_tools() -> None:

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0a12
+
+- Added Hermes plugin slash commands for common Tesla operations: `/tescmd-status`, `/tescmd-vehicles`, `/tescmd-vehicle-status`, `/tescmd-charge`, `/tescmd-climate`, `/tescmd-location`, `/tescmd-wake`, `/tescmd-flash`, `/tescmd-honk`, and `/tescmd-lock`.
+- Added a Hermes dashboard extension tab at `/tescmd` with status/read panels, vehicle selection, and confirm-gated quick-action buttons that call the existing native Tesla tool handlers.
+- Mirrored packaged dashboard assets into `HERMES_HOME/plugins/hermes-tescmd-plugin/dashboard` during plugin registration so pip entry-point installs are discoverable by the Hermes dashboard without storing mutable Tesla state in package files.
+- Added slash/dashboard regression tests covering argument parsing, command registration, confirm-before-network behavior, and dashboard asset installation.
+
 ## 0.5.0a11
 
 - Reverted the compact default tool surface. Hermes now registers the full 173-tool Tesla Fleet catalog by default again because the observed issue is command-invocation latency, not tool-load latency.

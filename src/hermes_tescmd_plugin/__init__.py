@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import auth, client, config, runtime, schemas, tools
+from . import auth, client, config, dashboard, runtime, schemas, slash, tools
 
-__version__ = "0.5.0a11"
+__version__ = "0.5.0a12"
 PLUGIN_NAME = "hermes-tescmd-plugin"
 TOOLSET_NAME = "tescmd"
 SKILL_NAME = "tescmd-operator"
@@ -30,6 +30,11 @@ def register(ctx) -> None:
             description=spec.description,
         )
 
+    if hasattr(ctx, "register_command"):
+        slash.register_commands(ctx)
+
+    dashboard.ensure_dashboard_installed()
+
     skill_path = Path(__file__).parent / "skills" / SKILL_NAME / "SKILL.md"
     if skill_path.exists():
         ctx.register_skill(SKILL_NAME, skill_path)
@@ -43,9 +48,11 @@ __all__ = [
     "auth",
     "client",
     "config",
+    "dashboard",
     "register",
     "registered_tool_specs",
     "runtime",
     "schemas",
+    "slash",
     "tools",
 ]
