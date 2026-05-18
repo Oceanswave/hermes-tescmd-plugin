@@ -37,8 +37,11 @@ Reference = "https://github.com/oceanswave/tescmd"
 [project.optional-dependencies]
 dev = [
   "build>=1.2",
+  "mypy>=1.10",
   "pytest>=8.0",
+  "ruff>=0.5",
   "twine>=5.0",
+  "vulture>=2.11",
 ]
 
 [project.entry-points."hermes_agent.plugins"]

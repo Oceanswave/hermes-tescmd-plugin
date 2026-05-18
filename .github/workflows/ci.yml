@@ -1,0 +1,157 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests on Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install package with dev dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -e '.[dev]'
+
+      - name: Run tests
+        run: python -m pytest -q
+
+  quality:
+    name: Lint, typecheck, build, and smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package with dev dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -e '.[dev]'
+
+      - name: Ruff lint
+        run: python -m ruff check .
+
+      - name: Mypy typecheck
+        run: python -m mypy src/hermes_tescmd_plugin
+
+      - name: Vulture dead-code scan
+        run: python -m vulture src tests --min-confidence 90
+
+      - name: Compile Python sources
+        run: python -m compileall -q src tests scripts
+
+      - name: Hermes registration smoke
+        run: |
+          python - <<'PY'
+          import hermes_tescmd_plugin
+
+          class Context:
+              def __init__(self):
+                  self.tools = []
+                  self.skills = []
+
+              def register_tool(self, **kwargs):
+                  self.tools.append(kwargs)
+
+              def register_skill(self, name, path, description=None):
+                  self.skills.append((name, str(path), description))
+
+          ctx = Context()
+          hermes_tescmd_plugin.register(ctx)
+          names = {tool["name"] for tool in ctx.tools}
+          required = {
+              "tescmd_status",
+              "tescmd_auth_login",
+              "tescmd_auth_complete",
+              "tescmd_key_generate",
+              "tescmd_key_deploy",
+              "tescmd_vehicle_list",
+              "tescmd_vehicle_status",
+              "tescmd_security_flash_lights",
+              "tescmd_raw_get",
+              "tescmd_raw_post",
+          }
+          missing = sorted(required - names)
+          if len(ctx.tools) != 173:
+              raise SystemExit(f"expected 173 tools, got {len(ctx.tools)}")
+          if len(ctx.skills) != 1:
+              raise SystemExit(f"expected 1 skill, got {len(ctx.skills)}")
+          if missing:
+              raise SystemExit(f"missing required tools: {missing}")
+          print({"version": hermes_tescmd_plugin.__version__, "tools": len(ctx.tools), "skills": len(ctx.skills)})
+          PY
+
+      - name: Build distributions
+        run: |
+          rm -rf dist build *.egg-info
+          python -m build --sdist --wheel
+
+      - name: Check distribution metadata
+        run: python -m twine check dist/*
+
+      - name: Inspect distribution contents
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tarfile
+          import zipfile
+
+          dist = sorted(Path("dist").iterdir())
+          if len(dist) != 2:
+              raise SystemExit(f"expected wheel and sdist, got {[p.name for p in dist]}")
+          forbidden = (
+              "key-enroll-private.json",
+              "live-fire-redacted.json",
+              "e2e-readonly-redacted.json",
+              "endpoint-tool-manifest.json",
+              "tests/test_plugin.py",
+              ".verify-venv",
+              ".pytest_cache",
+              ".ruff_cache",
+              ".mypy_cache",
+          )
+          for artifact in dist:
+              if artifact.suffix == ".whl":
+                  with zipfile.ZipFile(artifact) as zf:
+                      names = zf.namelist()
+              elif artifact.suffix == ".gz":
+                  with tarfile.open(artifact) as tf:
+                      names = tf.getnames()
+              else:
+                  raise SystemExit(f"unexpected artifact: {artifact}")
+              for bad in forbidden:
+                  if any(bad in name for name in names):
+                      raise SystemExit(f"{artifact.name} packaged forbidden path {bad}")
+          print([p.name for p in dist])
+          PY
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-python-distributions
+          path: dist/*
+          if-no-files-found: error
