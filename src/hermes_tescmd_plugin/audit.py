@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import time
 from pathlib import Path
 from typing import Any
 
 from . import config
+
+logger = logging.getLogger(__name__)
 
 AUDIT_LOG_NAME = "commands.jsonl"
 _MAX_DETAIL_LENGTH = 320
@@ -149,6 +152,10 @@ def append_command_event(
         "error": _safe_error(error),
         "pid": os.getpid(),
     }
+    try:
+        logger.info("tescmd command audit event %s", json.dumps(event, sort_keys=True, separators=(",", ":")))
+    except Exception:
+        pass
     try:
         path = audit_log_path()
         with path.open("a", encoding="utf-8") as handle:

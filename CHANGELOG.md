@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.0a21
+
+- Emitted every redacted command audit event through the standard Python logger so Hermes' configured `agent.log` captures wake and side-effect command audit lines.
+- Kept the plugin-local JSONL audit trail as the structured readback store while making runtime audit activity visible in normal Hermes logs.
+
 ## 0.5.0a20
 
 - Added a redacted JSONL command audit log under plugin-owned state for side-effecting vehicle commands and wake attempts.

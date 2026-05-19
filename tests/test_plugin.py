@@ -4,6 +4,7 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import stat
 import sys
 import types
@@ -877,7 +878,7 @@ def test_vehicle_and_command_tools_use_native_fleet_api(tmp_path, monkeypatch) -
     assert not any("/command/" in url for url in urls)
 
 
-def test_command_audit_logs_wake_attempts_and_redacts_target(tmp_path, monkeypatch) -> None:
+def test_command_audit_logs_wake_attempts_and_redacts_target(tmp_path, monkeypatch, caplog) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na", default_vin="5YJ3E1EA7JF000001"))
     config.save_auth_state(config.AuthState(profile="default", access_token="access-1", expires_at=9999999999, region="na"))
@@ -893,6 +894,7 @@ def test_command_audit_logs_wake_attempts_and_redacts_target(tmp_path, monkeypat
     monkeypatch.setattr(client.httpx, "request", fake_request)
     tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
 
+    caplog.set_level(logging.INFO, logger="hermes_tescmd_plugin.audit")
     denied = json.loads(tools_by_name["tescmd_vehicle_wake"]({}))
     assert denied["ok"] is False
     assert requests == []
@@ -908,6 +910,12 @@ def test_command_audit_logs_wake_attempts_and_redacts_target(tmp_path, monkeypat
     assert all(event["wake"] is True for event in events)
     assert all(event["target"] == {"provided": True, "hash": hashlib.sha256(b"5YJ3E1EA7JF000001").hexdigest()[:16], "suffix": "0001"} for event in events)
     assert "5YJ3E1EA7JF000001" not in (tmp_path / "plugins/hermes-tescmd-plugin/audit/commands.jsonl").read_text()
+    assert "tescmd command audit event" in caplog.text
+    assert "tescmd_vehicle_wake" in caplog.text
+    assert '"stage":"denied"' in caplog.text
+    assert '"stage":"attempt"' in caplog.text
+    assert '"stage":"result"' in caplog.text
+    assert "5YJ3E1EA7JF000001" not in caplog.text
     assert stat.S_IMODE((tmp_path / "plugins/hermes-tescmd-plugin/audit/commands.jsonl").stat().st_mode) == 0o600
 
 

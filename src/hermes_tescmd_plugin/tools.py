@@ -354,7 +354,9 @@ def handle_status(args: dict[str, Any]) -> dict[str, Any]:
         "expires_at": auth_state.expires_at,
         "audit": {
             "command_log_path": str(audit.audit_log_path()),
-            "message": "Side-effecting vehicle commands and wake attempts are appended as redacted JSONL audit events.",
+            "hermes_agent_log_path": str(config.get_hermes_home() / "logs" / "agent.log"),
+            "logger": "hermes_tescmd_plugin.audit",
+            "message": "Side-effecting vehicle commands and wake attempts are appended as redacted JSONL audit events and emitted through Hermes logging.",
         },
     }
     payload.update(_bootstrap_payload(profile=profile, cfg=cfg, auth_state=auth_state, pending=pending))

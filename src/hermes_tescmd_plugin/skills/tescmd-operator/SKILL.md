@@ -1,7 +1,7 @@
 ---
 name: tescmd-operator
 description: Use the native hermes-tescmd-plugin tools for Tesla OAuth, readiness checks, vehicle state, navigation, and Fleet API commands without relying on the upstream tescmd CLI.
-version: 0.5.0a20
+version: 0.5.0a21
 ---
 
 # tescmd Operator
@@ -93,7 +93,7 @@ Use `tescmd_raw_get` / `tescmd_raw_post` / `tescmd_raw_delete` only as advanced 
 - Preserve user intent around waking the car and other billable or side-effecting actions.
 - Login/bootstrap steps may require browser- or human-driven interaction.
 - Error payloads redact token/secret fields, but still avoid pasting exported auth files or blobs into chat unless explicitly needed.
-- Side-effecting vehicle commands, explicit `tescmd_vehicle_wake`, and read calls using `wake=true` append redacted audit events to `audit/commands.jsonl`; full VINs, precise navigation/location inputs, tokens, PINs, and secrets are not written.
+- Side-effecting vehicle commands, explicit `tescmd_vehicle_wake`, and read calls using `wake=true` append redacted audit events to `audit/commands.jsonl` and emit the same redacted metadata through Hermes' standard logger for `agent.log` visibility; full VINs, precise navigation/location inputs, tokens, PINs, and secrets are not written.
 
 ## Agentic routing quick guide
 

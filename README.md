@@ -212,7 +212,7 @@ Guardrails:
 - known signed-command-required operations fail before network when no vehicle-command key is configured
 - raw Fleet API paths must be relative `/api/...` paths; absolute URLs, traversal, and NUL bytes are rejected
 - sensitive error payloads are redacted before returning to Hermes
-- side-effecting vehicle commands and wake attempts append redacted audit entries to `audit/commands.jsonl`
+- side-effecting vehicle commands and wake attempts append redacted audit entries to `audit/commands.jsonl` and are also emitted through Hermes' standard logger into `agent.log` when Hermes logging is configured
 - auth export writes a `0600` file and does not return bearer/refresh tokens in tool output
 
 Use the same care you would use with the Tesla app.
@@ -232,7 +232,7 @@ Typical files and stores:
 - `auth.json` — plugin-local OAuth token mirror for compatibility and standalone package contexts
 - `pending-auth.json` — short-lived PKCE login state
 - `response-cache.json` — selected read-only Fleet responses; may include sensitive vehicle/location snapshots
-- `audit/commands.jsonl` — redacted JSONL command audit trail for side-effecting vehicle commands and wake attempts, written `0600`
+- `audit/commands.jsonl` — redacted JSONL command audit trail for side-effecting vehicle commands and wake attempts, written `0600`; the same redacted events are emitted through Hermes' standard logger for `agent.log` visibility
 - `keys/<profile>/vehicle-command-key.pem` — private vehicle-command key, written `0600`
 - `keys/<profile>/vehicle-command-key.public.pem` — public vehicle-command key
 - `hosting/<profile>/...` — static public-key hosting tree prepared by local deploy

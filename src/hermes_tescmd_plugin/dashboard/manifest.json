@@ -3,7 +3,7 @@
   "label": "Tesla",
   "description": "Tesla Fleet status, vehicle reads, and guarded quick actions from hermes-tescmd-plugin.",
   "icon": "Zap",
-  "version": "0.5.0a20",
+  "version": "0.5.0a21",
   "tab": {
     "path": "/tescmd",
     "position": "after:tools"
