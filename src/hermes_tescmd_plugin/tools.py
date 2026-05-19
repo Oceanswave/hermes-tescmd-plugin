@@ -11,7 +11,7 @@ from typing import Any
 import httpx
 from cryptography.hazmat.primitives import serialization
 
-from . import auth, client, config
+from . import audit, auth, client, config
 
 WELL_KNOWN_PATH = ".well-known/appspecific/com.tesla.3p.public-key.pem"
 
@@ -352,6 +352,10 @@ def handle_status(args: dict[str, Any]) -> dict[str, Any]:
         "scopes": auth_state.scopes or [scope for scope in cfg.scopes if scope not in config.PARTNER_ONLY_SCOPES],
         "partner_only_scopes": [scope for scope in cfg.scopes if scope in config.PARTNER_ONLY_SCOPES],
         "expires_at": auth_state.expires_at,
+        "audit": {
+            "command_log_path": str(audit.audit_log_path()),
+            "message": "Side-effecting vehicle commands and wake attempts are appended as redacted JSONL audit events.",
+        },
     }
     payload.update(_bootstrap_payload(profile=profile, cfg=cfg, auth_state=auth_state, pending=pending))
     _, public_path, key_present = _key_presence(profile)
@@ -1321,6 +1325,22 @@ def handle_cache_clear(args: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "profile": profile, "enabled": True, "cleared": cleared}
 
 
+def handle_audit_log(args: dict[str, Any]) -> dict[str, Any]:
+    limit = args.get("limit", 20)
+    try:
+        limit = int(limit)
+    except (TypeError, ValueError) as exc:
+        raise client.TeslaAPIError("limit must be an integer") from exc
+    if limit < 1 or limit > 200:
+        raise client.TeslaAPIError("limit must be between 1 and 200")
+    return {
+        "ok": True,
+        "path": str(audit.audit_log_path()),
+        "events": audit.recent_command_events(limit),
+        "message": "Redacted JSONL audit log for side-effecting vehicle commands and wake attempts.",
+    }
+
+
 def handle_plugin_mode_info(args: dict[str, Any], *, mode: str) -> dict[str, Any]:
     profile = _profile(args)
     return {
@@ -1423,6 +1443,7 @@ OPERATIONS = {
     "help": handle_help,
     "cache_status": handle_cache_status,
     "cache_clear": handle_cache_clear,
+    "audit_log": handle_audit_log,
     "serve": lambda args: handle_plugin_mode_info(args, mode="serve"),
     "openclaw_bridge": lambda args: handle_plugin_mode_info(args, mode="openclaw_bridge"),
     "vehicle_telemetry_stream": lambda args: handle_plugin_mode_info(args, mode="vehicle_telemetry_stream"),

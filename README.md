@@ -20,7 +20,7 @@ The plugin exposes OAuth/admin checks, vehicle reads, signed vehicle commands, c
 
 - **Natural-language Tesla operations.** Ask Hermes for the outcome, not the exact command. Hermes can inspect vehicle state, resolve the target vehicle, choose the right tool, and summarize the result.
 - **Works wherever Hermes runs.** Use the same Tesla controls from the terminal, gateway chats, cron jobs, webhooks, or other Hermes entry points.
-- **Agent-friendly tool surface.** The plugin registers 173 typed, JSON-returning tools through the `hermes_agent.plugins` entry point. Hermes sees schemas, required args, confirmation markers, and structured errors instead of parsing terminal output.
+- **Agent-friendly tool surface.** The plugin registers 174 typed, JSON-returning tools through the `hermes_agent.plugins` entry point. Hermes sees schemas, required args, confirmation markers, and structured errors instead of parsing terminal output.
 - **Fast daily controls.** `/tescmd-*` slash commands cover common reads and guarded quick actions; the `/tescmd` dashboard gives you status panels and confirm-gated buttons for security, climate, charging, body, media, and navigation controls.
 - **Real-world safety gates.** Side-effecting commands require `confirm: true` and fail before network/file side effects when confirmation is missing. Wake-with-read is also treated as a side effect when applicable.
 - **Signed commands without agent-side crypto.** Known Vehicle Command Protocol operations use the plugin-owned P-256 key when required and fail closed if signing prerequisites are missing.
@@ -189,7 +189,7 @@ The Hermes web dashboard gets a native Tesla tab at `/tescmd`. It uses the same 
 
 ## Tool surface
 
-The plugin registers the complete 173-tool Hermes surface by default. Tool-load minimization is intentionally not used; if a call feels slow, profile command invocation, auth/cache behavior, and Tesla network latency rather than hiding tools from Hermes.
+The plugin registers the complete 174-tool Hermes surface by default. Tool-load minimization is intentionally not used; if a call feels slow, profile command invocation, auth/cache behavior, and Tesla network latency rather than hiding tools from Hermes.
 
 High-level families:
 
@@ -212,6 +212,7 @@ Guardrails:
 - known signed-command-required operations fail before network when no vehicle-command key is configured
 - raw Fleet API paths must be relative `/api/...` paths; absolute URLs, traversal, and NUL bytes are rejected
 - sensitive error payloads are redacted before returning to Hermes
+- side-effecting vehicle commands and wake attempts append redacted audit entries to `audit/commands.jsonl`
 - auth export writes a `0600` file and does not return bearer/refresh tokens in tool output
 
 Use the same care you would use with the Tesla app.
@@ -231,6 +232,7 @@ Typical files and stores:
 - `auth.json` — plugin-local OAuth token mirror for compatibility and standalone package contexts
 - `pending-auth.json` — short-lived PKCE login state
 - `response-cache.json` — selected read-only Fleet responses; may include sensitive vehicle/location snapshots
+- `audit/commands.jsonl` — redacted JSONL command audit trail for side-effecting vehicle commands and wake attempts, written `0600`
 - `keys/<profile>/vehicle-command-key.pem` — private vehicle-command key, written `0600`
 - `keys/<profile>/vehicle-command-key.public.pem` — public vehicle-command key
 - `hosting/<profile>/...` — static public-key hosting tree prepared by local deploy

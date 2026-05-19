@@ -39,6 +39,7 @@ def test_registers_tescmd_slash_commands_and_status_handler(tmp_path, monkeypatc
         "tescmd-key-validate",
         "tescmd-cache-status",
         "tescmd-cache-clear",
+        "tescmd-audit-log",
         "tescmd-vehicles",
         "tescmd-vehicle-status",
         "tescmd-drive",

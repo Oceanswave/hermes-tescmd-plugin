@@ -4,7 +4,7 @@ from pathlib import Path
 
 from . import auth, client, config, dashboard, runtime, schemas, slash, tools
 
-__version__ = "0.5.0a19"
+__version__ = "0.5.0a20"
 PLUGIN_NAME = "hermes-tescmd-plugin"
 TOOLSET_NAME = "tescmd"
 SKILL_NAME = "tescmd-operator"

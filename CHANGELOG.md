@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0a20
+
+- Added a redacted JSONL command audit log under plugin-owned state for side-effecting vehicle commands and wake attempts.
+- Added `tescmd_audit_log` plus status metadata pointing to the audit log path.
+- Wake command denials, attempts, and results are audited without writing full VINs, precise locations, tokens, PINs, or secrets.
+
 ## 0.5.0a19
 
 - Made the `/tescmd` vehicle map self-contained by bundling the Leaflet layout rules needed for panes, tiles, controls, and attribution inside the plugin stylesheet.

@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from . import client, tools
+from . import audit, client, tools
 
 
 @dataclass(frozen=True)
@@ -614,6 +614,9 @@ _TOOL_SPECS: tuple[ToolSpec, ...] = (
     _profile_tool(name="tescmd_help", description="Return an agent-oriented Tesla tool routing guide, readiness checks, and safe workflow hints.", operation="help"),
     _profile_tool(name="tescmd_cache_status", description="Inspect the plugin-native response cache.", operation="cache_status"),
     _profile_tool(name="tescmd_cache_clear", description="Clear plugin-native cache state if present.", operation="cache_clear", params=(_CONFIRM_REQUIRED,)),
+    _profile_tool(name="tescmd_audit_log", description="Read recent redacted audit events for side-effecting vehicle commands and wake attempts.", operation="audit_log", params=(
+        ParamSpec("limit", "Maximum recent audit events to return, between 1 and 200.", value_type="integer", default=20, minimum=1, maximum=200),
+    )),
     _profile_tool(name="tescmd_serve", description="Plugin-native compatibility tool explaining why no standalone tescmd server is needed inside Hermes.", operation="serve"),
     _profile_tool(name="tescmd_openclaw_bridge", description="Plugin-native compatibility tool for OpenClaw bridge workflows.", operation="openclaw_bridge"),
     _operational_tool(name="tescmd_vehicle_telemetry_stream", description="Plugin-native guidance for telemetry streaming workflows without starting a CLI dashboard inside Hermes.", operation="vehicle_telemetry_stream"),
@@ -736,12 +739,55 @@ def _error_payload(exc: Exception, operation: str) -> dict[str, Any]:
     }
 
 
+def _is_audited_invocation(spec: ToolSpec, args: dict[str, Any]) -> bool:
+    return spec.operation in {"vehicle_command", "vehicle_wake"} or bool(args.get("wake"))
+
+
 def make_handler(spec: ToolSpec) -> Callable[[dict[str, Any]], str]:
     def _handler(args: dict[str, Any], **kwargs: Any) -> str:
+        raw_args = args if isinstance(args, dict) else {}
+        should_audit = _is_audited_invocation(spec, raw_args)
         try:
-            payload = tools.execute(spec, _validate_args(spec, args))
+            validated_args = _validate_args(spec, args)
         except Exception as exc:  # pragma: no cover - verified by handler contract tests indirectly
             payload = _error_payload(exc, spec.operation)
+            if should_audit:
+                audit.append_command_event(
+                    tool_name=spec.name,
+                    operation=spec.operation,
+                    command_name=spec.command_name,
+                    args=raw_args,
+                    stage="denied",
+                    ok=False,
+                    status_code=payload.get("status_code") if isinstance(payload, dict) else None,
+                    error=payload.get("error") if isinstance(payload, dict) else exc,
+                )
+            return json.dumps(_redact(payload))
+        should_audit = should_audit or _is_audited_invocation(spec, validated_args)
+        if should_audit:
+            audit.append_command_event(
+                tool_name=spec.name,
+                operation=spec.operation,
+                command_name=spec.command_name,
+                args=validated_args,
+                stage="attempt",
+                ok=None,
+            )
+        try:
+            payload = tools.execute(spec, validated_args)
+        except Exception as exc:  # pragma: no cover - verified by handler contract tests indirectly
+            payload = _error_payload(exc, spec.operation)
+        if should_audit:
+            audit.append_command_event(
+                tool_name=spec.name,
+                operation=spec.operation,
+                command_name=spec.command_name,
+                args=validated_args,
+                stage="result",
+                ok=bool(payload.get("ok")) if isinstance(payload, dict) else False,
+                status_code=payload.get("status_code") if isinstance(payload, dict) else None,
+                error=payload.get("error") if isinstance(payload, dict) else None,
+            )
         return json.dumps(_redact(payload))
 
     return _handler

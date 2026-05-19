@@ -1,7 +1,7 @@
 ---
 name: tescmd-operator
 description: Use the native hermes-tescmd-plugin tools for Tesla OAuth, readiness checks, vehicle state, navigation, and Fleet API commands without relying on the upstream tescmd CLI.
-version: 0.5.0a19
+version: 0.5.0a20
 ---
 
 # tescmd Operator
@@ -28,9 +28,10 @@ It does not shell out to or depend on the upstream `tescmd` CLI at runtime.
 6. Use `tescmd_raw_get` / `tescmd_raw_post` / `tescmd_raw_delete` only as escape hatches when the dedicated native tool surface is not enough; raw tools require `confirm: true` and only accept relative `/api/...` paths.
 7. Treat `tescmd_auth_export` as a sensitive file-export operation: it requires `confirm: true`, writes a `0600` file, and does not return token values in tool output.
 8. Use `tescmd_cache_status` / `tescmd_cache_clear` for the plugin-native response cache. The cache is local plugin state and may contain sensitive vehicle telemetry/location snapshots.
-9. Pass `vin` only when you want to override the configured default vehicle identifier.
-10. Set `wake: true` only on status-style read tools that expose it, and only when the user really wants to wake a sleeping vehicle.
-11. Treat `tescmd_serve`, `tescmd_openclaw_bridge`, and `tescmd_vehicle_telemetry_stream` as compatibility/info tools rather than long-running daemons started inside Hermes. There is no MCP server mode; Hermes loads this as a native plugin.
+9. Use `tescmd_audit_log` to inspect recent redacted side-effect command and wake-attempt audit events; the backing JSONL file lives under `HERMES_HOME/plugins/hermes-tescmd-plugin/audit/commands.jsonl`.
+10. Pass `vin` only when you want to override the configured default vehicle identifier.
+11. Set `wake: true` only on status-style read tools that expose it, and only when the user really wants to wake a sleeping vehicle.
+12. Treat `tescmd_serve`, `tescmd_openclaw_bridge`, and `tescmd_vehicle_telemetry_stream` as compatibility/info tools rather than long-running daemons started inside Hermes. There is no MCP server mode; Hermes loads this as a native plugin.
 
 ## Parity notes
 
@@ -92,6 +93,7 @@ Use `tescmd_raw_get` / `tescmd_raw_post` / `tescmd_raw_delete` only as advanced 
 - Preserve user intent around waking the car and other billable or side-effecting actions.
 - Login/bootstrap steps may require browser- or human-driven interaction.
 - Error payloads redact token/secret fields, but still avoid pasting exported auth files or blobs into chat unless explicitly needed.
+- Side-effecting vehicle commands, explicit `tescmd_vehicle_wake`, and read calls using `wake=true` append redacted audit events to `audit/commands.jsonl`; full VINs, precise navigation/location inputs, tokens, PINs, and secrets are not written.
 
 ## Agentic routing quick guide
 

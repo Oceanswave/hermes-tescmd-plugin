@@ -311,6 +311,11 @@ _COMMANDS: dict[str, tuple[str, str, Callable[[dict[str, Any]], str]]] = {
         "[profile=default] confirm=true",
         lambda ctx: _format_command("tescmd-cache-clear", _run_tool("tescmd_cache_clear", ctx["raw_args"])),
     ),
+    "tescmd-audit-log": (
+        "Show recent redacted side-effect command and wake audit events.",
+        "[limit=20]",
+        lambda ctx: _format_command("tescmd-audit-log", _run_tool("tescmd_audit_log", ctx["raw_args"])),
+    ),
     "tescmd-vehicles": (
         "List Tesla vehicles on the account.",
         "[profile=default] [region=na|eu|cn]",

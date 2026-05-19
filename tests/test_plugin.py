@@ -4,6 +4,7 @@ import base64
 import hashlib
 import hmac
 import json
+import stat
 import sys
 import types
 from pathlib import Path
@@ -70,7 +71,7 @@ def test_register_adds_full_native_tools_and_skill_by_default(tmp_path, monkeypa
     registered_names = [tool["name"] for tool in ctx.tools]
     assert registered_names == [spec.name for spec in runtime.list_tool_specs()]
     assert registered_names == [spec.name for spec in registered_tool_specs()]
-    assert len(ctx.tools) == 173
+    assert len(ctx.tools) == 174
     assert "tescmd_auth_status" in registered_names
     assert "tescmd_vehicle_status" in registered_names
     assert "tescmd_raw_get" in registered_names
@@ -874,6 +875,40 @@ def test_vehicle_and_command_tools_use_native_fleet_api(tmp_path, monkeypatch) -
     assert "https://fleet-api.prd.na.vn.cloud.tesla.com/api/1/vehicles" in urls
     assert "https://fleet-api.prd.na.vn.cloud.tesla.com/api/1/vehicles/5YJ3E1EA7JF000001/vehicle_data" in urls
     assert not any("/command/" in url for url in urls)
+
+
+def test_command_audit_logs_wake_attempts_and_redacts_target(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na", default_vin="5YJ3E1EA7JF000001"))
+    config.save_auth_state(config.AuthState(profile="default", access_token="access-1", expires_at=9999999999, region="na"))
+
+    requests: list[tuple[str, str]] = []
+
+    def fake_request(method: str, url: str, **kwargs):
+        requests.append((method, url))
+        if url.endswith("/api/1/vehicles/5YJ3E1EA7JF000001/wake_up") and method == "POST":
+            return make_response(method, url, json_body={"response": {"state": "online"}})
+        raise AssertionError(f"unexpected request: {method} {url}")
+
+    monkeypatch.setattr(client.httpx, "request", fake_request)
+    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+
+    denied = json.loads(tools_by_name["tescmd_vehicle_wake"]({}))
+    assert denied["ok"] is False
+    assert requests == []
+
+    allowed = json.loads(tools_by_name["tescmd_vehicle_wake"]({"confirm": True}))
+    assert allowed["ok"] is True
+
+    audit_payload = json.loads(tools_by_name["tescmd_audit_log"]({"limit": 10}))
+    assert audit_payload["ok"] is True
+    events = audit_payload["events"]
+    assert [event["stage"] for event in events] == ["denied", "attempt", "result"]
+    assert all(event["tool"] == "tescmd_vehicle_wake" for event in events)
+    assert all(event["wake"] is True for event in events)
+    assert all(event["target"] == {"provided": True, "hash": hashlib.sha256(b"5YJ3E1EA7JF000001").hexdigest()[:16], "suffix": "0001"} for event in events)
+    assert "5YJ3E1EA7JF000001" not in (tmp_path / "plugins/hermes-tescmd-plugin/audit/commands.jsonl").read_text()
+    assert stat.S_IMODE((tmp_path / "plugins/hermes-tescmd-plugin/audit/commands.jsonl").stat().st_mode) == 0o600
 
 
 def test_full_vin_endpoints_resolve_default_fleet_id_from_vehicle_list(tmp_path, monkeypatch) -> None:
