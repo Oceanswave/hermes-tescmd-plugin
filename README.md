@@ -20,7 +20,7 @@ The plugin exposes OAuth/admin checks, vehicle reads, signed vehicle commands, c
 
 - **Natural-language Tesla operations.** Ask Hermes for the outcome, not the exact command. Hermes can inspect vehicle state, resolve the target vehicle, choose the right tool, and summarize the result.
 - **Works wherever Hermes runs.** Use the same Tesla controls from the terminal, gateway chats, cron jobs, webhooks, or other Hermes entry points.
-- **Agent-friendly tool surface.** The plugin registers 174 typed, JSON-returning tools through the `hermes_agent.plugins` entry point. Hermes sees schemas, required args, confirmation markers, and structured errors instead of parsing terminal output.
+- **Agent-friendly tool surface.** The plugin registers 175 typed, JSON-returning tools through the `hermes_agent.plugins` entry point. Hermes sees schemas, required args, confirmation markers, and structured errors instead of parsing terminal output.
 - **Fast daily controls.** `/tescmd-*` slash commands cover common reads and guarded quick actions; the `/tescmd` dashboard gives you status panels and confirm-gated buttons for security, climate, charging, body, media, and navigation controls.
 - **Real-world safety gates.** Side-effecting commands require `confirm: true` and fail before network/file side effects when confirmation is missing. Wake-with-read is also treated as a side effect when applicable.
 - **Signed commands without agent-side crypto.** Known Vehicle Command Protocol operations use the plugin-owned P-256 key when required and fail closed if signing prerequisites are missing.
@@ -109,9 +109,9 @@ Minimal single-profile shape:
 }
 ```
 
-4. Ask Hermes to run `tescmd_status`.
+4. Ask Hermes to run `tescmd_onboarding_status` or `tescmd_status`.
 
-That status response is the best next-step dashboard. It reports readiness booleans, missing prerequisites, derived callback/public-key URLs, and recommended next actions. The Hermes web dashboard also gets a Tesla tab at `/tescmd` after the plugin registers; restart `hermes dashboard` or use the dashboard plugin rescan button if it was already running.
+`tescmd_onboarding_status` is the guided, non-mutating checklist: it reports the current phase, missing prerequisites, next tool, docs anchor, and readiness booleans without writing config, auth, keys, or vehicle state. `tescmd_status` remains the broader readiness dashboard with derived callback/public-key URLs. The Hermes web dashboard also gets a Tesla tab at `/tescmd` after the plugin registers; restart `hermes dashboard` or use the dashboard plugin rescan button if it was already running.
 
 5. Start OAuth with `tescmd_auth_login`, open the returned Tesla URL, then complete with `tescmd_auth_complete` using either the full callback URL or `code` + `state`.
 
@@ -152,6 +152,7 @@ tescmd_key_enroll({})
 
 | Goal | Start with |
 | --- | --- |
+| Check guided onboarding phase | `tescmd_onboarding_status` |
 | Check plugin/auth/key readiness | `tescmd_status` |
 | Start Tesla OAuth | `tescmd_auth_login` |
 | Complete OAuth callback | `tescmd_auth_complete` |
@@ -189,7 +190,7 @@ The Hermes web dashboard gets a native Tesla tab at `/tescmd`. It uses the same 
 
 ## Tool surface
 
-The plugin registers the complete 174-tool Hermes surface by default. Tool-load minimization is intentionally not used; if a call feels slow, profile command invocation, auth/cache behavior, and Tesla network latency rather than hiding tools from Hermes.
+The plugin registers the complete 175-tool Hermes surface by default. Tool-load minimization is intentionally not used; if a call feels slow, profile command invocation, auth/cache behavior, and Tesla network latency rather than hiding tools from Hermes.
 
 High-level families:
 

@@ -22,7 +22,7 @@
     ["Core", [["vehicle-status", "Vehicle"], ["drive", "Drive"], ["closures", "Closures"], ["charge", "Charge"], ["climate", "Climate"], ["location", "Location"]]],
     ["Diagnostics", [["security", "Security"], ["software", "Software"], ["config", "Config"], ["gui", "GUI"], ["alerts", "Alerts"], ["release-notes", "Release notes"]]],
     ["Services", [["nearby-chargers", "Nearby chargers"], ["mobile-access", "Mobile access"], ["drivers", "Drivers"], ["service", "Service"], ["charge-schedule", "Charge schedules"], ["preconditioning-schedule", "Preconditioning"]]],
-    ["Admin", [["auth-status", "Auth"], ["key-show", "Key"], ["key-validate", "Validate key"], ["cache-status", "Cache"]]],
+    ["Admin", [["auth-status", "Auth"], ["onboarding", "Onboarding"], ["key-show", "Key"], ["key-validate", "Validate key"], ["cache-status", "Cache"]]],
   ];
 
   const ACTION_GROUPS = [
@@ -70,6 +70,21 @@
           h(Badge, { className: value ? "tescmd-ok" : "tescmd-warn" }, value ? "ready" : "missing")
         )
       )
+    );
+  }
+
+  function OnboardingCard({ onboarding }) {
+    if (!onboarding) return null;
+    const missing = Array.isArray(onboarding.missing_prerequisites) ? onboarding.missing_prerequisites : [];
+    const steps = Array.isArray(onboarding.next_steps) ? onboarding.next_steps.slice(0, 2) : [];
+    return h("div", { className: "tescmd-onboarding-card" },
+      h("div", null,
+        h("span", { className: "tescmd-widget-label" }, "Next setup step"),
+        h("strong", null, onboarding.next_tool || onboarding.next_action || "Ready"),
+        h("small", null, onboarding.docs_anchor || "docs/ONBOARDING.md")
+      ),
+      missing.length ? h("div", { className: "tescmd-missing-list" }, missing.slice(0, 4).map((item) => h(Badge, { key: item, className: "tescmd-warn" }, item))) : h(Badge, { className: "tescmd-ok" }, "no missing prerequisites"),
+      steps.length ? h("ol", null, steps.map((step, index) => h("li", { key: index }, step))) : null
     );
   }
 
@@ -418,11 +433,15 @@
       h("section", { className: "tescmd-hero" },
         h("div", null,
           h("p", { className: "tescmd-kicker" }, "Hermes Tesla Command Center"),
-          h("h1", null, "seaQuest at a glance"),
-          h("p", { className: "tescmd-muted" }, "Visual vehicle state, live location, and confirm-gated Tesla quick actions from the native tescmd plugin.")
+          h("h1", null, "Tesla command center"),
+          h("p", { className: "tescmd-muted" }, "Compact setup guidance, visual vehicle state, live location, and confirm-gated Tesla quick actions from the native tescmd plugin.")
         ),
-        h("div", { className: "tescmd-hero-actions" }, h(Button, { onClick: refresh, disabled: loading }, loading ? "Refreshing..." : "Refresh overview"))
+        h("div", { className: "tescmd-hero-actions" },
+          h(Badge, { className: confirm ? "tescmd-warn" : "tescmd-ok" }, confirm ? "actions armed" : "read-only"),
+          h(Button, { onClick: refresh, disabled: loading }, loading ? "Refreshing..." : "Refresh overview")
+        )
       ),
+      overview && overview.onboarding ? h(OnboardingCard, { onboarding: overview.onboarding }) : null,
       h(Card, { className: "tescmd-overview-card" },
         h(CardHeader, null, h(CardTitle, null, "Vehicle overview")),
         h(CardContent, null, overview ? h(VehicleSnapshot, { overview }) : h("p", { className: "tescmd-muted" }, "Refresh to load charge, climate, security, and map widgets."))
@@ -447,6 +466,7 @@
           status ? h(Readiness, { status }) : null
         )
       ),
+      h("div", { className: "tescmd-workbench" },
       h(Card, null,
         h(CardHeader, null, h(CardTitle, null, "Reads")),
         h(CardContent, null,
@@ -477,9 +497,10 @@
         )
       ),
       error ? h(Card, { className: "tescmd-error-card" }, h(CardContent, null, h("p", { className: "tescmd-error" }, error))) : null,
-      h(Card, null,
+      h(Card, { className: "tescmd-payload-card" },
         h(CardHeader, null, h(CardTitle, null, "Last payload")),
         h(CardContent, null, detail ? h(JsonBlock, { data: detail }) : h("p", { className: "tescmd-muted" }, "No payload yet."))
+      )
       )
     );
   }

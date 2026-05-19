@@ -1,7 +1,7 @@
 ---
 name: tescmd-operator
 description: Use the native hermes-tescmd-plugin tools for Tesla OAuth, readiness checks, vehicle state, navigation, and Fleet API commands without relying on the upstream tescmd CLI.
-version: 0.5.0a21
+version: 0.5.0a22
 ---
 
 # tescmd Operator
@@ -14,7 +14,7 @@ It does not shell out to or depend on the upstream `tescmd` CLI at runtime.
 
 1. Do Tesla Developer app creation/callback/scope setup outside Hermes, following `docs/ONBOARDING.md` and the README. Tesla app callback URLs must be public HTTPS URLs; configure `domain` for the default `https://<domain>/callback` or set `oauth_redirect_uri` explicitly. Then edit `HERMES_HOME/plugins/hermes-tescmd-plugin/config.json` with the app values; there is intentionally no `tescmd_setup` tool.
 2. Use `tescmd_auth_login` to start OAuth, then `tescmd_auth_complete` to finish it.
-3. Use `tescmd_auth_status` whenever you need to confirm profile state, token status, region, or stored key paths.
+3. Use `tescmd_onboarding_status` for read-only setup guidance: current phase, missing prerequisites, next tool, docs anchor, and readiness booleans. Use `tescmd_auth_status` whenever you need to confirm profile state, token status, region, or stored key paths.
 4. Use the dedicated operational tools for normal work:
    - `tescmd_status`
    - `tescmd_vehicle_*`
@@ -41,13 +41,14 @@ It does not shell out to or depend on the upstream `tescmd` CLI at runtime.
   - upstream `trunk *` → `tescmd_vehicle_*` helpers
   - upstream `charge precondition-*` → native `tescmd_precondition_*`
   - upstream `vehicle telemetry *` → `tescmd_vehicle_telemetry_*`
-- The plugin adds Hermes-native auth/status/help helpers such as `tescmd_auth_complete`, `tescmd_status`, and `tescmd_help`; configuration is docs-only via config.json, not a tool.
+- The plugin adds Hermes-native auth/status/help helpers such as `tescmd_auth_complete`, `tescmd_onboarding_status`, `tescmd_status`, and `tescmd_help`; configuration is docs-only via config.json, not a tool.
 - `tescmd_serve`, `tescmd_openclaw_bridge`, and `tescmd_vehicle_telemetry_stream` are compatibility/guidance tools, not terminal dashboards or daemon launchers. MCP server mode is intentionally absent because Hermes loads the package natively.
 
 ## Admin vs operational usage
 
 Treat these as **admin/bootstrap** tools:
 - `tescmd_status`
+- `tescmd_onboarding_status`
 - `tescmd_auth_*`
 - `tescmd_key_*`
 - partner registration / partner-account inspection tools
@@ -97,7 +98,7 @@ Use `tescmd_raw_get` / `tescmd_raw_post` / `tescmd_raw_delete` only as advanced 
 
 ## Agentic routing quick guide
 
-Start with `tescmd_help` or `tescmd_status` when unsure. Use `tescmd_status.bootstrap` readiness booleans before choosing tools:
+Start with `tescmd_help`, `tescmd_onboarding_status`, or `tescmd_status` when unsure. Use `tescmd_onboarding_status` for setup phase guidance and `tescmd_status.bootstrap` readiness booleans before choosing tools:
 
 - Vehicle/account reads: `tescmd_vehicle_list`, `tescmd_vehicle_location`, `tescmd_charge_status`.
 - Side effects: only call command tools with `confirm=true` after explicit user intent.

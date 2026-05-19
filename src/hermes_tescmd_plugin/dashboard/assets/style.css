@@ -142,6 +142,55 @@
   overflow: visible;
 }
 
+.tescmd-onboarding-card {
+  display: grid;
+  grid-template-columns: minmax(14rem, 0.8fr) minmax(10rem, auto) minmax(18rem, 1.25fr);
+  gap: 0.75rem;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--tescmd-blue) 28%, var(--color-border));
+  border-radius: var(--radius);
+  padding: 0.7rem 0.85rem;
+  background:
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--tescmd-blue) 13%, transparent), transparent 28%),
+    color-mix(in srgb, var(--color-card) 92%, transparent);
+}
+
+.tescmd-onboarding-card strong {
+  display: block;
+  margin-top: 0.12rem;
+  font-size: 1.05rem;
+  letter-spacing: -0.03em;
+}
+
+.tescmd-onboarding-card small {
+  color: var(--color-muted-foreground);
+}
+
+.tescmd-onboarding-card ol {
+  margin: 0;
+  padding-left: 1.05rem;
+  color: var(--color-muted-foreground);
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
+.tescmd-missing-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.tescmd-workbench {
+  display: grid;
+  grid-template-columns: minmax(18rem, 0.95fr) minmax(20rem, 1.05fr);
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.tescmd-payload-card {
+  grid-column: 1 / -1;
+}
+
 .tescmd-visual-grid {
   display: grid;
   grid-template-columns: minmax(12rem, 0.68fr) minmax(13rem, 0.74fr) minmax(18rem, 1.25fr);
@@ -459,6 +508,11 @@
     grid-template-columns: minmax(12rem, 0.8fr) minmax(18rem, 1.2fr);
   }
 
+  .tescmd-onboarding-card,
+  .tescmd-workbench {
+    grid-template-columns: 1fr;
+  }
+
   .tescmd-stack-widgets {
     grid-row: span 1;
   }
@@ -472,6 +526,10 @@
   .tescmd-hero {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .tescmd-onboarding-card {
+    align-items: stretch;
   }
 
   .tescmd-map-shell,

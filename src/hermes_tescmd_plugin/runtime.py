@@ -128,6 +128,7 @@ _TOOL_SPECS: tuple[ToolSpec, ...] = (
         _CONFIRM_REQUIRED,
     )),
     ToolSpec("tescmd_auth_status", "Admin/bootstrap: show plugin-owned Tesla auth, profile config, and stored key status.", "auth_status", _SHARED_PROFILE_ONLY_PARAMS),
+    ToolSpec("tescmd_onboarding_status", "Admin/bootstrap: non-mutating guided onboarding checklist with current phase, missing prerequisites, next tool, and docs anchor.", "onboarding_status", _SHARED_PROFILE_ONLY_PARAMS),
     ToolSpec("tescmd_auth_refresh", "Admin/bootstrap: refresh Tesla access tokens using the stored refresh token.", "auth_refresh", _SHARED_PROFILE_ONLY_PARAMS + (_CONFIRM_REQUIRED,)),
     ToolSpec("tescmd_auth_import", "Admin/bootstrap: import previously exported plugin auth state into the selected profile.", "auth_import", _SHARED_PROFILE_ONLY_PARAMS + (
         ParamSpec("auth", "Auth payload previously returned by tescmd_auth_export.", value_type="object", required=True),

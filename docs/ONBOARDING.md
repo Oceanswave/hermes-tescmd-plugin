@@ -299,4 +299,4 @@ The best Hermes UX is not a config-writing wizard; it is a checklist-driven assi
 - `tescmd_vehicle_list`, `tescmd_vehicle_wake`, and `tescmd_vehicle_info` for read proof.
 - one low-impact command for live control proof.
 
-A future polish pass could add a non-mutating `tescmd_onboarding_status` tool that returns the current phase, next action, docs anchor, and exact missing prerequisites. It should not write config or hide Tesla app approval behind automation; it should only guide users through the existing explicit tools.
+The plugin includes a non-mutating `tescmd_onboarding_status` tool that returns the current phase, next action, next tool when there is one, docs anchor, and exact missing prerequisites. It does not write config or hide Tesla app approval behind automation; it only guides users through the existing explicit tools.

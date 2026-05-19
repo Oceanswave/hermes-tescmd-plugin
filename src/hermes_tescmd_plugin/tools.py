@@ -524,6 +524,62 @@ def handle_auth_complete(args: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def _onboarding_docs_anchor(next_action: str) -> str:
+    return {
+        "configure_app": "docs/ONBOARDING.md#tesla-developer-app",
+        "auth_login": "docs/ONBOARDING.md#oauth-login",
+        "key_generate": "docs/ONBOARDING.md#vehicle-command-key",
+        "key_validate": "docs/ONBOARDING.md#host-and-validate-the-public-key",
+        "key_deploy": "docs/ONBOARDING.md#host-and-validate-the-public-key",
+        "auth_register": "docs/ONBOARDING.md#partner-registration-and-enrollment",
+        "vehicle_list": "docs/ONBOARDING.md#first-read-proof",
+        "setup": "docs/ONBOARDING.md#manual-plugin-config",
+    }.get(next_action, "docs/ONBOARDING.md")
+
+
+def _onboarding_next_tool(next_action: str) -> str | None:
+    return {
+        "auth_login": "tescmd_auth_login",
+        "key_generate": "tescmd_key_generate",
+        "key_validate": "tescmd_key_validate",
+        "key_deploy": "tescmd_key_deploy",
+        "auth_register": "tescmd_auth_register",
+        "vehicle_list": "tescmd_vehicle_list",
+    }.get(next_action)
+
+
+def handle_onboarding_status(args: dict[str, Any]) -> dict[str, Any]:
+    profile = _profile(args)
+    cfg = config.load_config(profile)
+    auth_state = config.load_auth_state(profile)
+    pending = config.load_pending_auth(profile)
+    bootstrap_payload = _bootstrap_payload(profile=profile, cfg=cfg, auth_state=auth_state, pending=pending)
+    next_action = bootstrap_payload["next_action"]
+    missing_config = [name for name, missing in bootstrap_payload["missing"].items() if missing]
+    bootstrap = bootstrap_payload["bootstrap"]
+    missing_prerequisites = list(dict.fromkeys(
+        missing_config
+        + bootstrap.get("missing_for_vehicle_commands", [])
+        + bootstrap.get("missing_for_signed_commands", [])
+    ))
+    return {
+        "ok": True,
+        "profile": profile,
+        "phase": next_action,
+        "next_action": next_action,
+        "next_tool": _onboarding_next_tool(next_action),
+        "docs_anchor": _onboarding_docs_anchor(next_action),
+        "missing_prerequisites": missing_prerequisites,
+        "next_steps": bootstrap_payload["next_steps"],
+        "readiness": bootstrap,
+        "redirect_uri": bootstrap_payload["redirect_uri"],
+        "expected_public_key_url": bootstrap_payload["expected_public_key_url"],
+        "enrollment_url": bootstrap_payload["enrollment_url"],
+        "mutates_state": False,
+        "message": "Read-only guided onboarding status. It never writes Tesla app config, OAuth tokens, keys, or vehicle state.",
+    }
+
+
 def handle_auth_status(args: dict[str, Any]) -> dict[str, Any]:
     profile = _profile(args)
     payload = auth.auth_status(profile)
@@ -1360,6 +1416,7 @@ def handle_plugin_mode_info(args: dict[str, Any], *, mode: str) -> dict[str, Any
 
 OPERATIONS = {
     "status": handle_status,
+    "onboarding_status": handle_onboarding_status,
     "auth_login": handle_auth_login,
     "auth_complete": handle_auth_complete,
     "auth_status": handle_auth_status,

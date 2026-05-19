@@ -63,6 +63,7 @@ _ACTION_EXTRA_FIELDS: dict[str, tuple[str, ...]] = {
 _READ_TOOLS = {
     "status": "tescmd_status",
     "auth-status": "tescmd_auth_status",
+    "onboarding": "tescmd_onboarding_status",
     "key-show": "tescmd_key_show",
     "key-validate": "tescmd_key_validate",
     "cache-status": "tescmd_cache_status",
@@ -203,6 +204,7 @@ def overview(
         "vin": vin,
         "region": region,
         "status": _safe_run("tescmd_status", {"profile": profile}),
+        "onboarding": _safe_run("tescmd_onboarding_status", {"profile": profile}),
         "vehicles": _safe_run("tescmd_vehicle_list", {k: v for k, v in {"profile": profile, "region": region}.items() if v}),
         "sections": sections,
     }

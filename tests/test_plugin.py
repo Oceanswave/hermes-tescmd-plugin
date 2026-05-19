@@ -72,8 +72,9 @@ def test_register_adds_full_native_tools_and_skill_by_default(tmp_path, monkeypa
     registered_names = [tool["name"] for tool in ctx.tools]
     assert registered_names == [spec.name for spec in runtime.list_tool_specs()]
     assert registered_names == [spec.name for spec in registered_tool_specs()]
-    assert len(ctx.tools) == 174
+    assert len(ctx.tools) == 175
     assert "tescmd_auth_status" in registered_names
+    assert "tescmd_onboarding_status" in registered_names
     assert "tescmd_vehicle_status" in registered_names
     assert "tescmd_raw_get" in registered_names
     assert "tescmd_raw_post" in registered_names
@@ -111,6 +112,7 @@ def test_runtime_keeps_parity_critical_native_tools() -> None:
     assert "tescmd_setup_wizard" not in names
     assert "tescmd_mcp_serve" not in names
     assert "tescmd_auth_complete" in names
+    assert "tescmd_onboarding_status" in names
     assert "tescmd_precondition_schedule_add" in names
     assert "tescmd_precondition_schedule_remove" in names
     assert "tescmd_precondition_schedules_clear" in names
@@ -520,6 +522,27 @@ def test_bootstrap_key_steps_require_real_hosting_and_client_secret(tmp_path, mo
     assert ready["next_action"] == "auth_register"
     assert ready["bootstrap"]["enrollment_ready"] is True
 
+
+
+
+def test_onboarding_status_returns_read_only_next_step(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+
+    payload = json.loads(tools_by_name["tescmd_onboarding_status"]({}))
+
+    assert payload["ok"] is True
+    assert payload["mutates_state"] is False
+    assert payload["phase"] == "configure_app"
+    assert payload["next_tool"] is None
+    assert payload["docs_anchor"].startswith("docs/ONBOARDING.md")
+    assert "client_id" in payload["missing_prerequisites"]
+    assert "tescmd_setup" not in json.dumps(payload)
+
+    config.save_config(config.PluginConfig(profile="default", client_id="client-123", domain="cars.example.com"))
+    configured = json.loads(tools_by_name["tescmd_onboarding_status"]({}))
+    assert configured["phase"] == "auth_login"
+    assert configured["next_tool"] == "tescmd_auth_login"
 
 def test_auth_login_without_client_id_points_to_readme_setup(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))

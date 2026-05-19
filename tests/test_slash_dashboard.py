@@ -159,6 +159,7 @@ def test_dashboard_catalog_includes_expanded_reads_and_actions() -> None:
     catalog = tools()
 
     assert catalog["reads"]["closures"] == "tescmd_vehicle_closures_status"
+    assert catalog["reads"]["onboarding"] == "tescmd_onboarding_status"
     assert catalog["reads"]["software"] == "tescmd_software_status"
     assert catalog["reads"]["nearby-chargers"] == "tescmd_vehicle_nearby_chargers"
     assert catalog["quick_actions"]["unlock"] == "tescmd_security_unlock"
@@ -182,6 +183,7 @@ def test_dashboard_overview_collects_visual_read_sections_without_wake(monkeypat
     assert payload["sections"]["charge"]["tool"] == "tescmd_charge_status"
     assert payload["sections"]["location"]["tool"] == "tescmd_vehicle_location"
     assert payload["sections"]["climate"]["tool"] == "tescmd_climate_status"
+    assert payload["onboarding"]["tool"] == "tescmd_onboarding_status"
     assert (
         "tescmd_charge_status",
         {
