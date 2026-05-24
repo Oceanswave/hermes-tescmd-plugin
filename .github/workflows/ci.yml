@@ -55,8 +55,11 @@ jobs:
       - name: Ruff lint
         run: python -m ruff check .
 
+      - name: Ruff format check
+        run: python -m ruff format --check .
+
       - name: Mypy typecheck
-        run: python -m mypy src/hermes_tescmd_plugin
+        run: python -m mypy src tests
 
       - name: Vulture dead-code scan
         run: python -m vulture src tests --min-confidence 90
