@@ -4,6 +4,10 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
+import stat
+import sys
+import types
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -42,12 +46,16 @@ class FakeContext:
     def __init__(self) -> None:
         self.tools: list[dict] = []
         self.skills: list[tuple[str, Path]] = []
+        self.commands: list[dict] = []
 
     def register_tool(self, **kwargs) -> None:
         self.tools.append(kwargs)
 
     def register_skill(self, name: str, path: Path, description: str | None = None) -> None:
         self.skills.append((name, path))
+
+    def register_command(self, **kwargs) -> None:
+        self.commands.append(kwargs)
 
 
 def make_response(method: str, url: str, *, status_code: int = 200, json_body: dict | list | None = None) -> httpx.Response:
@@ -64,8 +72,9 @@ def test_register_adds_full_native_tools_and_skill_by_default(tmp_path, monkeypa
     registered_names = [tool["name"] for tool in ctx.tools]
     assert registered_names == [spec.name for spec in runtime.list_tool_specs()]
     assert registered_names == [spec.name for spec in registered_tool_specs()]
-    assert len(ctx.tools) == 173
+    assert len(ctx.tools) == 175
     assert "tescmd_auth_status" in registered_names
+    assert "tescmd_onboarding_status" in registered_names
     assert "tescmd_vehicle_status" in registered_names
     assert "tescmd_raw_get" in registered_names
     assert "tescmd_raw_post" in registered_names
@@ -74,6 +83,22 @@ def test_register_adds_full_native_tools_and_skill_by_default(tmp_path, monkeypa
     assert ctx.skills
     assert ctx.skills[0][0] == "tescmd-operator"
     assert ctx.skills[0][1].name == "SKILL.md"
+    registered_commands = {command["name"] for command in ctx.commands}
+    assert {
+        "tescmd-status",
+        "tescmd-vehicles",
+        "tescmd-vehicle-status",
+        "tescmd-charge",
+        "tescmd-climate",
+        "tescmd-location",
+        "tescmd-wake",
+        "tescmd-flash",
+        "tescmd-honk",
+        "tescmd-lock",
+    } <= registered_commands
+    dashboard_manifest = tmp_path / "plugins" / "hermes-tescmd-plugin" / "dashboard" / "manifest.json"
+    assert dashboard_manifest.exists()
+    assert json.loads(dashboard_manifest.read_text())["tab"]["path"] == "/tescmd"
 
 
 def test_runtime_keeps_parity_critical_native_tools() -> None:
@@ -87,6 +112,7 @@ def test_runtime_keeps_parity_critical_native_tools() -> None:
     assert "tescmd_setup_wizard" not in names
     assert "tescmd_mcp_serve" not in names
     assert "tescmd_auth_complete" in names
+    assert "tescmd_onboarding_status" in names
     assert "tescmd_precondition_schedule_add" in names
     assert "tescmd_precondition_schedule_remove" in names
     assert "tescmd_precondition_schedules_clear" in names
@@ -213,6 +239,115 @@ def test_manual_config_file_contract_and_vehicle_key_generation(tmp_path, monkey
     assert Path(cfg.vehicle_command_key_private_path).exists()
     assert Path(key_payload["public_key_path"]).exists()
     assert key_payload["enrollment_url"] == "https://tesla.com/_ak/cars.example.com"
+
+
+
+class DummyLock:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
+def install_fake_hermes_auth(monkeypatch, store: dict) -> None:
+    fake_auth = types.ModuleType("hermes_cli.auth")
+
+    def _load_auth_store():
+        return store
+
+    def _save_auth_store(updated):
+        snapshot = dict(updated)
+        store.clear()
+        store.update(snapshot)
+        return Path("/tmp/auth.json")
+
+    fake_auth._load_auth_store = _load_auth_store
+    fake_auth._save_auth_store = _save_auth_store
+    fake_auth._auth_store_lock = DummyLock
+    fake_hermes_cli = types.ModuleType("hermes_cli")
+    fake_hermes_cli.auth = fake_auth
+    monkeypatch.setitem(sys.modules, "hermes_cli", fake_hermes_cli)
+    monkeypatch.setitem(sys.modules, "hermes_cli.auth", fake_auth)
+
+
+def test_auth_state_uses_hermes_auth_store_when_available(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    store = {"version": 1, "providers": {}}
+    install_fake_hermes_auth(monkeypatch, store)
+
+    state = config.AuthState(
+        profile="default",
+        access_token="access-token",
+        refresh_token="refresh-token",
+        expires_at=123456,
+        scopes=["vehicle_device_data"],
+        region="na",
+    )
+    config.save_auth_state(state)
+
+    provider_state = store["providers"][config.HERMES_AUTH_PROVIDER_ID]
+    assert provider_state["auth_type"] == "oauth"
+    assert provider_state["source"] == config.HERMES_AUTH_SOURCE
+    assert provider_state["profiles"]["default"]["access_token"] == "access-token"
+    assert store.get("active_provider") is None
+
+    plugin_auth_file = tmp_path / "plugins" / "hermes-tescmd-plugin" / "auth.json"
+    assert plugin_auth_file.exists()
+    assert config.load_auth_state("default").refresh_token == "refresh-token"
+
+
+def test_auth_state_prefers_hermes_auth_store_over_legacy_plugin_mirror(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    config.save_auth_state(config.AuthState(profile="default", access_token="legacy", region="na"))
+    store = {
+        "version": 1,
+        "providers": {
+            config.HERMES_AUTH_PROVIDER_ID: {
+                "profiles": {
+                    "default": {
+                        "profile": "default",
+                        "access_token": "hermes",
+                        "refresh_token": "hermes-refresh",
+                        "expires_at": None,
+                        "scopes": [],
+                        "region": "eu",
+                        "token_type": "Bearer",
+                    }
+                }
+            }
+        },
+    }
+    install_fake_hermes_auth(monkeypatch, store)
+
+    loaded = config.load_auth_state("default")
+
+    assert loaded.access_token == "hermes"
+    assert loaded.refresh_token == "hermes-refresh"
+    assert loaded.region == "eu"
+
+
+def test_clear_auth_state_removes_hermes_and_plugin_auth(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    store = {"version": 1, "providers": {}}
+    install_fake_hermes_auth(monkeypatch, store)
+    config.save_auth_state(config.AuthState(profile="default", access_token="access-token", region="na"))
+
+    config.clear_auth_state("default")
+
+    assert config.HERMES_AUTH_PROVIDER_ID not in store["providers"]
+    assert config.load_auth_state("default").access_token is None
+
+
+def test_bootstrap_status_reports_hermes_auth_store(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    install_fake_hermes_auth(monkeypatch, {"version": 1, "providers": {}})
+    cfg = config.save_config(config.PluginConfig(profile="default", client_id="client-123"))
+
+    bootstrap = tools._bootstrap_status(profile="default", cfg=cfg)  # noqa: SLF001
+
+    assert bootstrap["auth_store"] == "hermes"
+    assert bootstrap["auth_mirrored_to_plugin_state"] is True
 
 
 def test_navigation_waypoints_accepts_place_ids_and_encodes_ref_ids(tmp_path, monkeypatch) -> None:
@@ -387,6 +522,27 @@ def test_bootstrap_key_steps_require_real_hosting_and_client_secret(tmp_path, mo
     assert ready["next_action"] == "auth_register"
     assert ready["bootstrap"]["enrollment_ready"] is True
 
+
+
+
+def test_onboarding_status_returns_read_only_next_step(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+
+    payload = json.loads(tools_by_name["tescmd_onboarding_status"]({}))
+
+    assert payload["ok"] is True
+    assert payload["mutates_state"] is False
+    assert payload["phase"] == "configure_app"
+    assert payload["next_tool"] is None
+    assert payload["docs_anchor"].startswith("docs/ONBOARDING.md")
+    assert "client_id" in payload["missing_prerequisites"]
+    assert "tescmd_setup" not in json.dumps(payload)
+
+    config.save_config(config.PluginConfig(profile="default", client_id="client-123", domain="cars.example.com"))
+    configured = json.loads(tools_by_name["tescmd_onboarding_status"]({}))
+    assert configured["phase"] == "auth_login"
+    assert configured["next_tool"] == "tescmd_auth_login"
 
 def test_auth_login_without_client_id_points_to_readme_setup(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
@@ -743,6 +899,47 @@ def test_vehicle_and_command_tools_use_native_fleet_api(tmp_path, monkeypatch) -
     assert "https://fleet-api.prd.na.vn.cloud.tesla.com/api/1/vehicles" in urls
     assert "https://fleet-api.prd.na.vn.cloud.tesla.com/api/1/vehicles/5YJ3E1EA7JF000001/vehicle_data" in urls
     assert not any("/command/" in url for url in urls)
+
+
+def test_command_audit_logs_wake_attempts_and_redacts_target(tmp_path, monkeypatch, caplog) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na", default_vin="5YJ3E1EA7JF000001"))
+    config.save_auth_state(config.AuthState(profile="default", access_token="access-1", expires_at=9999999999, region="na"))
+
+    requests: list[tuple[str, str]] = []
+
+    def fake_request(method: str, url: str, **kwargs):
+        requests.append((method, url))
+        if url.endswith("/api/1/vehicles/5YJ3E1EA7JF000001/wake_up") and method == "POST":
+            return make_response(method, url, json_body={"response": {"state": "online"}})
+        raise AssertionError(f"unexpected request: {method} {url}")
+
+    monkeypatch.setattr(client.httpx, "request", fake_request)
+    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+
+    caplog.set_level(logging.INFO, logger="hermes_tescmd_plugin.audit")
+    denied = json.loads(tools_by_name["tescmd_vehicle_wake"]({}))
+    assert denied["ok"] is False
+    assert requests == []
+
+    allowed = json.loads(tools_by_name["tescmd_vehicle_wake"]({"confirm": True}))
+    assert allowed["ok"] is True
+
+    audit_payload = json.loads(tools_by_name["tescmd_audit_log"]({"limit": 10}))
+    assert audit_payload["ok"] is True
+    events = audit_payload["events"]
+    assert [event["stage"] for event in events] == ["denied", "attempt", "result"]
+    assert all(event["tool"] == "tescmd_vehicle_wake" for event in events)
+    assert all(event["wake"] is True for event in events)
+    assert all(event["target"] == {"provided": True, "hash": hashlib.sha256(b"5YJ3E1EA7JF000001").hexdigest()[:16], "suffix": "0001"} for event in events)
+    assert "5YJ3E1EA7JF000001" not in (tmp_path / "plugins/hermes-tescmd-plugin/audit/commands.jsonl").read_text()
+    assert "tescmd command audit event" in caplog.text
+    assert "tescmd_vehicle_wake" in caplog.text
+    assert '"stage":"denied"' in caplog.text
+    assert '"stage":"attempt"' in caplog.text
+    assert '"stage":"result"' in caplog.text
+    assert "5YJ3E1EA7JF000001" not in caplog.text
+    assert stat.S_IMODE((tmp_path / "plugins/hermes-tescmd-plugin/audit/commands.jsonl").stat().st_mode) == 0o600
 
 
 def test_full_vin_endpoints_resolve_default_fleet_id_from_vehicle_list(tmp_path, monkeypatch) -> None:

@@ -11,7 +11,7 @@ from typing import Any
 import httpx
 from cryptography.hazmat.primitives import serialization
 
-from . import auth, client, config
+from . import audit, auth, client, config
 
 WELL_KNOWN_PATH = ".well-known/appspecific/com.tesla.3p.public-key.pem"
 
@@ -212,6 +212,8 @@ def _bootstrap_status(*, profile: str, cfg: config.PluginConfig, auth_state: con
         "matches_local_key": False,
     }
     return {
+        "auth_store": "hermes" if config.hermes_auth_available() else "plugin",
+        "auth_mirrored_to_plugin_state": True,
         "app_configured": bool(cfg.client_id),
         "login_ready": bool(cfg.client_id),
         "pending_login": pending is not None,
@@ -350,6 +352,12 @@ def handle_status(args: dict[str, Any]) -> dict[str, Any]:
         "scopes": auth_state.scopes or [scope for scope in cfg.scopes if scope not in config.PARTNER_ONLY_SCOPES],
         "partner_only_scopes": [scope for scope in cfg.scopes if scope in config.PARTNER_ONLY_SCOPES],
         "expires_at": auth_state.expires_at,
+        "audit": {
+            "command_log_path": str(audit.audit_log_path()),
+            "hermes_agent_log_path": str(config.get_hermes_home() / "logs" / "agent.log"),
+            "logger": "hermes_tescmd_plugin.audit",
+            "message": "Side-effecting vehicle commands and wake attempts are appended as redacted JSONL audit events and emitted through Hermes logging.",
+        },
     }
     payload.update(_bootstrap_payload(profile=profile, cfg=cfg, auth_state=auth_state, pending=pending))
     _, public_path, key_present = _key_presence(profile)
@@ -514,6 +522,62 @@ def handle_auth_complete(args: dict[str, Any]) -> dict[str, Any]:
         code=args.get("code"),
         state=args.get("state"),
     )
+
+
+def _onboarding_docs_anchor(next_action: str) -> str:
+    return {
+        "configure_app": "docs/ONBOARDING.md#tesla-developer-app",
+        "auth_login": "docs/ONBOARDING.md#oauth-login",
+        "key_generate": "docs/ONBOARDING.md#vehicle-command-key",
+        "key_validate": "docs/ONBOARDING.md#host-and-validate-the-public-key",
+        "key_deploy": "docs/ONBOARDING.md#host-and-validate-the-public-key",
+        "auth_register": "docs/ONBOARDING.md#partner-registration-and-enrollment",
+        "vehicle_list": "docs/ONBOARDING.md#first-read-proof",
+        "setup": "docs/ONBOARDING.md#manual-plugin-config",
+    }.get(next_action, "docs/ONBOARDING.md")
+
+
+def _onboarding_next_tool(next_action: str) -> str | None:
+    return {
+        "auth_login": "tescmd_auth_login",
+        "key_generate": "tescmd_key_generate",
+        "key_validate": "tescmd_key_validate",
+        "key_deploy": "tescmd_key_deploy",
+        "auth_register": "tescmd_auth_register",
+        "vehicle_list": "tescmd_vehicle_list",
+    }.get(next_action)
+
+
+def handle_onboarding_status(args: dict[str, Any]) -> dict[str, Any]:
+    profile = _profile(args)
+    cfg = config.load_config(profile)
+    auth_state = config.load_auth_state(profile)
+    pending = config.load_pending_auth(profile)
+    bootstrap_payload = _bootstrap_payload(profile=profile, cfg=cfg, auth_state=auth_state, pending=pending)
+    next_action = bootstrap_payload["next_action"]
+    missing_config = [name for name, missing in bootstrap_payload["missing"].items() if missing]
+    bootstrap = bootstrap_payload["bootstrap"]
+    missing_prerequisites = list(dict.fromkeys(
+        missing_config
+        + bootstrap.get("missing_for_vehicle_commands", [])
+        + bootstrap.get("missing_for_signed_commands", [])
+    ))
+    return {
+        "ok": True,
+        "profile": profile,
+        "phase": next_action,
+        "next_action": next_action,
+        "next_tool": _onboarding_next_tool(next_action),
+        "docs_anchor": _onboarding_docs_anchor(next_action),
+        "missing_prerequisites": missing_prerequisites,
+        "next_steps": bootstrap_payload["next_steps"],
+        "readiness": bootstrap,
+        "redirect_uri": bootstrap_payload["redirect_uri"],
+        "expected_public_key_url": bootstrap_payload["expected_public_key_url"],
+        "enrollment_url": bootstrap_payload["enrollment_url"],
+        "mutates_state": False,
+        "message": "Read-only guided onboarding status. It never writes Tesla app config, OAuth tokens, keys, or vehicle state.",
+    }
 
 
 def handle_auth_status(args: dict[str, Any]) -> dict[str, Any]:
@@ -1319,6 +1383,22 @@ def handle_cache_clear(args: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "profile": profile, "enabled": True, "cleared": cleared}
 
 
+def handle_audit_log(args: dict[str, Any]) -> dict[str, Any]:
+    limit = args.get("limit", 20)
+    try:
+        limit = int(limit)
+    except (TypeError, ValueError) as exc:
+        raise client.TeslaAPIError("limit must be an integer") from exc
+    if limit < 1 or limit > 200:
+        raise client.TeslaAPIError("limit must be between 1 and 200")
+    return {
+        "ok": True,
+        "path": str(audit.audit_log_path()),
+        "events": audit.recent_command_events(limit),
+        "message": "Redacted JSONL audit log for side-effecting vehicle commands and wake attempts.",
+    }
+
+
 def handle_plugin_mode_info(args: dict[str, Any], *, mode: str) -> dict[str, Any]:
     profile = _profile(args)
     return {
@@ -1336,6 +1416,7 @@ def handle_plugin_mode_info(args: dict[str, Any], *, mode: str) -> dict[str, Any
 
 OPERATIONS = {
     "status": handle_status,
+    "onboarding_status": handle_onboarding_status,
     "auth_login": handle_auth_login,
     "auth_complete": handle_auth_complete,
     "auth_status": handle_auth_status,
@@ -1421,6 +1502,7 @@ OPERATIONS = {
     "help": handle_help,
     "cache_status": handle_cache_status,
     "cache_clear": handle_cache_clear,
+    "audit_log": handle_audit_log,
     "serve": lambda args: handle_plugin_mode_info(args, mode="serve"),
     "openclaw_bridge": lambda args: handle_plugin_mode_info(args, mode="openclaw_bridge"),
     "vehicle_telemetry_stream": lambda args: handle_plugin_mode_info(args, mode="vehicle_telemetry_stream"),

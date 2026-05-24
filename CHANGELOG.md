@@ -1,5 +1,69 @@
 # Changelog
 
+## 0.5.0a22
+
+- Added `tescmd_onboarding_status`, a non-mutating guided setup checklist that reports the current onboarding phase, missing prerequisites, next tool, docs anchor, and readiness booleans without writing config, auth, key, or vehicle state.
+- Added onboarding guidance to the `/tescmd` dashboard overview and admin read catalog so setup state is visible beside vehicle widgets.
+- Polished the dashboard into a compact command-center layout with read-only/action-armed status, setup guidance, a two-column workbench, and clearer last-payload placement.
+
+## 0.5.0a21
+
+- Emitted every redacted command audit event through the standard Python logger so Hermes' configured `agent.log` captures wake and side-effect command audit lines.
+- Kept the plugin-local JSONL audit trail as the structured readback store while making runtime audit activity visible in normal Hermes logs.
+
+## 0.5.0a20
+
+- Added a redacted JSONL command audit log under plugin-owned state for side-effecting vehicle commands and wake attempts.
+- Added `tescmd_audit_log` plus status metadata pointing to the audit log path.
+- Wake command denials, attempts, and results are audited without writing full VINs, precise locations, tokens, PINs, or secrets.
+
+## 0.5.0a19
+
+- Made the `/tescmd` vehicle map self-contained by bundling the Leaflet layout rules needed for panes, tiles, controls, and attribution inside the plugin stylesheet.
+- Fixed broken-looking map tiles when the external Leaflet CSS is blocked, delayed, or not applied by the Hermes dashboard shell.
+
+## 0.5.0a18
+
+- Tightened the `/tescmd` dashboard density so the vehicle overview appears immediately below the header and widgets use compact cards.
+- Fixed the Leaflet map container sizing regression that could make the map thousands of pixels tall or appear broken.
+- Made the vehicle map controls compact and disabled scroll-wheel zoom to keep the dashboard stable.
+
+## 0.5.0a17
+
+- Replaced raw JSON slash-command responses with concise human-readable success/failure summaries.
+- Summarized common read payloads such as charge, climate, location, vehicle context, cache source, and Tesla API command result.
+- Kept explicit retry guidance for side-effect commands that fail closed without `confirm=true`.
+
+## 0.5.0a16
+
+- Added a visual Tesla dashboard overview endpoint and UI with read-only vehicle snapshot cards.
+- Added a Leaflet/OpenStreetMap vehicle-location map when coordinates are available.
+- Added charge, climate, security/closure, and location summary widgets above the raw payload panel.
+
+## 0.5.0a15
+
+- Improved `/tescmd-*` slash-command confirmation failures so side-effect denials include the exact retry command, for example `/tescmd-honk confirm=true`, and a short explanation of why explicit confirmation is required.
+
+## 0.5.0a14
+
+- Integrated Tesla OAuth token persistence with Hermes' intrinsic auth store when running inside Hermes, while keeping the plugin-local auth mirror for compatibility and standalone package contexts.
+- Added status/readiness metadata that reports whether the active auth store is Hermes-backed or plugin-local.
+- Documented the Hermes auth store relationship and added regression coverage for save, load preference, clear, and status reporting behavior.
+
+## 0.5.0a13
+
+- Expanded `/tescmd-*` slash commands with readiness/admin checks, richer vehicle-state reads, unlock/Sentry, climate/charging controls, body controls, media controls, and navigation helpers while keeping physical actions confirm-gated.
+- Expanded the `/tescmd` Hermes dashboard with grouped read panels, wake/no-cache/unit read options, extra status/auth/key/cache panels, and guarded security, climate, charging, body, media, and navigation action groups.
+- Added dashboard API catalog/read/action coverage for the expanded read/action surface, including action-specific arguments such as charge limit, amperage, temperature, Sentry enabled state, media volume, destination, GPS coordinates, and waypoint Place IDs.
+- Kept higher-risk flows such as remote start, speed-limit PINs, valet/PIN-to-drive, erase-user-data, and raw Fleet API calls out of the dashboard quick-action surface.
+
+## 0.5.0a12
+
+- Added Hermes plugin slash commands for common Tesla operations: `/tescmd-status`, `/tescmd-vehicles`, `/tescmd-vehicle-status`, `/tescmd-charge`, `/tescmd-climate`, `/tescmd-location`, `/tescmd-wake`, `/tescmd-flash`, `/tescmd-honk`, and `/tescmd-lock`.
+- Added a Hermes dashboard extension tab at `/tescmd` with status/read panels, vehicle selection, and confirm-gated quick-action buttons that call the existing native Tesla tool handlers.
+- Mirrored packaged dashboard assets into `HERMES_HOME/plugins/hermes-tescmd-plugin/dashboard` during plugin registration so pip entry-point installs are discoverable by the Hermes dashboard without storing mutable Tesla state in package files.
+- Added slash/dashboard regression tests covering argument parsing, command registration, confirm-before-network behavior, and dashboard asset installation.
+
 ## 0.5.0a11
 
 - Reverted the compact default tool surface. Hermes now registers the full 173-tool Tesla Fleet catalog by default again because the observed issue is command-invocation latency, not tool-load latency.
