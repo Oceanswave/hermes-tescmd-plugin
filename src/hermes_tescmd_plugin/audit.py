@@ -16,6 +16,7 @@ AUDIT_LOG_NAME = "commands.jsonl"
 _MAX_DETAIL_LENGTH = 320
 _SENSITIVE_ARG_KEYS = {
     "access_token",
+    "address",
     "auth",
     "callback_url",
     "client_id",
@@ -23,8 +24,11 @@ _SENSITIVE_ARG_KEYS = {
     "code",
     "default_vin",
     "destination",
+    "email",
+    "formatted_address",
     "lat",
     "latitude",
+    "location",
     "lon",
     "longitude",
     "oauth_redirect_uri",
@@ -32,6 +36,7 @@ _SENSITIVE_ARG_KEYS = {
     "pin",
     "place_ids",
     "private_key_path",
+    "query",
     "refresh_token",
     "state",
     "token",
@@ -97,10 +102,35 @@ def _safe_arg_summary(args: dict[str, Any]) -> dict[str, Any]:
             summary[key_text] = "[REDACTED]" if value is not None else None
         elif isinstance(value, (bool, int, float)) or value is None:
             summary[key_text] = value
-        elif isinstance(value, str) and len(value) <= 40:
-            summary[key_text] = value
         else:
-            summary[key_text] = f"[{type(value).__name__}]"
+            summary[key_text] = _redacted_value_summary(value)
+    return summary
+
+
+def _redacted_value_summary(value: Any) -> dict[str, Any]:
+    """Return a useful audit breadcrumb without storing arbitrary user data.
+
+    Only explicitly allowlisted scalar fields are written verbatim. Unknown
+    strings can contain addresses, names, email fragments, place queries, or raw
+    API payloads, so the audit log records only type/size/hash metadata. The
+    hash lets operators correlate repeated values across events without leaking
+    the value itself to Hermes logs or JSONL audit storage.
+    """
+    summary: dict[str, Any] = {
+        "redacted": True,
+        "type": type(value).__name__,
+    }
+    if isinstance(value, str):
+        summary["length"] = len(value)
+        summary["hash"] = _hash_value(value)
+    elif isinstance(value, (list, tuple, set)):
+        summary["count"] = len(value)
+        summary["hash"] = _hash_value(json.dumps(list(value), sort_keys=True, default=str, separators=(",", ":")))
+    elif isinstance(value, dict):
+        summary["count"] = len(value)
+        summary["hash"] = _hash_value(json.dumps(value, sort_keys=True, default=str, separators=(",", ":")))
+    else:
+        summary["hash"] = _hash_value(value)
     return summary
 
 
