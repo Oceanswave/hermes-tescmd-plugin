@@ -93,7 +93,9 @@ def encode_metadata(
     flags = _require_uint32("flags", flags)
 
     parts = bytearray()
-    parts.extend(encode_tlv(TAG_SIGNATURE_TYPE, bytes([SIGNATURE_TYPE_HMAC_PERSONALIZED])))
+    parts.extend(
+        encode_tlv(TAG_SIGNATURE_TYPE, bytes([SIGNATURE_TYPE_HMAC_PERSONALIZED]))
+    )
     # Domain is encoded as a single byte (numeric enum value), matching the Go SDK:
     #   meta.Add(TAG_DOMAIN, []byte{byte(x.Domain)})
     parts.extend(encode_tlv(TAG_DOMAIN, bytes([int(domain)])))

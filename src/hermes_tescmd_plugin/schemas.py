@@ -27,7 +27,18 @@ def _param_schema(spec: ParamSpec) -> dict[str, Any]:
     }
     if spec.enum:
         schema["enum"] = list(spec.enum)
-    sensitive_markers = ("secret", "token", "password", "pin", "code", "auth", "api_key", "vin", "state", "callback_url")
+    sensitive_markers = (
+        "secret",
+        "token",
+        "password",
+        "pin",
+        "code",
+        "auth",
+        "api_key",
+        "vin",
+        "state",
+        "callback_url",
+    )
     if any(marker in spec.name.lower() for marker in sensitive_markers):
         schema["writeOnly"] = True
         schema["x-sensitive"] = True

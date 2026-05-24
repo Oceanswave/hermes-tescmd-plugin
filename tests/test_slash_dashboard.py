@@ -5,7 +5,13 @@ from pathlib import Path
 
 from hermes_tescmd_plugin import config, slash
 from hermes_tescmd_plugin.dashboard import ensure_dashboard_installed
-from hermes_tescmd_plugin.dashboard.plugin_api import QuickActionBody, overview, quick_action, read, tools
+from hermes_tescmd_plugin.dashboard.plugin_api import (
+    QuickActionBody,
+    overview,
+    quick_action,
+    read,
+    tools,
+)
 
 
 class FakeContext:
@@ -17,7 +23,9 @@ class FakeContext:
 
 
 def test_slash_args_parse_key_values_arrays_and_bare_vin() -> None:
-    args = slash.parse_args('5YJ3E1EA7JF000001 endpoints=charge_state,drive_state wake=true region=na percent=80')
+    args = slash.parse_args(
+        "5YJ3E1EA7JF000001 endpoints=charge_state,drive_state wake=true region=na percent=80"
+    )
 
     assert args["vin"] == "5YJ3E1EA7JF000001"
     assert args["endpoints"] == ["charge_state", "drive_state"]
@@ -26,7 +34,9 @@ def test_slash_args_parse_key_values_arrays_and_bare_vin() -> None:
     assert args["percent"] == 80
 
 
-def test_registers_tescmd_slash_commands_and_status_handler(tmp_path, monkeypatch) -> None:
+def test_registers_tescmd_slash_commands_and_status_handler(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     ctx = FakeContext()
     slash.register_commands(ctx)
@@ -86,7 +96,9 @@ def test_registers_tescmd_slash_commands_and_status_handler(tmp_path, monkeypatc
     }
     assert expected_commands <= set(by_name)
     assert by_name["tescmd-honk"]["args_hint"] == "[vin] confirm=true"
-    assert by_name["tescmd-charge-limit"]["args_hint"] == "[vin] percent=80 confirm=true"
+    assert (
+        by_name["tescmd-charge-limit"]["args_hint"] == "[vin] percent=80 confirm=true"
+    )
 
     config.save_config(config.PluginConfig(profile="default", client_id="client-123"))
     output = by_name["tescmd-status"]["handler"]("")
@@ -94,18 +106,30 @@ def test_registers_tescmd_slash_commands_and_status_handler(tmp_path, monkeypatc
     assert "app_configured: True" in output
 
 
-def test_side_effect_slash_command_requires_confirm_before_network(tmp_path, monkeypatch) -> None:
+def test_side_effect_slash_command_requires_confirm_before_network(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", default_vin="5YJ3E1EA7JF000001"))
-    config.save_auth_state(config.AuthState(profile="default", access_token="token", region="na"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default", client_id="client-123", default_vin="5YJ3E1EA7JF000001"
+        )
+    )
+    config.save_auth_state(
+        config.AuthState(profile="default", access_token="token", region="na")
+    )
 
     calls: list[tuple] = []
 
     def fail_if_called(*args, **kwargs):
         calls.append((args, kwargs))
-        raise AssertionError("vehicle command should not be called without confirm=true")
+        raise AssertionError(
+            "vehicle command should not be called without confirm=true"
+        )
 
-    monkeypatch.setattr("hermes_tescmd_plugin.client.TeslaFleetClient.vehicle_command", fail_if_called)
+    monkeypatch.setattr(
+        "hermes_tescmd_plugin.client.TeslaFleetClient.vehicle_command", fail_if_called
+    )
     ctx = FakeContext()
     slash.register_commands(ctx)
     by_name = {command["name"]: command for command in ctx.commands}
@@ -144,7 +168,13 @@ def test_read_slash_command_success_summarizes_vehicle_data() -> None:
         {
             "ok": True,
             "vin": "5YJ3E1EA7JF000001",
-            "data": {"charge_state": {"battery_level": 65, "charging_state": "Disconnected", "charge_limit_soc": 80}},
+            "data": {
+                "charge_state": {
+                    "battery_level": 65,
+                    "charging_state": "Disconnected",
+                    "charge_limit_soc": 80,
+                }
+            },
             "cache": {"hit": True},
         },
     )
@@ -168,7 +198,9 @@ def test_dashboard_catalog_includes_expanded_reads_and_actions() -> None:
     assert catalog["quick_actions"]["nav"] == "tescmd_navigation_send"
 
 
-def test_dashboard_overview_collects_visual_read_sections_without_wake(monkeypatch) -> None:
+def test_dashboard_overview_collects_visual_read_sections_without_wake(
+    monkeypatch,
+) -> None:
     calls: list[tuple[str, dict]] = []
 
     def fake_run(tool_name, args=None):
@@ -177,7 +209,13 @@ def test_dashboard_overview_collects_visual_read_sections_without_wake(monkeypat
 
     monkeypatch.setattr("hermes_tescmd_plugin.dashboard.plugin_api._run", fake_run)
 
-    payload = overview(vin="5YJ3E1EA7JF000001", profile="daily", region="na", no_cache=True, units="metric")
+    payload = overview(
+        vin="5YJ3E1EA7JF000001",
+        profile="daily",
+        region="na",
+        no_cache=True,
+        units="metric",
+    )
 
     assert payload["ok"] is True
     assert payload["sections"]["charge"]["tool"] == "tescmd_charge_status"
@@ -270,18 +308,30 @@ def test_dashboard_quick_action_passes_extra_action_arguments(monkeypatch) -> No
     ]
 
 
-def test_dashboard_quick_action_requires_confirm_before_network(tmp_path, monkeypatch) -> None:
+def test_dashboard_quick_action_requires_confirm_before_network(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", default_vin="5YJ3E1EA7JF000001"))
-    config.save_auth_state(config.AuthState(profile="default", access_token="token", region="na"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default", client_id="client-123", default_vin="5YJ3E1EA7JF000001"
+        )
+    )
+    config.save_auth_state(
+        config.AuthState(profile="default", access_token="token", region="na")
+    )
 
     calls: list[tuple] = []
 
     def fail_if_called(*args, **kwargs):
         calls.append((args, kwargs))
-        raise AssertionError("vehicle command should not be called without confirm=true")
+        raise AssertionError(
+            "vehicle command should not be called without confirm=true"
+        )
 
-    monkeypatch.setattr("hermes_tescmd_plugin.client.TeslaFleetClient.vehicle_command", fail_if_called)
+    monkeypatch.setattr(
+        "hermes_tescmd_plugin.client.TeslaFleetClient.vehicle_command", fail_if_called
+    )
 
     payload = quick_action(QuickActionBody(action="honk", confirm=False))
 

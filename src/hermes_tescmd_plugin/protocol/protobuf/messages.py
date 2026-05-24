@@ -269,10 +269,14 @@ class MessageStatus:
     def serialize(self) -> bytes:
         parts = bytearray()
         if self.operation_status != OperationStatus.OPERATIONSTATUS_OK:
-            parts.extend(_encode_varint_field(_TAG_MS_OPERATION_STATUS, self.operation_status))
+            parts.extend(
+                _encode_varint_field(_TAG_MS_OPERATION_STATUS, self.operation_status)
+            )
         if self.signed_message_fault != MessageFault.ERROR_NONE:
             parts.extend(
-                _encode_varint_field(_TAG_MS_SIGNED_MESSAGE_FAULT, self.signed_message_fault)
+                _encode_varint_field(
+                    _TAG_MS_SIGNED_MESSAGE_FAULT, self.signed_message_fault
+                )
             )
         return bytes(parts)
 
@@ -343,7 +347,11 @@ class Destination:
         if self.domain != Domain.DOMAIN_BROADCAST:
             parts.extend(_encode_varint_field(_TAG_DEST_DOMAIN, self.domain))
         if self.routing_address:
-            parts.extend(_encode_length_delimited(_TAG_DEST_ROUTING_ADDRESS, self.routing_address))
+            parts.extend(
+                _encode_length_delimited(
+                    _TAG_DEST_ROUTING_ADDRESS, self.routing_address
+                )
+            )
         return bytes(parts)
 
 
@@ -467,11 +475,15 @@ class SignatureData:
         parts = bytearray()
         if self.signer_identity:
             parts.extend(
-                _encode_length_delimited(_TAG_SD_SIGNER_IDENTITY, self.signer_identity.serialize())
+                _encode_length_delimited(
+                    _TAG_SD_SIGNER_IDENTITY, self.signer_identity.serialize()
+                )
             )
         if self.hmac_personalized_data:
             parts.extend(
-                _encode_length_delimited(_TAG_SD_HMAC_TAG, self.hmac_personalized_data.serialize())
+                _encode_length_delimited(
+                    _TAG_SD_HMAC_TAG, self.hmac_personalized_data.serialize()
+                )
             )
         if self.session_info_tag:
             parts.extend(
@@ -535,11 +547,15 @@ class RoutableMessage:
 
         if self.to_destination:
             parts.extend(
-                _encode_length_delimited(_TAG_TO_DESTINATION, self.to_destination.serialize())
+                _encode_length_delimited(
+                    _TAG_TO_DESTINATION, self.to_destination.serialize()
+                )
             )
         if self.from_destination:
             parts.extend(
-                _encode_length_delimited(_TAG_FROM_DESTINATION, self.from_destination.serialize())
+                _encode_length_delimited(
+                    _TAG_FROM_DESTINATION, self.from_destination.serialize()
+                )
             )
         if self.protobuf_message_as_bytes:
             parts.extend(
@@ -552,7 +568,9 @@ class RoutableMessage:
         if self.message_status is not None:
             ms_bytes = self.message_status.serialize()
             if ms_bytes:
-                parts.extend(_encode_length_delimited(_TAG_SIGNED_MESSAGE_STATUS, ms_bytes))
+                parts.extend(
+                    _encode_length_delimited(_TAG_SIGNED_MESSAGE_STATUS, ms_bytes)
+                )
         if self.session_info_request:
             parts.extend(
                 _encode_length_delimited(
@@ -561,7 +579,9 @@ class RoutableMessage:
             )
         if self.signature_data:
             parts.extend(
-                _encode_length_delimited(_TAG_SIGNATURE_DATA, self.signature_data.serialize())
+                _encode_length_delimited(
+                    _TAG_SIGNATURE_DATA, self.signature_data.serialize()
+                )
             )
         if self.request_uuid:
             parts.extend(_encode_length_delimited(_TAG_REQUEST_UUID, self.request_uuid))

@@ -32,20 +32,30 @@ def generate_code_challenge(code_verifier: str) -> str:
     return _urlsafe_b64(hashlib.sha256(code_verifier.encode()).digest())
 
 
-def start_login(profile: str, *, redirect_port: int | None = None, scopes: list[str] | None = None) -> dict[str, Any]:
+def start_login(
+    profile: str, *, redirect_port: int | None = None, scopes: list[str] | None = None
+) -> dict[str, Any]:
     cfg = config.load_config(profile)
     if not cfg.client_id:
-        raise client.TeslaAPIError("Edit the plugin config file first so the plugin knows your Tesla client ID. See the README configuration checklist.")
+        raise client.TeslaAPIError(
+            "Edit the plugin config file first so the plugin knows your Tesla client ID. See the README configuration checklist."
+        )
 
     redirect_port = redirect_port or cfg.redirect_port
     requested_scopes = scopes or cfg.scopes or list(config.DEFAULT_SCOPES)
-    active_scopes = [scope for scope in requested_scopes if scope not in config.PARTNER_ONLY_SCOPES]
-    partner_only_scopes = [scope for scope in requested_scopes if scope in config.PARTNER_ONLY_SCOPES]
+    active_scopes = [
+        scope for scope in requested_scopes if scope not in config.PARTNER_ONLY_SCOPES
+    ]
+    partner_only_scopes = [
+        scope for scope in requested_scopes if scope in config.PARTNER_ONLY_SCOPES
+    ]
     state = secrets.token_urlsafe(24)
     code_verifier = generate_code_verifier()
     redirect_uri = config.resolve_oauth_redirect_uri(cfg)
     if not redirect_uri:
-        raise client.TeslaAPIError("Configure a public HTTPS OAuth callback first: set oauth_redirect_uri, or set domain so the plugin can use https://<domain>/callback. Tesla app registration requires a public callback URL.")
+        raise client.TeslaAPIError(
+            "Configure a public HTTPS OAuth callback first: set oauth_redirect_uri, or set domain so the plugin can use https://<domain>/callback. Tesla app registration requires a public callback URL."
+        )
 
     pending = config.PendingAuthState(
         profile=profile,
@@ -95,12 +105,16 @@ def _extract_code_and_state(
                 expected.port,
                 expected.path,
             ):
-                raise client.TeslaAPIError("OAuth callback URL does not match the pending login redirect URI.")
+                raise client.TeslaAPIError(
+                    "OAuth callback URL does not match the pending login redirect URI."
+                )
         query = parse_qs(parsed.query)
         code = query.get("code", [None])[0]
         state = query.get("state", [None])[0]
     if not code or not state:
-        raise client.TeslaAPIError("Provide either callback_url or both code and state.")
+        raise client.TeslaAPIError(
+            "Provide either callback_url or both code and state."
+        )
     return code, state
 
 
@@ -113,10 +127,14 @@ def complete_login(
 ) -> dict[str, Any]:
     pending = config.load_pending_auth(profile)
     if pending is None:
-        raise client.TeslaAPIError("No pending Tesla login was found. Run tescmd_auth_login first.")
+        raise client.TeslaAPIError(
+            "No pending Tesla login was found. Run tescmd_auth_login first."
+        )
     if int(__import__("time").time()) - pending.created_at > PENDING_AUTH_TTL_SECONDS:
         config.clear_pending_auth(profile)
-        raise client.TeslaAPIError("Pending Tesla login has expired. Run tescmd_auth_login again.")
+        raise client.TeslaAPIError(
+            "Pending Tesla login has expired. Run tescmd_auth_login again."
+        )
     code, state = _extract_code_and_state(
         callback_url=callback_url,
         code=code,
@@ -124,7 +142,9 @@ def complete_login(
         expected_redirect_uri=pending.redirect_uri,
     )
     if state != pending.state:
-        raise client.TeslaAPIError("Returned OAuth state does not match the pending login session.")
+        raise client.TeslaAPIError(
+            "Returned OAuth state does not match the pending login session."
+        )
 
     cfg = config.load_config(profile)
     auth_state = client.exchange_authorization_code(
@@ -165,8 +185,12 @@ def auth_status(profile: str) -> dict[str, Any]:
     auth_state = config.load_auth_state(profile)
     pending = config.load_pending_auth(profile)
     granted_scopes = set(auth_state.scopes)
-    configured_user_scopes = [scope for scope in cfg.scopes if scope not in config.PARTNER_ONLY_SCOPES]
-    configured_partner_scopes = [scope for scope in cfg.scopes if scope in config.PARTNER_ONLY_SCOPES]
+    configured_user_scopes = [
+        scope for scope in cfg.scopes if scope not in config.PARTNER_ONLY_SCOPES
+    ]
+    configured_partner_scopes = [
+        scope for scope in cfg.scopes if scope in config.PARTNER_ONLY_SCOPES
+    ]
     return {
         "ok": True,
         "profile": profile,
@@ -180,7 +204,11 @@ def auth_status(profile: str) -> dict[str, Any]:
         "configured_scopes": cfg.scopes,
         "configured_user_scopes": configured_user_scopes,
         "partner_only_scopes": configured_partner_scopes,
-        "missing_granted_user_scopes": [scope for scope in configured_user_scopes if granted_scopes and scope not in granted_scopes],
+        "missing_granted_user_scopes": [
+            scope
+            for scope in configured_user_scopes
+            if granted_scopes and scope not in granted_scopes
+        ],
         "expires_at": auth_state.expires_at,
         "vehicle_command_key": {
             "private_key_path": cfg.vehicle_command_key_private_path,
@@ -203,9 +231,13 @@ def export_auth(profile: str, *, output_path: str | None = None) -> dict[str, An
     path = path.resolve()
     export_root = export_dir.resolve()
     if path != export_root and export_root not in path.parents:
-        raise client.TeslaAPIError(f"output_path must stay under the plugin auth export directory: {export_root}")
+        raise client.TeslaAPIError(
+            f"output_path must stay under the plugin auth export directory: {export_root}"
+        )
     if path.exists():
-        raise client.TeslaAPIError(f"Refusing to overwrite existing auth export file: {path}")
+        raise client.TeslaAPIError(
+            f"Refusing to overwrite existing auth export file: {path}"
+        )
     path.parent.mkdir(parents=True, exist_ok=True)
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     fd = os.open(path, flags, 0o600)
@@ -233,27 +265,47 @@ def import_auth(profile: str, auth_blob: dict[str, Any] | str) -> dict[str, Any]
     if not isinstance(payload, dict):
         raise client.TeslaAPIError("Auth import payload must be a JSON object.")
 
-    allowed = {"access_token", "refresh_token", "expires_at", "scopes", "region", "token_type", "profile"}
+    allowed = {
+        "access_token",
+        "refresh_token",
+        "expires_at",
+        "scopes",
+        "region",
+        "token_type",
+        "profile",
+    }
     unknown = set(payload) - allowed
     if unknown:
-        raise client.TeslaAPIError(f"Auth import payload contains unsupported fields: {sorted(unknown)}")
+        raise client.TeslaAPIError(
+            f"Auth import payload contains unsupported fields: {sorted(unknown)}"
+        )
     scopes = payload.get("scopes", [])
     if scopes is None:
         scopes = []
-    if not isinstance(scopes, list) or any(not isinstance(item, str) for item in scopes):
-        raise client.TeslaAPIError("Auth import payload field `scopes` must be a list of strings.")
+    if not isinstance(scopes, list) or any(
+        not isinstance(item, str) for item in scopes
+    ):
+        raise client.TeslaAPIError(
+            "Auth import payload field `scopes` must be a list of strings."
+        )
     region = payload.get("region") or config.DEFAULT_REGION
     if region not in client.REGION_BASE_URLS:
         raise client.TeslaAPIError("Auth import payload field `region` is unsupported.")
     token_type = payload.get("token_type") or "Bearer"
     if token_type != "Bearer":
-        raise client.TeslaAPIError("Auth import payload field `token_type` must be Bearer.")
+        raise client.TeslaAPIError(
+            "Auth import payload field `token_type` must be Bearer."
+        )
     expires_at = payload.get("expires_at")
     if expires_at is not None and (not isinstance(expires_at, int) or expires_at < 0):
-        raise client.TeslaAPIError("Auth import payload field `expires_at` must be a non-negative integer.")
+        raise client.TeslaAPIError(
+            "Auth import payload field `expires_at` must be a non-negative integer."
+        )
     for name in ("access_token", "refresh_token"):
         if payload.get(name) is not None and not isinstance(payload.get(name), str):
-            raise client.TeslaAPIError(f"Auth import payload field `{name}` must be a string when present.")
+            raise client.TeslaAPIError(
+                f"Auth import payload field `{name}` must be a string when present."
+            )
 
     try:
         state = config.AuthState(
@@ -266,7 +318,9 @@ def import_auth(profile: str, auth_blob: dict[str, Any] | str) -> dict[str, Any]
             token_type=token_type,
         )
     except TypeError as exc:
-        raise client.TeslaAPIError("Auth import payload is missing required fields or has invalid values.") from exc
+        raise client.TeslaAPIError(
+            "Auth import payload is missing required fields or has invalid values."
+        ) from exc
     config.save_auth_state(state)
     return {
         "ok": True,
@@ -277,7 +331,9 @@ def import_auth(profile: str, auth_blob: dict[str, Any] | str) -> dict[str, Any]
     }
 
 
-def generate_vehicle_command_keypair(profile: str, *, domain: str | None = None, force: bool = False) -> dict[str, Any]:
+def generate_vehicle_command_keypair(
+    profile: str, *, domain: str | None = None, force: bool = False
+) -> dict[str, Any]:
     cfg = config.load_config(profile)
     domain = domain or cfg.domain
     key_dir = config.get_plugin_home() / "keys" / profile
@@ -290,7 +346,9 @@ def generate_vehicle_command_keypair(profile: str, *, domain: str | None = None,
     private_key_path = key_dir / "vehicle-command-key.pem"
     public_key_path = key_dir / "vehicle-command-key.public.pem"
     if not force and (private_key_path.exists() or public_key_path.exists()):
-        raise client.TeslaAPIError("Vehicle-command key already exists. Use tescmd_key_generate with force=true if you really want to replace it.")
+        raise client.TeslaAPIError(
+            "Vehicle-command key already exists. Use tescmd_key_generate with force=true if you really want to replace it."
+        )
 
     private_key = ec.generate_private_key(ec.SECP256R1())
     public_key = private_key.public_key()

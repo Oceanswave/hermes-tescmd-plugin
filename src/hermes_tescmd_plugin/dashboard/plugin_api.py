@@ -102,14 +102,20 @@ def _run(tool_name: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
     try:
         data = json.loads(payload)
     except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=502, detail="tescmd tool returned non-JSON output") from exc
+        raise HTTPException(
+            status_code=502, detail="tescmd tool returned non-JSON output"
+        ) from exc
     if not isinstance(data, dict):
-        raise HTTPException(status_code=502, detail="tescmd tool returned an unexpected payload")
+        raise HTTPException(
+            status_code=502, detail="tescmd tool returned an unexpected payload"
+        )
     return data
 
 
 class QuickActionBody(BaseModel):
-    action: str = Field(..., description="Quick action key, e.g. flash, honk, wake, climate-start.")
+    action: str = Field(
+        ..., description="Quick action key, e.g. flash, honk, wake, climate-start."
+    )
     vin: str | None = None
     profile: str = "default"
     region: str | None = None
@@ -127,7 +133,9 @@ class QuickActionBody(BaseModel):
     place_ids: list[str] | None = None
 
 
-def _base_vehicle_args(profile: str, vin: str | None = None, region: str | None = None) -> dict[str, Any]:
+def _base_vehicle_args(
+    profile: str, vin: str | None = None, region: str | None = None
+) -> dict[str, Any]:
     args: dict[str, Any] = {"profile": profile}
     if vin:
         args["vin"] = vin
@@ -172,7 +180,11 @@ def _safe_run(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
     except Exception as exc:  # Keep the visual dashboard resilient when one read fails.
         return {"ok": False, "error": str(exc), "tool": tool_name}
     if not isinstance(payload, dict):
-        return {"ok": False, "error": "Unexpected non-object payload", "tool": tool_name}
+        return {
+            "ok": False,
+            "error": "Unexpected non-object payload",
+            "tool": tool_name,
+        }
     return payload
 
 
@@ -205,7 +217,10 @@ def overview(
         "region": region,
         "status": _safe_run("tescmd_status", {"profile": profile}),
         "onboarding": _safe_run("tescmd_onboarding_status", {"profile": profile}),
-        "vehicles": _safe_run("tescmd_vehicle_list", {k: v for k, v in {"profile": profile, "region": region}.items() if v}),
+        "vehicles": _safe_run(
+            "tescmd_vehicle_list",
+            {k: v for k, v in {"profile": profile, "region": region}.items() if v},
+        ),
         "sections": sections,
     }
 
@@ -215,7 +230,9 @@ def vehicle(
     vin: str | None = None,
     profile: str = "default",
     region: str | None = None,
-    endpoints: str | None = Query(None, description="Comma-separated vehicle_data endpoints."),
+    endpoints: str | None = Query(
+        None, description="Comma-separated vehicle_data endpoints."
+    ),
     wake: bool = False,
     confirm: bool = False,
 ) -> dict[str, Any]:
@@ -225,7 +242,9 @@ def vehicle(
     if region:
         args["region"] = region
     if endpoints:
-        args["endpoints"] = [part.strip() for part in endpoints.split(",") if part.strip()]
+        args["endpoints"] = [
+            part.strip() for part in endpoints.split(",") if part.strip()
+        ]
     return _run("tescmd_vehicle_status", args)
 
 
@@ -268,7 +287,9 @@ def read(
 def quick_action(body: QuickActionBody) -> dict[str, Any]:
     tool_name = _QUICK_ACTION_TO_TOOL.get(body.action)
     if not tool_name:
-        raise HTTPException(status_code=404, detail=f"Unknown quick action: {body.action}")
+        raise HTTPException(
+            status_code=404, detail=f"Unknown quick action: {body.action}"
+        )
     args = _base_vehicle_args(body.profile, body.vin, body.region)
     args["confirm"] = bool(body.confirm)
     args.update(_ACTION_DEFAULTS.get(body.action, {}))

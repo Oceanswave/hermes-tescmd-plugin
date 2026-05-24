@@ -31,7 +31,9 @@ def _safe_payload(value: Any) -> Any:
 class TeslaAPIError(Exception):
     """Base exception for Tesla Fleet API and protocol failures."""
 
-    def __init__(self, message: str, status_code: int | None = None, payload=None) -> None:
+    def __init__(
+        self, message: str, status_code: int | None = None, payload=None
+    ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.payload = _safe_payload(payload)
@@ -50,13 +52,20 @@ class VehicleNotFoundError(TeslaAPIError):
 
 
 class CommandFailedError(TeslaAPIError):
-    def __init__(self, message: str, reason: str, status_code: int | None = None, payload=None) -> None:
+    def __init__(
+        self, message: str, reason: str, status_code: int | None = None, payload=None
+    ) -> None:
         super().__init__(message, status_code=status_code, payload=payload)
         self.reason = reason
 
 
 class RateLimitError(TeslaAPIError):
-    def __init__(self, message: str = "Rate limit exceeded", retry_after: int | None = None, payload=None) -> None:
+    def __init__(
+        self,
+        message: str = "Rate limit exceeded",
+        retry_after: int | None = None,
+        payload=None,
+    ) -> None:
         super().__init__(message, status_code=429, payload=payload)
         self.retry_after = retry_after
 
@@ -71,7 +80,6 @@ class NetworkError(TeslaAPIError):
 
 class ConfigError(Exception):
     pass
-
 
 
 class SessionError(TeslaAPIError):
