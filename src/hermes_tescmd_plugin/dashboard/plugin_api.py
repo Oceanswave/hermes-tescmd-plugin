@@ -4,7 +4,7 @@ import json
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from hermes_tescmd_plugin import runtime
 from hermes_tescmd_plugin.dashboard import ensure_dashboard_installed
@@ -113,6 +113,8 @@ def _run(tool_name: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
 
 
 class QuickActionBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     action: str = Field(
         ..., description="Quick action key, e.g. flash, honk, wake, climate-start."
     )

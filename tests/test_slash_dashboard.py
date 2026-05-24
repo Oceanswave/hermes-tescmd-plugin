@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from hermes_tescmd_plugin import config, slash
 from hermes_tescmd_plugin.dashboard import ensure_dashboard_installed
 from hermes_tescmd_plugin.dashboard.plugin_api import (
@@ -306,6 +308,13 @@ def test_dashboard_quick_action_passes_extra_action_arguments(monkeypatch) -> No
             },
         )
     ]
+
+
+def test_dashboard_quick_action_rejects_unmodeled_fields() -> None:
+    with pytest.raises(ValueError, match="unexpected"):
+        QuickActionBody.model_validate(
+            {"action": "honk", "confirm": True, "unexpected": "ignored"}
+        )
 
 
 def test_dashboard_quick_action_requires_confirm_before_network(

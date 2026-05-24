@@ -131,10 +131,14 @@ def _redacted_value_summary(value: Any) -> dict[str, Any]:
         summary["hash"] = _hash_value(value)
     elif isinstance(value, (list, tuple, set)):
         summary["count"] = len(value)
-        summary["hash"] = _hash_value(json.dumps(list(value), sort_keys=True, default=str, separators=(",", ":")))
+        summary["hash"] = _hash_value(
+            json.dumps(list(value), sort_keys=True, default=str, separators=(",", ":"))
+        )
     elif isinstance(value, dict):
         summary["count"] = len(value)
-        summary["hash"] = _hash_value(json.dumps(value, sort_keys=True, default=str, separators=(",", ":")))
+        summary["hash"] = _hash_value(
+            json.dumps(value, sort_keys=True, default=str, separators=(",", ":"))
+        )
     else:
         summary["hash"] = _hash_value(value)
     return summary
