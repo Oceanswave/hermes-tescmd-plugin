@@ -9,6 +9,7 @@ import stat
 import sys
 import types
 from pathlib import Path
+from typing import Any, cast
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -23,7 +24,13 @@ from hermes_tescmd_plugin import schemas
 from hermes_tescmd_plugin import tools
 from hermes_tescmd_plugin.protocol.encoder import encode_routable_message
 from hermes_tescmd_plugin.protocol.commands import COMMAND_REGISTRY
-from hermes_tescmd_plugin.protocol.metadata import TAG_CHALLENGE, TAG_PERSONALIZATION, TAG_SIGNATURE_TYPE, encode_tlv
+from hermes_tescmd_plugin.protocol.metadata import (
+    TAG_CHALLENGE,
+    TAG_PERSONALIZATION,
+    TAG_SIGNATURE_TYPE,
+    encode_tlv,
+)
+from hermes_tescmd_plugin.protocol.payloads import build_command_payload
 from hermes_tescmd_plugin.protocol.protobuf.messages import (
     Destination,
     Domain,
@@ -51,19 +58,29 @@ class FakeContext:
     def register_tool(self, **kwargs) -> None:
         self.tools.append(kwargs)
 
-    def register_skill(self, name: str, path: Path, description: str | None = None) -> None:
+    def register_skill(
+        self, name: str, path: Path, description: str | None = None
+    ) -> None:
         self.skills.append((name, path))
 
     def register_command(self, **kwargs) -> None:
         self.commands.append(kwargs)
 
 
-def make_response(method: str, url: str, *, status_code: int = 200, json_body: dict | list | None = None) -> httpx.Response:
+def make_response(
+    method: str,
+    url: str,
+    *,
+    status_code: int = 200,
+    json_body: dict | list | None = None,
+) -> httpx.Response:
     request = httpx.Request(method, url)
     return httpx.Response(status_code, json=json_body, request=request)
 
 
-def test_register_adds_full_native_tools_and_skill_by_default(tmp_path, monkeypatch) -> None:
+def test_register_adds_full_native_tools_and_skill_by_default(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
 
     ctx = FakeContext()
@@ -96,7 +113,9 @@ def test_register_adds_full_native_tools_and_skill_by_default(tmp_path, monkeypa
         "tescmd-honk",
         "tescmd-lock",
     } <= registered_commands
-    dashboard_manifest = tmp_path / "plugins" / "hermes-tescmd-plugin" / "dashboard" / "manifest.json"
+    dashboard_manifest = (
+        tmp_path / "plugins" / "hermes-tescmd-plugin" / "dashboard" / "manifest.json"
+    )
     assert dashboard_manifest.exists()
     assert json.loads(dashboard_manifest.read_text())["tab"]["path"] == "/tescmd"
 
@@ -104,7 +123,11 @@ def test_register_adds_full_native_tools_and_skill_by_default(tmp_path, monkeypa
 def test_runtime_keeps_parity_critical_native_tools() -> None:
     names = {spec.name for spec in runtime.list_tool_specs()}
 
-    command_names = {spec.command_name for spec in runtime.list_tool_specs() if spec.operation == "vehicle_command"}
+    command_names = {
+        spec.command_name
+        for spec in runtime.list_tool_specs()
+        if spec.operation == "vehicle_command"
+    }
     assert None not in command_names
     assert command_names <= set(COMMAND_REGISTRY)
 
@@ -153,7 +176,9 @@ def test_schema_uses_native_tool_metadata(tmp_path, monkeypatch) -> None:
     billing_schema = schemas.build_schema(tools["tescmd_billing_invoice"])
     assert "confirm" in billing_schema["parameters"]["properties"]
 
-    auth_complete_props = schemas.build_schema(tools["tescmd_auth_complete"])["parameters"]["properties"]
+    auth_complete_props = schemas.build_schema(tools["tescmd_auth_complete"])[
+        "parameters"
+    ]["properties"]
     assert auth_complete_props["callback_url"]["x-sensitive"] is True
     assert auth_complete_props["callback_url"]["writeOnly"] is True
     assert auth_complete_props["state"]["x-sensitive"] is True
@@ -165,17 +190,24 @@ def test_schema_uses_native_tool_metadata(tmp_path, monkeypatch) -> None:
     assert vehicle_props["endpoints"]["type"] == "array"
     assert vehicle_props["endpoints"]["items"]["type"] == "string"
 
-    vehicle_get_props = schemas.build_schema(tools["tescmd_vehicle_get"])["parameters"]["properties"]
+    vehicle_get_props = schemas.build_schema(tools["tescmd_vehicle_get"])["parameters"][
+        "properties"
+    ]
     assert "wake" not in vehicle_get_props
     assert "no_cache" not in vehicle_get_props
 
-    unsupported_wake = json.loads(runtime.make_handler(tools["tescmd_vehicle_get"])(({"wake": True})))
+    unsupported_wake = json.loads(
+        runtime.make_handler(tools["tescmd_vehicle_get"])(({"wake": True}))
+    )
     assert unsupported_wake["ok"] is False
     assert "Unsupported argument" in unsupported_wake["error"]
 
     fleet_status_schema = schemas.build_schema(tools["tescmd_vehicle_fleet_status"])
     assert fleet_status_schema["parameters"]["properties"]["vins"]["type"] == "array"
-    assert fleet_status_schema["parameters"]["properties"]["vins"]["items"]["type"] == "string"
+    assert (
+        fleet_status_schema["parameters"]["properties"]["vins"]["items"]["type"]
+        == "string"
+    )
 
     charge_schema = schemas.build_schema(tools["tescmd_charge_limit"])
     charge_props = charge_schema["parameters"]["properties"]
@@ -208,10 +240,14 @@ def test_schema_uses_native_tool_metadata(tmp_path, monkeypatch) -> None:
         "tescmd_sharing_create_invite": ["confirm"],
         "tescmd_sharing_revoke_invite": ["confirm", "invite_id"],
     }.items():
-        assert set(schemas.build_schema(tools[tool_name])["parameters"]["required"]) == set(required)
+        assert set(
+            schemas.build_schema(tools[tool_name])["parameters"]["required"]
+        ) == set(required)
 
 
-def test_manual_config_file_contract_and_vehicle_key_generation(tmp_path, monkeypatch) -> None:
+def test_manual_config_file_contract_and_vehicle_key_generation(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
 
     cfg = config.save_config(
@@ -241,7 +277,6 @@ def test_manual_config_file_contract_and_vehicle_key_generation(tmp_path, monkey
     assert key_payload["enrollment_url"] == "https://tesla.com/_ak/cars.example.com"
 
 
-
 class DummyLock:
     def __enter__(self):
         return self
@@ -250,7 +285,7 @@ class DummyLock:
         return False
 
 
-def install_fake_hermes_auth(monkeypatch, store: dict) -> None:
+def install_fake_hermes_auth(monkeypatch, store: dict[str, Any]) -> None:
     fake_auth = types.ModuleType("hermes_cli.auth")
 
     def _load_auth_store():
@@ -262,16 +297,18 @@ def install_fake_hermes_auth(monkeypatch, store: dict) -> None:
         store.update(snapshot)
         return Path("/tmp/auth.json")
 
-    fake_auth._load_auth_store = _load_auth_store
-    fake_auth._save_auth_store = _save_auth_store
-    fake_auth._auth_store_lock = DummyLock
+    setattr(fake_auth, "_load_auth_store", _load_auth_store)
+    setattr(fake_auth, "_save_auth_store", _save_auth_store)
+    setattr(fake_auth, "_auth_store_lock", DummyLock)
     fake_hermes_cli = types.ModuleType("hermes_cli")
-    fake_hermes_cli.auth = fake_auth
+    setattr(fake_hermes_cli, "auth", fake_auth)
     monkeypatch.setitem(sys.modules, "hermes_cli", fake_hermes_cli)
     monkeypatch.setitem(sys.modules, "hermes_cli.auth", fake_auth)
 
 
-def test_auth_state_uses_hermes_auth_store_when_available(tmp_path, monkeypatch) -> None:
+def test_auth_state_uses_hermes_auth_store_when_available(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     store = {"version": 1, "providers": {}}
     install_fake_hermes_auth(monkeypatch, store)
@@ -286,7 +323,8 @@ def test_auth_state_uses_hermes_auth_store_when_available(tmp_path, monkeypatch)
     )
     config.save_auth_state(state)
 
-    provider_state = store["providers"][config.HERMES_AUTH_PROVIDER_ID]
+    providers = cast(dict[str, dict[str, Any]], store["providers"])
+    provider_state = providers[config.HERMES_AUTH_PROVIDER_ID]
     assert provider_state["auth_type"] == "oauth"
     assert provider_state["source"] == config.HERMES_AUTH_SOURCE
     assert provider_state["profiles"]["default"]["access_token"] == "access-token"
@@ -297,9 +335,13 @@ def test_auth_state_uses_hermes_auth_store_when_available(tmp_path, monkeypatch)
     assert config.load_auth_state("default").refresh_token == "refresh-token"
 
 
-def test_auth_state_prefers_hermes_auth_store_over_legacy_plugin_mirror(tmp_path, monkeypatch) -> None:
+def test_auth_state_prefers_hermes_auth_store_over_legacy_plugin_mirror(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_auth_state(config.AuthState(profile="default", access_token="legacy", region="na"))
+    config.save_auth_state(
+        config.AuthState(profile="default", access_token="legacy", region="na")
+    )
     store = {
         "version": 1,
         "providers": {
@@ -331,18 +373,23 @@ def test_clear_auth_state_removes_hermes_and_plugin_auth(tmp_path, monkeypatch) 
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     store = {"version": 1, "providers": {}}
     install_fake_hermes_auth(monkeypatch, store)
-    config.save_auth_state(config.AuthState(profile="default", access_token="access-token", region="na"))
+    config.save_auth_state(
+        config.AuthState(profile="default", access_token="access-token", region="na")
+    )
 
     config.clear_auth_state("default")
 
-    assert config.HERMES_AUTH_PROVIDER_ID not in store["providers"]
+    providers = cast(dict[str, Any], store["providers"])
+    assert config.HERMES_AUTH_PROVIDER_ID not in providers
     assert config.load_auth_state("default").access_token is None
 
 
 def test_bootstrap_status_reports_hermes_auth_store(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     install_fake_hermes_auth(monkeypatch, {"version": 1, "providers": {}})
-    cfg = config.save_config(config.PluginConfig(profile="default", client_id="client-123"))
+    cfg = config.save_config(
+        config.PluginConfig(profile="default", client_id="client-123")
+    )
 
     bootstrap = tools._bootstrap_status(profile="default", cfg=cfg)  # noqa: SLF001
 
@@ -350,11 +397,26 @@ def test_bootstrap_status_reports_hermes_auth_store(tmp_path, monkeypatch) -> No
     assert bootstrap["auth_mirrored_to_plugin_state"] is True
 
 
-def test_navigation_waypoints_accepts_place_ids_and_encodes_ref_ids(tmp_path, monkeypatch) -> None:
+def test_navigation_waypoints_accepts_place_ids_and_encodes_ref_ids(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na", default_vin="5YJ3E1EA7JF000001"))
-    config.save_auth_state(config.AuthState(profile="default", access_token="token", region="na"))
-    spec = next(spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_navigation_waypoints")
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            region="na",
+            default_vin="5YJ3E1EA7JF000001",
+        )
+    )
+    config.save_auth_state(
+        config.AuthState(profile="default", access_token="token", region="na")
+    )
+    spec = next(
+        spec
+        for spec in runtime.list_tool_specs()
+        if spec.name == "tescmd_navigation_waypoints"
+    )
 
     calls = []
 
@@ -365,7 +427,13 @@ def test_navigation_waypoints_accepts_place_ids_and_encodes_ref_ids(tmp_path, mo
     monkeypatch.setattr(client.TeslaFleetClient, "vehicle_command", fake_command)
     payload = json.loads(
         runtime.make_handler(spec)(
-            {"place_ids": ["ChIJIQBpAG2ahYAR_6128GcTUEo", "refId:ChIJw____96GhYARCVVwg5cT7c0"], "confirm": True}
+            {
+                "place_ids": [
+                    "ChIJIQBpAG2ahYAR_6128GcTUEo",
+                    "refId:ChIJw____96GhYARCVVwg5cT7c0",
+                ],
+                "confirm": True,
+            }
         )
     )
 
@@ -374,20 +442,79 @@ def test_navigation_waypoints_accepts_place_ids_and_encodes_ref_ids(tmp_path, mo
         (
             "5YJ3E1EA7JF000001",
             "navigation_waypoints_request",
-            {"waypoints": "refId:ChIJIQBpAG2ahYAR_6128GcTUEo,refId:ChIJw____96GhYARCVVwg5cT7c0"},
+            {
+                "waypoints": "refId:ChIJIQBpAG2ahYAR_6128GcTUEo,refId:ChIJw____96GhYARCVVwg5cT7c0"
+            },
         )
     ]
 
 
-def test_navigation_place_search_requires_key_and_returns_candidates(tmp_path, monkeypatch) -> None:
+def test_trunk_close_uses_explicit_rear_closure_close_payload(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            region="na",
+            default_vin="5YJ3E1EA7JF000001",
+        )
+    )
+    config.save_auth_state(
+        config.AuthState(profile="default", access_token="token", region="na")
+    )
+    spec = next(
+        spec
+        for spec in runtime.list_tool_specs()
+        if spec.name == "tescmd_vehicle_trunk_close"
+    )
+    calls = []
 
-    missing = json.loads(tools_by_name["tescmd_navigation_place_search"]({"query": "Tesla Fremont Factory"}))
+    def fake_command(self, vin, command_name, body=None):
+        calls.append((vin, command_name, body))
+        return {"result": True}
+
+    monkeypatch.setattr(client.TeslaFleetClient, "vehicle_command", fake_command)
+    payload = json.loads(runtime.make_handler(spec)({"confirm": True}))
+
+    assert payload["ok"] is True
+    assert calls == [
+        ("5YJ3E1EA7JF000001", "actuate_trunk", {"which_trunk": "rear", "move": "close"})
+    ]
+    assert (
+        build_command_payload("actuate_trunk", {"which_trunk": "rear", "move": "close"})
+        == b"\x22\x02\x28\x04"
+    )
+    assert (
+        build_command_payload("actuate_trunk", {"which_trunk": "rear"})
+        == b"\x22\x02\x28\x01"
+    )
+
+
+def test_navigation_place_search_requires_key_and_returns_candidates(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
+
+    missing = json.loads(
+        tools_by_name["tescmd_navigation_place_search"](
+            {"query": "Tesla Fremont Factory"}
+        )
+    )
     assert missing["ok"] is False
     assert "google_maps_api_key" in missing["error"]
 
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", google_maps_api_key="gmaps-secret"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            google_maps_api_key="gmaps-secret",
+        )
+    )
 
     class FakeResponse:
         status_code = 200
@@ -411,7 +538,11 @@ def test_navigation_place_search_requires_key_and_returns_candidates(tmp_path, m
         return FakeResponse()
 
     monkeypatch.setattr(tools.httpx, "post", fake_post)
-    payload = json.loads(tools_by_name["tescmd_navigation_place_search"]({"query": "Tesla Fremont Factory", "limit": 1}))
+    payload = json.loads(
+        tools_by_name["tescmd_navigation_place_search"](
+            {"query": "Tesla Fremont Factory", "limit": 1}
+        )
+    )
 
     assert payload["ok"] is True
     assert payload["candidates"][0]["place_id"] == "ChIJIQBpAG2ahYAR_6128GcTUEo"
@@ -421,9 +552,13 @@ def test_navigation_place_search_requires_key_and_returns_candidates(tmp_path, m
     assert calls[0][2] == {"textQuery": "Tesla Fremont Factory", "maxResultCount": 1}
 
 
-def test_help_returns_agentic_routing_and_status_readiness(tmp_path, monkeypatch) -> None:
+def test_help_returns_agentic_routing_and_status_readiness(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    spec = next(spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_help")
+    spec = next(
+        spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_help"
+    )
     payload = json.loads(runtime.make_handler(spec)({}))
 
     assert payload["ok"] is True
@@ -432,11 +567,19 @@ def test_help_returns_agentic_routing_and_status_readiness(tmp_path, monkeypatch
     assert "Do not invent Google Place IDs" in payload["safety"][2]
 
 
-def test_status_returns_guided_bootstrap_status_and_key_urls_from_manual_config(tmp_path, monkeypatch) -> None:
+def test_status_returns_guided_bootstrap_status_and_key_urls_from_manual_config(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
 
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", domain="cars.example.com"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default", client_id="client-123", domain="cars.example.com"
+        )
+    )
     auth.generate_vehicle_command_keypair("default", domain="cars.example.com")
     payload = json.loads(tools_by_name["tescmd_status"]({}))
 
@@ -447,18 +590,38 @@ def test_status_returns_guided_bootstrap_status_and_key_urls_from_manual_config(
     assert payload["redirect_uri"] == "https://cars.example.com/callback"
     assert payload["next_action"] == "auth_login"
     assert payload["next_steps"][0].startswith("Tesla app credentials are saved")
-    assert payload["expected_public_key_url"] == "https://cars.example.com/.well-known/appspecific/com.tesla.3p.public-key.pem"
+    assert (
+        payload["expected_public_key_url"]
+        == "https://cars.example.com/.well-known/appspecific/com.tesla.3p.public-key.pem"
+    )
     assert payload["enrollment_url"] == "https://tesla.com/_ak/cars.example.com"
     assert payload["bootstrap"]["key_hosting_ready"] is False
 
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", client_secret="secret-123", domain="cars.example.com", vehicle_command_key_private_path=config.load_config("default").vehicle_command_key_private_path, vehicle_command_key_public_path=config.load_config("default").vehicle_command_key_public_path))
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            client_secret="secret-123",
+            domain="cars.example.com",
+            vehicle_command_key_private_path=config.load_config(
+                "default"
+            ).vehicle_command_key_private_path,
+            vehicle_command_key_public_path=config.load_config(
+                "default"
+            ).vehicle_command_key_public_path,
+        )
+    )
     partner_ready = json.loads(tools_by_name["tescmd_status"]({}))
     assert partner_ready["bootstrap"]["partner_ready"] is True
 
 
-def test_status_without_client_id_returns_docs_only_configuration_steps(tmp_path, monkeypatch) -> None:
+def test_status_without_client_id_returns_docs_only_configuration_steps(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
 
     payload = json.loads(tools_by_name["tescmd_status"]({}))
 
@@ -470,11 +633,19 @@ def test_status_without_client_id_returns_docs_only_configuration_steps(tmp_path
     assert "tescmd_setup_wizard" not in " ".join(payload["next_steps"])
 
 
-def test_bootstrap_key_steps_require_real_hosting_and_client_secret(tmp_path, monkeypatch) -> None:
+def test_bootstrap_key_steps_require_real_hosting_and_client_secret(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
 
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", domain="cars.example.com"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default", client_id="client-123", domain="cars.example.com"
+        )
+    )
     auth.generate_vehicle_command_keypair("default", domain="cars.example.com")
     setup_payload = json.loads(tools_by_name["tescmd_status"]({}))
     assert setup_payload["next_action"] == "auth_login"
@@ -495,7 +666,9 @@ def test_bootstrap_key_steps_require_real_hosting_and_client_secret(tmp_path, mo
     assert status_payload["bootstrap"]["key_hosting_ready"] is False
     assert status_payload["bootstrap"]["enrollment_ready"] is False
 
-    deploy_payload = json.loads(tools_by_name["tescmd_key_deploy"]({"method": "local", "confirm": True}))
+    deploy_payload = json.loads(
+        tools_by_name["tescmd_key_deploy"]({"method": "local", "confirm": True})
+    )
     assert deploy_payload["ok"] is True
 
     after_local = json.loads(tools_by_name["tescmd_status"]({}))
@@ -509,7 +682,9 @@ def test_bootstrap_key_steps_require_real_hosting_and_client_secret(tmp_path, mo
     public_key_pem = Path(public_key_path).read_text()
 
     def fake_get(url: str, **kwargs):
-        return httpx.Response(200, text=public_key_pem, request=httpx.Request("GET", url))
+        return httpx.Response(
+            200, text=public_key_pem, request=httpx.Request("GET", url)
+        )
 
     monkeypatch.setattr(client.httpx, "get", fake_get)
     hosted = json.loads(tools_by_name["tescmd_status"]({}))
@@ -517,17 +692,26 @@ def test_bootstrap_key_steps_require_real_hosting_and_client_secret(tmp_path, mo
     assert hosted["bootstrap"]["enrollment_ready"] is False
 
     prior_cfg = config.load_config("default")
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", client_secret="secret-123", domain="cars.example.com", vehicle_command_key_private_path=prior_cfg.vehicle_command_key_private_path, vehicle_command_key_public_path=prior_cfg.vehicle_command_key_public_path))
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            client_secret="secret-123",
+            domain="cars.example.com",
+            vehicle_command_key_private_path=prior_cfg.vehicle_command_key_private_path,
+            vehicle_command_key_public_path=prior_cfg.vehicle_command_key_public_path,
+        )
+    )
     ready = json.loads(tools_by_name["tescmd_status"]({}))
     assert ready["next_action"] == "auth_register"
     assert ready["bootstrap"]["enrollment_ready"] is True
 
 
-
-
 def test_onboarding_status_returns_read_only_next_step(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
 
     payload = json.loads(tools_by_name["tescmd_onboarding_status"]({}))
 
@@ -539,14 +723,23 @@ def test_onboarding_status_returns_read_only_next_step(tmp_path, monkeypatch) ->
     assert "client_id" in payload["missing_prerequisites"]
     assert "tescmd_setup" not in json.dumps(payload)
 
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", domain="cars.example.com"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default", client_id="client-123", domain="cars.example.com"
+        )
+    )
     configured = json.loads(tools_by_name["tescmd_onboarding_status"]({}))
     assert configured["phase"] == "auth_login"
     assert configured["next_tool"] == "tescmd_auth_login"
 
-def test_auth_login_without_client_id_points_to_readme_setup(tmp_path, monkeypatch) -> None:
+
+def test_auth_login_without_client_id_points_to_readme_setup(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
 
     payload = json.loads(tools_by_name["tescmd_auth_login"]({}))
 
@@ -564,34 +757,72 @@ def test_removed_bootstrap_wizard_and_tailscale_surfaces(tmp_path, monkeypatch) 
     assert "tescmd_setup_wizard" not in names
     assert "tescmd_mcp_serve" not in names
 
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", domain="cars.example.com"))
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
+    config.save_config(
+        config.PluginConfig(
+            profile="default", client_id="client-123", domain="cars.example.com"
+        )
+    )
     failed = json.loads(tools_by_name["tescmd_key_deploy"]({"method": "tailscale"}))
     assert failed["ok"] is False
     assert "local" in failed["error"]
 
 
-def test_vehicle_status_uses_response_cache_until_bypassed_or_cleared(tmp_path, monkeypatch) -> None:
+def test_vehicle_status_uses_response_cache_until_bypassed_or_cleared(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", default_vin="5YJ3E1EA7JF000001"))
-    config.save_auth_state(config.AuthState(profile="default", access_token="access-1", refresh_token="refresh-1", expires_at=9999999999, region="na"))
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    config.save_config(
+        config.PluginConfig(
+            profile="default", client_id="client-123", default_vin="5YJ3E1EA7JF000001"
+        )
+    )
+    config.save_auth_state(
+        config.AuthState(
+            profile="default",
+            access_token="access-1",
+            refresh_token="refresh-1",
+            expires_at=9999999999,
+            region="na",
+        )
+    )
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
 
     calls: list[str] = []
 
     def fake_request(method: str, url: str, **kwargs):
         calls.append(url)
-        return make_response(method, url, json_body={"response": {"charge_state": {"battery_level": len(calls)}}})
+        return make_response(
+            method,
+            url,
+            json_body={"response": {"charge_state": {"battery_level": len(calls)}}},
+        )
 
     monkeypatch.setattr(client.httpx, "request", fake_request)
 
-    first = json.loads(tools_by_name["tescmd_vehicle_status"]({"endpoints": ["charge_state"]}))
-    second = json.loads(tools_by_name["tescmd_vehicle_status"]({"endpoints": ["charge_state"]}))
-    bypassed = json.loads(tools_by_name["tescmd_vehicle_status"]({"endpoints": ["charge_state"], "no_cache": True}))
-    after_bypass = json.loads(tools_by_name["tescmd_vehicle_status"]({"endpoints": ["charge_state"]}))
+    first = json.loads(
+        tools_by_name["tescmd_vehicle_status"]({"endpoints": ["charge_state"]})
+    )
+    second = json.loads(
+        tools_by_name["tescmd_vehicle_status"]({"endpoints": ["charge_state"]})
+    )
+    bypassed = json.loads(
+        tools_by_name["tescmd_vehicle_status"](
+            {"endpoints": ["charge_state"], "no_cache": True}
+        )
+    )
+    after_bypass = json.loads(
+        tools_by_name["tescmd_vehicle_status"]({"endpoints": ["charge_state"]})
+    )
     status = json.loads(tools_by_name["tescmd_cache_status"]({}))
     cleared = json.loads(tools_by_name["tescmd_cache_clear"]({"confirm": True}))
-    after_clear = json.loads(tools_by_name["tescmd_vehicle_status"]({"endpoints": ["charge_state"]}))
+    after_clear = json.loads(
+        tools_by_name["tescmd_vehicle_status"]({"endpoints": ["charge_state"]})
+    )
 
     assert first["data"]["charge_state"]["battery_level"] == 1
     assert first["cache"]["hit"] is False
@@ -608,7 +839,9 @@ def test_vehicle_status_uses_response_cache_until_bypassed_or_cleared(tmp_path, 
     assert len(calls) == 3
 
 
-def test_public_oauth_redirect_uri_validation_and_override(tmp_path, monkeypatch) -> None:
+def test_public_oauth_redirect_uri_validation_and_override(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
 
     saved = config.save_config(
@@ -621,7 +854,9 @@ def test_public_oauth_redirect_uri_validation_and_override(tmp_path, monkeypatch
     )
     assert saved.oauth_redirect_uri == "https://auth.example.com/tesla/callback"
 
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
     status = json.loads(tools_by_name["tescmd_status"]({}))
     assert status["redirect_uri"] == "https://auth.example.com/tesla/callback"
 
@@ -632,7 +867,11 @@ def test_public_oauth_redirect_uri_validation_and_override(tmp_path, monkeypatch
         "https://auth.example.com/callback?code=bad",
     ]:
         with pytest.raises(config.PluginStateError):
-            config.save_config(config.PluginConfig(profile="bad", client_id="client-123", oauth_redirect_uri=bad_uri))
+            config.save_config(
+                config.PluginConfig(
+                    profile="bad", client_id="client-123", oauth_redirect_uri=bad_uri
+                )
+            )
 
 
 def test_auth_login_start_and_complete_persist_tokens(tmp_path, monkeypatch) -> None:
@@ -661,8 +900,8 @@ def test_auth_login_start_and_complete_persist_tokens(tmp_path, monkeypatch) -> 
             method,
             url,
             json_body={
-                    "access_token": "test-access-1",
-                    "refresh_token": "test-refresh-1",
+                "access_token": "test-access-1",
+                "refresh_token": "test-refresh-1",
                 "expires_in": 3600,
                 "scope": "openid offline_access vehicle_cmds",
                 "token_type": "Bearer",
@@ -671,7 +910,9 @@ def test_auth_login_start_and_complete_persist_tokens(tmp_path, monkeypatch) -> 
 
     monkeypatch.setattr(client.httpx, "request", fake_request)
 
-    login_spec = next(spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_auth_login")
+    login_spec = next(
+        spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_auth_login"
+    )
     start_payload = json.loads(runtime.make_handler(login_spec)({}))
     assert start_payload["ok"] is True
     parsed = urlparse(start_payload["auth_url"])
@@ -681,9 +922,22 @@ def test_auth_login_start_and_complete_persist_tokens(tmp_path, monkeypatch) -> 
     assert query["redirect_uri"] == ["https://cars.example.com/callback"]
     assert "state" in query
 
-    complete_spec = next(spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_auth_complete")
-    callback_url = "https://cars.example.com/callback?" + "code=" + "auth-code" + f"&state={query['state'][0]}"
-    complete_payload = json.loads(runtime.make_handler(complete_spec)({"callback_url": callback_url, "confirm": True}))
+    complete_spec = next(
+        spec
+        for spec in runtime.list_tool_specs()
+        if spec.name == "tescmd_auth_complete"
+    )
+    callback_url = (
+        "https://cars.example.com/callback?"
+        + "code="
+        + "auth-code"
+        + f"&state={query['state'][0]}"
+    )
+    complete_payload = json.loads(
+        runtime.make_handler(complete_spec)(
+            {"callback_url": callback_url, "confirm": True}
+        )
+    )
 
     assert complete_payload["ok"] is True
     token_state = config.load_auth_state("default")
@@ -696,7 +950,9 @@ def test_auth_login_start_and_complete_persist_tokens(tmp_path, monkeypatch) -> 
 
 def test_auth_refresh_export_import_and_status(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na"))
+    config.save_config(
+        config.PluginConfig(profile="default", client_id="client-123", region="na")
+    )
     config.save_auth_state(
         config.AuthState(
             profile="default",
@@ -719,8 +975,8 @@ def test_auth_refresh_export_import_and_status(tmp_path, monkeypatch) -> None:
             method,
             url,
             json_body={
-                    "access_token": "test-access-new",
-                    "refresh_token": "test-refresh-new",
+                "access_token": "test-access-new",
+                "refresh_token": "test-refresh-new",
                 "expires_in": 7200,
                 "scope": "openid vehicle_cmds",
                 "token_type": "Bearer",
@@ -729,12 +985,16 @@ def test_auth_refresh_export_import_and_status(tmp_path, monkeypatch) -> None:
 
     monkeypatch.setattr(client.httpx, "request", fake_request)
 
-    refresh_spec = next(spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_auth_refresh")
+    refresh_spec = next(
+        spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_auth_refresh"
+    )
     refresh_payload = json.loads(runtime.make_handler(refresh_spec)({"confirm": True}))
     assert refresh_payload["ok"] is True
     assert config.load_auth_state("default").access_token == "test-access-new"
 
-    export_spec = next(spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_auth_export")
+    export_spec = next(
+        spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_auth_export"
+    )
     exported = json.loads(runtime.make_handler(export_spec)({"confirm": True}))
     assert exported["ok"] is True
     assert "auth" not in exported
@@ -742,11 +1002,17 @@ def test_auth_refresh_export_import_and_status(tmp_path, monkeypatch) -> None:
 
     config.clear_auth_state("default")
 
-    import_spec = next(spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_auth_import")
-    imported = json.loads(runtime.make_handler(import_spec)({"auth": blob, "confirm": True}))
+    import_spec = next(
+        spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_auth_import"
+    )
+    imported = json.loads(
+        runtime.make_handler(import_spec)({"auth": blob, "confirm": True})
+    )
     assert imported["ok"] is True
 
-    status_spec = next(spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_auth_status")
+    status_spec = next(
+        spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_auth_status"
+    )
     status = json.loads(runtime.make_handler(status_spec)({}))
     assert status["ok"] is True
     assert status["configured"] is True
@@ -759,26 +1025,34 @@ def test_auth_refresh_export_import_and_status(tmp_path, monkeypatch) -> None:
 
 def test_auth_import_rejects_invalid_payloads(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    spec = next(spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_auth_import")
+    spec = next(
+        spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_auth_import"
+    )
 
     payload = json.loads(runtime.make_handler(spec)({"auth": []}))
     assert payload["ok"] is False
     assert "JSON object" in payload["error"]
 
 
-def test_corrupted_persisted_config_returns_controlled_error(tmp_path, monkeypatch) -> None:
+def test_corrupted_persisted_config_returns_controlled_error(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     plugin_home = config.get_plugin_home()
     (plugin_home / "config.json").write_text("{bad json")
 
-    spec = next(spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_auth_status")
+    spec = next(
+        spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_auth_status"
+    )
     payload = json.loads(runtime.make_handler(spec)({}))
 
     assert payload["ok"] is False
     assert "Stored plugin state is corrupted" in payload["error"]
 
 
-def test_auth_register_uses_partner_token_and_partner_account_endpoint(tmp_path, monkeypatch) -> None:
+def test_auth_register_uses_partner_token_and_partner_account_endpoint(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     config.save_config(
         config.PluginConfig(
@@ -796,17 +1070,32 @@ def test_auth_register_uses_partner_token_and_partner_account_endpoint(tmp_path,
         calls.append((method, url, kwargs))
         if url == "https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token":
             assert kwargs["data"]["grant_type"] == "client_credentials"
-            assert kwargs["data"]["audience"] == "https://fleet-api.prd.eu.vn.cloud.tesla.com"
-            return make_response(method, url, json_body={"access_token": "partner-token", "expires_in": 3600})
+            assert (
+                kwargs["data"]["audience"]
+                == "https://fleet-api.prd.eu.vn.cloud.tesla.com"
+            )
+            return make_response(
+                method,
+                url,
+                json_body={"access_token": "partner-token", "expires_in": 3600},
+            )
 
-        assert url == "https://fleet-api.prd.eu.vn.cloud.tesla.com/api/1/partner_accounts"
+        assert (
+            url == "https://fleet-api.prd.eu.vn.cloud.tesla.com/api/1/partner_accounts"
+        )
         assert kwargs["headers"]["Authorization"] == "Bearer partner-token"
         assert kwargs["json"] == {"domain": "cars.example.com"}
-        return make_response(method, url, json_body={"response": {"domain": "cars.example.com"}})
+        return make_response(
+            method, url, json_body={"response": {"domain": "cars.example.com"}}
+        )
 
     monkeypatch.setattr(client.httpx, "request", fake_request)
 
-    spec = next(spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_auth_register")
+    spec = next(
+        spec
+        for spec in runtime.list_tool_specs()
+        if spec.name == "tescmd_auth_register"
+    )
     payload = json.loads(runtime.make_handler(spec)({"confirm": True}))
 
     assert payload["ok"] is True
@@ -814,7 +1103,13 @@ def test_auth_register_uses_partner_token_and_partner_account_endpoint(tmp_path,
 
 
 def test_auth_state_decodes_scopes_from_jwt_when_scope_field_missing() -> None:
-    claims = base64.urlsafe_b64encode(json.dumps({"scp": ["openid", "vehicle_device_data"]}).encode()).decode().rstrip("=")
+    claims = (
+        base64.urlsafe_b64encode(
+            json.dumps({"scp": ["openid", "vehicle_device_data"]}).encode()
+        )
+        .decode()
+        .rstrip("=")
+    )
     token = f"header.{claims}.signature"
 
     state = client.auth_state_from_token_response(
@@ -828,7 +1123,14 @@ def test_auth_state_decodes_scopes_from_jwt_when_scope_field_missing() -> None:
 
 def test_vehicle_and_command_tools_use_native_fleet_api(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na", default_vin="5YJ3E1EA7JF000001"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            region="na",
+            default_vin="5YJ3E1EA7JF000001",
+        )
+    )
     config.save_auth_state(
         config.AuthState(
             profile="default",
@@ -845,15 +1147,37 @@ def test_vehicle_and_command_tools_use_native_fleet_api(tmp_path, monkeypatch) -
     def fake_request(method: str, url: str, **kwargs):
         calls.append((method, url, kwargs))
         if url.endswith("/api/1/vehicles") and method == "GET":
-            return make_response(method, url, json_body={"response": [{"vin": "5YJ3E1EA7JF000001", "display_name": "Roadster"}]})
-        if url.endswith("/api/1/vehicles/5YJ3E1EA7JF000001/vehicle_data") and method == "GET":
+            return make_response(
+                method,
+                url,
+                json_body={
+                    "response": [
+                        {"vin": "5YJ3E1EA7JF000001", "display_name": "Roadster"}
+                    ]
+                },
+            )
+        if (
+            url.endswith("/api/1/vehicles/5YJ3E1EA7JF000001/vehicle_data")
+            and method == "GET"
+        ):
             assert kwargs["params"] == {"endpoints": "charge_state;climate_state"}
-            return make_response(method, url, json_body={"response": {"state": "online"}})
-        if url.endswith("/api/1/vehicles/5YJ3E1EA7JF000001/wake_up") and method == "POST":
-            return make_response(method, url, json_body={"response": {"state": "online"}})
+            return make_response(
+                method, url, json_body={"response": {"state": "online"}}
+            )
+        if (
+            url.endswith("/api/1/vehicles/5YJ3E1EA7JF000001/wake_up")
+            and method == "POST"
+        ):
+            return make_response(
+                method, url, json_body={"response": {"state": "online"}}
+            )
         if url.endswith("/api/1/vehicles/fleet_status") and method == "POST":
             assert kwargs["json"] == {"vins": ["5YJ3E1EA7JF000001"]}
-            return make_response(method, url, json_body={"response": {"5YJ3E1EA7JF000001": {"state": "online"}}})
+            return make_response(
+                method,
+                url,
+                json_body={"response": {"5YJ3E1EA7JF000001": {"state": "online"}}},
+            )
         if url.endswith("/api/1/dx/warranty/details") and method == "GET":
             assert kwargs["params"] == {"vin": "5YJ3E1EA7JF000001"}
             return make_response(method, url, json_body={"response": {"warranty": []}})
@@ -861,25 +1185,36 @@ def test_vehicle_and_command_tools_use_native_fleet_api(tmp_path, monkeypatch) -
 
     monkeypatch.setattr(client.httpx, "request", fake_request)
 
-    tools = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    tools = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
 
     vehicle_list = json.loads(tools["tescmd_vehicle_list"]({}))
     assert vehicle_list["ok"] is True
     assert vehicle_list["vehicles"][0]["vin"] == "[REDACTED]"
 
-    vehicle_status = json.loads(tools["tescmd_vehicle_status"]({"endpoints": ["charge_state", "climate_state"]}))
+    vehicle_status = json.loads(
+        tools["tescmd_vehicle_status"]({"endpoints": ["charge_state", "climate_state"]})
+    )
     assert vehicle_status["ok"] is True
     assert vehicle_status["data"]["state"] == "online"
 
     vehicle_wake = json.loads(tools["tescmd_vehicle_wake"]({"confirm": True}))
     assert vehicle_wake["ok"] is True
 
-    fleet_status = json.loads(tools["tescmd_vehicle_fleet_status"]({"vins": ["5YJ3E1EA7JF000001"]}))
+    fleet_status = json.loads(
+        tools["tescmd_vehicle_fleet_status"]({"vins": ["5YJ3E1EA7JF000001"]})
+    )
     assert fleet_status["ok"] is True
     warranty = json.loads(tools["tescmd_vehicle_warranty"]({}))
     assert warranty["ok"] is True
 
-    redacted_default = config.PluginConfig(profile="redacted", client_id="client-123", region="na", default_vin="1234567890123456")
+    redacted_default = config.PluginConfig(
+        profile="redacted",
+        client_id="client-123",
+        region="na",
+        default_vin="1234567890123456",
+    )
     config.save_config(redacted_default)
     config.save_auth_state(
         config.AuthState(
@@ -897,25 +1232,51 @@ def test_vehicle_and_command_tools_use_native_fleet_api(tmp_path, monkeypatch) -
 
     urls = [url for _, url, _ in calls]
     assert "https://fleet-api.prd.na.vn.cloud.tesla.com/api/1/vehicles" in urls
-    assert "https://fleet-api.prd.na.vn.cloud.tesla.com/api/1/vehicles/5YJ3E1EA7JF000001/vehicle_data" in urls
+    assert (
+        "https://fleet-api.prd.na.vn.cloud.tesla.com/api/1/vehicles/5YJ3E1EA7JF000001/vehicle_data"
+        in urls
+    )
     assert not any("/command/" in url for url in urls)
 
 
-def test_command_audit_logs_wake_attempts_and_redacts_target(tmp_path, monkeypatch, caplog) -> None:
+def test_command_audit_logs_wake_attempts_and_redacts_target(
+    tmp_path, monkeypatch, caplog
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na", default_vin="5YJ3E1EA7JF000001"))
-    config.save_auth_state(config.AuthState(profile="default", access_token="access-1", expires_at=9999999999, region="na"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            region="na",
+            default_vin="5YJ3E1EA7JF000001",
+        )
+    )
+    config.save_auth_state(
+        config.AuthState(
+            profile="default",
+            access_token="access-1",
+            expires_at=9999999999,
+            region="na",
+        )
+    )
 
     requests: list[tuple[str, str]] = []
 
     def fake_request(method: str, url: str, **kwargs):
         requests.append((method, url))
-        if url.endswith("/api/1/vehicles/5YJ3E1EA7JF000001/wake_up") and method == "POST":
-            return make_response(method, url, json_body={"response": {"state": "online"}})
+        if (
+            url.endswith("/api/1/vehicles/5YJ3E1EA7JF000001/wake_up")
+            and method == "POST"
+        ):
+            return make_response(
+                method, url, json_body={"response": {"state": "online"}}
+            )
         raise AssertionError(f"unexpected request: {method} {url}")
 
     monkeypatch.setattr(client.httpx, "request", fake_request)
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
 
     caplog.set_level(logging.INFO, logger="hermes_tescmd_plugin.audit")
     denied = json.loads(tools_by_name["tescmd_vehicle_wake"]({}))
@@ -931,40 +1292,97 @@ def test_command_audit_logs_wake_attempts_and_redacts_target(tmp_path, monkeypat
     assert [event["stage"] for event in events] == ["denied", "attempt", "result"]
     assert all(event["tool"] == "tescmd_vehicle_wake" for event in events)
     assert all(event["wake"] is True for event in events)
-    assert all(event["target"] == {"provided": True, "hash": hashlib.sha256(b"5YJ3E1EA7JF000001").hexdigest()[:16], "suffix": "0001"} for event in events)
-    assert "5YJ3E1EA7JF000001" not in (tmp_path / "plugins/hermes-tescmd-plugin/audit/commands.jsonl").read_text()
+    assert all(
+        event["target"]
+        == {
+            "provided": True,
+            "hash": hashlib.sha256(b"5YJ3E1EA7JF000001").hexdigest()[:16],
+            "suffix": "0001",
+        }
+        for event in events
+    )
+    assert (
+        "5YJ3E1EA7JF000001"
+        not in (
+            tmp_path / "plugins/hermes-tescmd-plugin/audit/commands.jsonl"
+        ).read_text()
+    )
     assert "tescmd command audit event" in caplog.text
     assert "tescmd_vehicle_wake" in caplog.text
     assert '"stage":"denied"' in caplog.text
     assert '"stage":"attempt"' in caplog.text
     assert '"stage":"result"' in caplog.text
     assert "5YJ3E1EA7JF000001" not in caplog.text
-    assert stat.S_IMODE((tmp_path / "plugins/hermes-tescmd-plugin/audit/commands.jsonl").stat().st_mode) == 0o600
+    assert (
+        stat.S_IMODE(
+            (tmp_path / "plugins/hermes-tescmd-plugin/audit/commands.jsonl")
+            .stat()
+            .st_mode
+        )
+        == 0o600
+    )
 
 
-def test_full_vin_endpoints_resolve_default_fleet_id_from_vehicle_list(tmp_path, monkeypatch) -> None:
+def test_full_vin_endpoints_resolve_default_fleet_id_from_vehicle_list(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na", default_vin="1234567890123456"))
-    config.save_auth_state(config.AuthState(profile="default", access_token="access-1", expires_at=9999999999, region="na"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            region="na",
+            default_vin="1234567890123456",
+        )
+    )
+    config.save_auth_state(
+        config.AuthState(
+            profile="default",
+            access_token="access-1",
+            expires_at=9999999999,
+            region="na",
+        )
+    )
 
     def fake_request(method: str, url: str, **kwargs):
         if url.endswith("/api/1/vehicles") and method == "GET":
-            return make_response(method, url, json_body={"response": [{"id_s": "1234567890123456", "vin": "5YJ3E1EA7JF000001"}]})
+            return make_response(
+                method,
+                url,
+                json_body={
+                    "response": [
+                        {"id_s": "1234567890123456", "vin": "5YJ3E1EA7JF000001"}
+                    ]
+                },
+            )
         if url.endswith("/api/1/dx/warranty/details") and method == "GET":
             assert kwargs["params"] == {"vin": "5YJ3E1EA7JF000001"}
             return make_response(method, url, json_body={"response": {"warranty": []}})
         raise AssertionError(f"unexpected request: {method} {url}")
 
     monkeypatch.setattr(client.httpx, "request", fake_request)
-    spec = next(spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_vehicle_warranty")
+    spec = next(
+        spec
+        for spec in runtime.list_tool_specs()
+        if spec.name == "tescmd_vehicle_warranty"
+    )
     payload = json.loads(runtime.make_handler(spec)({}))
 
     assert payload["ok"] is True
 
 
-def test_signed_required_commands_do_not_fallback_to_legacy_rest_without_key(tmp_path, monkeypatch) -> None:
+def test_signed_required_commands_do_not_fallback_to_legacy_rest_without_key(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na", default_vin="5YJ3E1EA7JF000001"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            region="na",
+            default_vin="5YJ3E1EA7JF000001",
+        )
+    )
     config.save_auth_state(
         config.AuthState(
             profile="default",
@@ -979,10 +1397,14 @@ def test_signed_required_commands_do_not_fallback_to_legacy_rest_without_key(tmp
 
     def fake_request(method: str, url: str, **kwargs):
         calls.append((method, url, kwargs))
-        raise AssertionError(f"signed-required command made an unexpected network request: {method} {url}")
+        raise AssertionError(
+            f"signed-required command made an unexpected network request: {method} {url}"
+        )
 
     monkeypatch.setattr(client.httpx, "request", fake_request)
-    tools = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    tools = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
 
     for tool_name, args in (
         ("tescmd_security_lock", {"confirm": True}),
@@ -995,7 +1417,9 @@ def test_signed_required_commands_do_not_fallback_to_legacy_rest_without_key(tmp
     assert calls == []
 
 
-def _build_session_info_bytes(*, counter: int, vehicle_public_key: bytes, epoch: bytes, clock_time: int) -> bytes:
+def _build_session_info_bytes(
+    *, counter: int, vehicle_public_key: bytes, epoch: bytes, clock_time: int
+) -> bytes:
     return b"".join(
         [
             _encode_varint_field(1, counter),
@@ -1006,7 +1430,14 @@ def _build_session_info_bytes(*, counter: int, vehicle_public_key: bytes, epoch:
     )
 
 
-def _build_signed_response_for_handshake(client_private_key, vehicle_private_key, *, epoch: bytes, counter: int = 11, clock_time: int = 30) -> str:
+def _build_signed_response_for_handshake(
+    client_private_key,
+    vehicle_private_key,
+    *,
+    epoch: bytes,
+    counter: int = 11,
+    clock_time: int = 30,
+) -> str:
     vehicle_public_key = vehicle_private_key.public_key().public_bytes(
         encoding=auth.serialization.Encoding.X962,
         format=auth.serialization.PublicFormat.UncompressedPoint,
@@ -1029,7 +1460,9 @@ def _build_signed_response_for_handshake(client_private_key, vehicle_private_key
             encode_tlv(TAG_CHALLENGE, challenge),
         )
     )
-    tag = hmac.new(session_info_key, metadata + b"\xff" + session_info, hashlib.sha256).digest()
+    tag = hmac.new(
+        session_info_key, metadata + b"\xff" + session_info, hashlib.sha256
+    ).digest()
     msg = RoutableMessage(
         to_destination=Destination(domain=Domain.DOMAIN_INFOTAINMENT),
         session_info=session_info,
@@ -1045,15 +1478,26 @@ def _build_signed_success_response() -> str:
         message_status=MessageStatus(signed_message_fault=MessageFault.ERROR_NONE),
         signature_data=SignatureData(
             signer_identity=KeyIdentity(public_key=b"vehicle-key"),
-            hmac_personalized_data=HMACPersonalizedData(epoch=b"epoch", counter=1, expires_at=1, tag=b"ok"),
+            hmac_personalized_data=HMACPersonalizedData(
+                epoch=b"epoch", counter=1, expires_at=1, tag=b"ok"
+            ),
         ),
     )
     return encode_routable_message(msg)
 
 
-def test_security_commands_use_signed_command_protocol_and_reuse_session(tmp_path, monkeypatch) -> None:
+def test_security_commands_use_signed_command_protocol_and_reuse_session(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na", default_vin="5YJ3E1EA7JF000001"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            region="na",
+            default_vin="5YJ3E1EA7JF000001",
+        )
+    )
     config.save_auth_state(
         config.AuthState(
             profile="default",
@@ -1068,19 +1512,25 @@ def test_security_commands_use_signed_command_protocol_and_reuse_session(tmp_pat
     client_private_key = client.load_private_key("default")
     vehicle_private_key = auth.ec.generate_private_key(auth.ec.SECP256R1())
     calls: list[tuple[str, str, dict]] = []
-    handshake_response = _build_signed_response_for_handshake(client_private_key, vehicle_private_key, epoch=b"epoch-1")
+    handshake_response = _build_signed_response_for_handshake(
+        client_private_key, vehicle_private_key, epoch=b"epoch-1"
+    )
     success_response = _build_signed_success_response()
 
     def fake_request(method: str, url: str, **kwargs):
         calls.append((method, url, kwargs))
         assert url.endswith("/api/1/vehicles/5YJ3E1EA7JF000001/signed_command")
         if len(calls) == 1:
-            return make_response(method, url, json_body={"response": handshake_response})
+            return make_response(
+                method, url, json_body={"response": handshake_response}
+            )
         return make_response(method, url, json_body={"response": success_response})
 
     monkeypatch.setattr(client.httpx, "request", fake_request)
 
-    tools = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    tools = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
     lock = json.loads(tools["tescmd_security_lock"]({"confirm": True}))
     unlock = json.loads(tools["tescmd_security_unlock"]({"confirm": True}))
 
@@ -1090,9 +1540,18 @@ def test_security_commands_use_signed_command_protocol_and_reuse_session(tmp_pat
     assert all(url.endswith("/signed_command") for _, url, _ in calls)
 
 
-def test_charge_limit_uses_signed_protocol_when_vehicle_command_key_exists(tmp_path, monkeypatch) -> None:
+def test_charge_limit_uses_signed_protocol_when_vehicle_command_key_exists(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na", default_vin="5YJ3E1EA7JF000001"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            region="na",
+            default_vin="5YJ3E1EA7JF000001",
+        )
+    )
     config.save_auth_state(
         config.AuthState(
             profile="default",
@@ -1106,18 +1565,28 @@ def test_charge_limit_uses_signed_protocol_when_vehicle_command_key_exists(tmp_p
     auth.generate_vehicle_command_keypair("default", domain="cars.example.com")
     client_private_key = client.load_private_key("default")
     vehicle_private_key = auth.ec.generate_private_key(auth.ec.SECP256R1())
-    handshake_response = _build_signed_response_for_handshake(client_private_key, vehicle_private_key, epoch=b"epoch-2")
+    handshake_response = _build_signed_response_for_handshake(
+        client_private_key, vehicle_private_key, epoch=b"epoch-2"
+    )
     success_response = _build_signed_success_response()
     calls: list[str] = []
 
     def fake_request(method: str, url: str, **kwargs):
         calls.append(url)
         assert url.endswith("/api/1/vehicles/5YJ3E1EA7JF000001/signed_command")
-        return make_response(method, url, json_body={"response": handshake_response if len(calls) == 1 else success_response})
+        return make_response(
+            method,
+            url,
+            json_body={
+                "response": handshake_response if len(calls) == 1 else success_response
+            },
+        )
 
     monkeypatch.setattr(client.httpx, "request", fake_request)
 
-    tools = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    tools = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
     payload = json.loads(tools["tescmd_charge_limit"]({"percent": 80, "confirm": True}))
 
     assert payload["ok"] is True
@@ -1222,9 +1691,18 @@ def test_runtime_exposes_full_native_command_surface() -> None:
     assert len(actual_tools) >= 150
 
 
-def test_extended_native_command_tools_use_expected_payloads(tmp_path, monkeypatch) -> None:
+def test_extended_native_command_tools_use_expected_payloads(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na", default_vin="5YJ3E1EA7JF000001"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            region="na",
+            default_vin="5YJ3E1EA7JF000001",
+        )
+    )
     config.save_auth_state(
         config.AuthState(
             profile="default",
@@ -1240,25 +1718,61 @@ def test_extended_native_command_tools_use_expected_payloads(tmp_path, monkeypat
 
     def fake_request(method: str, url: str, **kwargs):
         calls.append((method, url, kwargs))
-        if url.endswith("/api/1/vehicles/5YJ3E1EA7JF000001/command/set_managed_charger_location") and method == "POST":
+        if (
+            url.endswith(
+                "/api/1/vehicles/5YJ3E1EA7JF000001/command/set_managed_charger_location"
+            )
+            and method == "POST"
+        ):
             assert kwargs["json"] == {"location": {"lat": 10.0, "lon": 20.0}}
             return make_response(method, url, json_body={"response": {"result": True}})
-        if url.endswith("/api/1/vehicles/5YJ3E1EA7JF000001/command/upcoming_calendar_entries") and method == "POST":
+        if (
+            url.endswith(
+                "/api/1/vehicles/5YJ3E1EA7JF000001/command/upcoming_calendar_entries"
+            )
+            and method == "POST"
+        ):
             assert kwargs["json"] == {"calendar_data": "meeting @ 9"}
             return make_response(method, url, json_body={"response": {"result": True}})
         raise AssertionError(f"unexpected request: {method} {url}")
 
     monkeypatch.setattr(client.httpx, "request", fake_request)
 
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
 
-    amps = json.loads(tools_by_name["tescmd_charge_set_amps"]({"amps": 24, "confirm": True}))
-    valet = json.loads(tools_by_name["tescmd_security_valet_mode"]({"enabled": True, "password": "***", "confirm": True}))
-    gps = json.loads(tools_by_name["tescmd_navigation_gps"]({"lat": 37.5, "lon": -122.2, "order": 2, "confirm": True}))
-    managed_location = json.loads(tools_by_name["tescmd_charge_managed_location_set"]({"lat": 10.0, "lon": 20.0, "confirm": True}))
-    calendar = json.loads(tools_by_name["tescmd_vehicle_calendar_upcoming"]({"calendar_data": "meeting @ 9", "confirm": True}))
-    volume = json.loads(tools_by_name["tescmd_media_volume_set"]({"volume": 7.5, "confirm": True}))
-    clear_schedules = json.loads(tools_by_name["tescmd_charge_schedules_clear"]({"home": True, "work": False, "other": True, "confirm": True}))
+    amps = json.loads(
+        tools_by_name["tescmd_charge_set_amps"]({"amps": 24, "confirm": True})
+    )
+    valet = json.loads(
+        tools_by_name["tescmd_security_valet_mode"](
+            {"enabled": True, "password": "***", "confirm": True}
+        )
+    )
+    gps = json.loads(
+        tools_by_name["tescmd_navigation_gps"](
+            {"lat": 37.5, "lon": -122.2, "order": 2, "confirm": True}
+        )
+    )
+    managed_location = json.loads(
+        tools_by_name["tescmd_charge_managed_location_set"](
+            {"lat": 10.0, "lon": 20.0, "confirm": True}
+        )
+    )
+    calendar = json.loads(
+        tools_by_name["tescmd_vehicle_calendar_upcoming"](
+            {"calendar_data": "meeting @ 9", "confirm": True}
+        )
+    )
+    volume = json.loads(
+        tools_by_name["tescmd_media_volume_set"]({"volume": 7.5, "confirm": True})
+    )
+    clear_schedules = json.loads(
+        tools_by_name["tescmd_charge_schedules_clear"](
+            {"home": True, "work": False, "other": True, "confirm": True}
+        )
+    )
 
     for signed_required in (amps, valet, gps, volume, clear_schedules):
         assert signed_required["ok"] is False
@@ -1266,12 +1780,26 @@ def test_extended_native_command_tools_use_expected_payloads(tmp_path, monkeypat
     assert managed_location["ok"] is True
     assert calendar["ok"] is True
     urls = [url for _, url, _ in calls]
-    assert all("set_charging_amps" not in url and "set_valet_mode" not in url and "navigation_gps_request" not in url and "adjust_volume" not in url and "batch_remove_charge_schedules" not in url for url in urls)
+    assert all(
+        "set_charging_amps" not in url
+        and "set_valet_mode" not in url
+        and "navigation_gps_request" not in url
+        and "adjust_volume" not in url
+        and "batch_remove_charge_schedules" not in url
+        for url in urls
+    )
 
 
 def test_plugin_native_status_logout_and_key_tooling(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na", domain="cars.example.com"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            region="na",
+            domain="cars.example.com",
+        )
+    )
     config.save_auth_state(
         config.AuthState(
             profile="default",
@@ -1283,7 +1811,9 @@ def test_plugin_native_status_logout_and_key_tooling(tmp_path, monkeypatch) -> N
         )
     )
 
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
 
     key_payload = json.loads(tools_by_name["tescmd_key_generate"]({"confirm": True}))
     assert key_payload["ok"] is True
@@ -1294,8 +1824,13 @@ def test_plugin_native_status_logout_and_key_tooling(tmp_path, monkeypatch) -> N
     public_key_pem = Path(public_key_path).read_text()
 
     def fake_get(url: str, **kwargs):
-        assert url == "https://cars.example.com/.well-known/appspecific/com.tesla.3p.public-key.pem"
-        return httpx.Response(200, text=public_key_pem, request=httpx.Request("GET", url))
+        assert (
+            url
+            == "https://cars.example.com/.well-known/appspecific/com.tesla.3p.public-key.pem"
+        )
+        return httpx.Response(
+            200, text=public_key_pem, request=httpx.Request("GET", url)
+        )
 
     monkeypatch.setattr(client.httpx, "get", fake_get)
 
@@ -1304,7 +1839,9 @@ def test_plugin_native_status_logout_and_key_tooling(tmp_path, monkeypatch) -> N
     assert status_payload["authenticated"] is True
     assert status_payload["key"]["present"] is True
 
-    deploy_payload = json.loads(tools_by_name["tescmd_key_deploy"]({"method": "local", "confirm": True}))
+    deploy_payload = json.loads(
+        tools_by_name["tescmd_key_deploy"]({"method": "local", "confirm": True})
+    )
     assert deploy_payload["ok"] is True
     assert deploy_payload["method"] == "local"
     assert Path(deploy_payload["public_key_file"]).read_text() == public_key_pem
@@ -1316,14 +1853,20 @@ def test_plugin_native_status_logout_and_key_tooling(tmp_path, monkeypatch) -> N
     assert validate_payload["matches_local_key"] is True
 
     def mismatch_get(url: str, **kwargs):
-        return httpx.Response(200, text="-----BEGIN PUBLIC KEY-----\nDIFFERENT\n-----END PUBLIC KEY-----\n", request=httpx.Request("GET", url))
+        return httpx.Response(
+            200,
+            text="-----BEGIN PUBLIC KEY-----\nDIFFERENT\n-----END PUBLIC KEY-----\n",
+            request=httpx.Request("GET", url),
+        )
 
     monkeypatch.setattr(client.httpx, "get", mismatch_get)
     mismatch_payload = json.loads(tools_by_name["tescmd_key_validate"]({}))
     assert mismatch_payload["accessible"] is False
     assert mismatch_payload["matches_local_key"] is False
 
-    github_payload = json.loads(tools_by_name["tescmd_key_deploy"]({"method": "github"}))
+    github_payload = json.loads(
+        tools_by_name["tescmd_key_deploy"]({"method": "github"})
+    )
     assert github_payload["ok"] is False
     assert "method must be one of" in github_payload["error"]
 
@@ -1334,7 +1877,14 @@ def test_plugin_native_status_logout_and_key_tooling(tmp_path, monkeypatch) -> N
 
 def test_raw_requests_and_vehicle_status_helpers(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na", default_vin="5YJ3E1EA7JF000001"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            region="na",
+            default_vin="5YJ3E1EA7JF000001",
+        )
+    )
     config.save_auth_state(
         config.AuthState(
             profile="default",
@@ -1348,7 +1898,24 @@ def test_raw_requests_and_vehicle_status_helpers(tmp_path, monkeypatch) -> None:
 
     def fake_request(method: str, url: str, **kwargs):
         if url.endswith("/api/1/vehicles/5YJ3E1EA7JF000001/vehicle_data"):
-            return make_response(method, url, json_body={"response": {"vehicle_state": {"car_version": "2026.8.1", "software_update": {"status": "available"}}, "drive_state": {"latitude": 10.0, "longitude": 20.0}, "closures_state": {"df": 0}, "vehicle_config": {"car_type": "model3"}, "gui_settings": {"gui_distance_units": "mi/hr"}, "charge_schedule_data": {"schedules": []}, "preconditioning_schedule_data": {"schedules": []}}})
+            return make_response(
+                method,
+                url,
+                json_body={
+                    "response": {
+                        "vehicle_state": {
+                            "car_version": "2026.8.1",
+                            "software_update": {"status": "available"},
+                        },
+                        "drive_state": {"latitude": 10.0, "longitude": 20.0},
+                        "closures_state": {"df": 0},
+                        "vehicle_config": {"car_type": "model3"},
+                        "gui_settings": {"gui_distance_units": "mi/hr"},
+                        "charge_schedule_data": {"schedules": []},
+                        "preconditioning_schedule_data": {"schedules": []},
+                    }
+                },
+            )
         if url.endswith("/api/1/test") and method == "GET":
             assert kwargs["params"] == {"foo": "bar"}
             return make_response(method, url, json_body={"response": {"ok": True}})
@@ -1361,19 +1928,45 @@ def test_raw_requests_and_vehicle_status_helpers(tmp_path, monkeypatch) -> None:
         raise AssertionError(f"unexpected request: {method} {url}")
 
     monkeypatch.setattr(client.httpx, "request", fake_request)
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
 
     software = json.loads(tools_by_name["tescmd_software_status"]({}))
     security = json.loads(tools_by_name["tescmd_security_status"]({}))
     drive = json.loads(tools_by_name["tescmd_vehicle_drive_status"]({"no_cache": True}))
-    closures = json.loads(tools_by_name["tescmd_vehicle_closures_status"]({"no_cache": True}))
-    vehicle_config = json.loads(tools_by_name["tescmd_vehicle_config_status"]({"no_cache": True}))
-    gui_settings = json.loads(tools_by_name["tescmd_vehicle_gui_settings"]({"no_cache": True}))
-    charge_schedule = json.loads(tools_by_name["tescmd_vehicle_charge_schedule_status"]({"no_cache": True}))
-    preconditioning_schedule = json.loads(tools_by_name["tescmd_vehicle_preconditioning_schedule_status"]({"no_cache": True}))
-    raw_get = json.loads(tools_by_name["tescmd_raw_get"]({"path": "/api/1/test", "params": {"foo": "bar"}, "confirm": True}))
-    raw_post = json.loads(tools_by_name["tescmd_raw_post"]({"path": "/api/1/test", "body": {"hello": "world"}, "confirm": True}))
-    window = json.loads(tools_by_name["tescmd_vehicle_window_control"]({"command": "close", "lat": 11.0, "lon": 22.0, "confirm": True}))
+    closures = json.loads(
+        tools_by_name["tescmd_vehicle_closures_status"]({"no_cache": True})
+    )
+    vehicle_config = json.loads(
+        tools_by_name["tescmd_vehicle_config_status"]({"no_cache": True})
+    )
+    gui_settings = json.loads(
+        tools_by_name["tescmd_vehicle_gui_settings"]({"no_cache": True})
+    )
+    charge_schedule = json.loads(
+        tools_by_name["tescmd_vehicle_charge_schedule_status"]({"no_cache": True})
+    )
+    preconditioning_schedule = json.loads(
+        tools_by_name["tescmd_vehicle_preconditioning_schedule_status"](
+            {"no_cache": True}
+        )
+    )
+    raw_get = json.loads(
+        tools_by_name["tescmd_raw_get"](
+            {"path": "/api/1/test", "params": {"foo": "bar"}, "confirm": True}
+        )
+    )
+    raw_post = json.loads(
+        tools_by_name["tescmd_raw_post"](
+            {"path": "/api/1/test", "body": {"hello": "world"}, "confirm": True}
+        )
+    )
+    window = json.loads(
+        tools_by_name["tescmd_vehicle_window_control"](
+            {"command": "close", "lat": 11.0, "lon": 22.0, "confirm": True}
+        )
+    )
 
     assert software["ok"] is True
     assert software["software"]["car_version"] == "2026.8.1"
@@ -1390,10 +1983,27 @@ def test_raw_requests_and_vehicle_status_helpers(tmp_path, monkeypatch) -> None:
     assert "Vehicle Command Protocol" in window["error"]
 
 
-def test_path_components_and_vehicle_ids_are_validated_before_network(tmp_path, monkeypatch) -> None:
+def test_path_components_and_vehicle_ids_are_validated_before_network(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na", default_vin="BAD/VIN"))
-    config.save_auth_state(config.AuthState(profile="default", access_token="access-1", expires_at=9999999999, scopes=["vehicle_cmds"], region="na"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            region="na",
+            default_vin="BAD/VIN",
+        )
+    )
+    config.save_auth_state(
+        config.AuthState(
+            profile="default",
+            access_token="access-1",
+            expires_at=9999999999,
+            scopes=["vehicle_cmds"],
+            region="na",
+        )
+    )
     calls: list[tuple[str, str, dict]] = []
 
     def fake_request(method: str, url: str, **kwargs):
@@ -1401,14 +2011,18 @@ def test_path_components_and_vehicle_ids_are_validated_before_network(tmp_path, 
         return make_response(method, url, json_body={"response": {"ok": True}})
 
     monkeypatch.setattr(client.httpx, "request", fake_request)
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
 
     bad_vin = json.loads(tools_by_name["tescmd_vehicle_status"]({}))
     assert bad_vin["ok"] is False
     assert "Vehicle identifier must be" in bad_vin["error"]
     assert calls == []
 
-    bad_invoice = json.loads(tools_by_name["tescmd_billing_invoice"]({"invoice_id": "../invoice"}))
+    bad_invoice = json.loads(
+        tools_by_name["tescmd_billing_invoice"]({"invoice_id": "../invoice"})
+    )
     assert bad_invoice["ok"] is False
     assert "invoice_id contains invalid characters" in bad_invoice["error"]
     assert calls == []
@@ -1420,14 +2034,33 @@ def test_china_region_uses_tesla_cn_fleet_domain():
 
 def test_oauth_urls_match_tesla_fleet_api_docs():
     assert client.AUTH_BASE_URL == "https://auth.tesla.com/oauth2/v3"
-    assert client.TOKEN_URL == "https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token"
+    assert (
+        client.TOKEN_URL == "https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token"
+    )
     assert auth.AUTHORIZE_URL == "https://auth.tesla.com/oauth2/v3/authorize"
 
 
-def test_high_risk_vehicle_commands_require_confirm_before_network_call(tmp_path, monkeypatch) -> None:
+def test_high_risk_vehicle_commands_require_confirm_before_network_call(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na", default_vin="5YJ3E1EA7JF000001"))
-    config.save_auth_state(config.AuthState(profile="default", access_token="access-1", expires_at=9999999999, scopes=["vehicle_cmds"], region="na"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            region="na",
+            default_vin="5YJ3E1EA7JF000001",
+        )
+    )
+    config.save_auth_state(
+        config.AuthState(
+            profile="default",
+            access_token="access-1",
+            expires_at=9999999999,
+            scopes=["vehicle_cmds"],
+            region="na",
+        )
+    )
 
     calls = []
 
@@ -1436,7 +2069,9 @@ def test_high_risk_vehicle_commands_require_confirm_before_network_call(tmp_path
         return make_response(method, url, json_body={"response": {"result": True}})
 
     monkeypatch.setattr(client.httpx, "request", fake_request)
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
 
     denied = json.loads(tools_by_name["tescmd_security_unlock"]({}))
     assert denied["ok"] is False
@@ -1449,10 +2084,30 @@ def test_high_risk_vehicle_commands_require_confirm_before_network_call(tmp_path
     assert calls == []
 
 
-def test_every_confirm_required_tool_denies_before_network_without_confirm(tmp_path, monkeypatch) -> None:
+def test_every_confirm_required_tool_denies_before_network_without_confirm(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", client_secret="secret-abc", region="na", default_vin="5YJ3E1EA7JF000001", domain="cars.example.com"))
-    config.save_auth_state(config.AuthState(profile="default", access_token="access-1", refresh_token="refresh-1", expires_at=9999999999, scopes=["openid", "vehicle_cmds", "energy_cmds"], region="na"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            client_secret="secret-abc",
+            region="na",
+            default_vin="5YJ3E1EA7JF000001",
+            domain="cars.example.com",
+        )
+    )
+    config.save_auth_state(
+        config.AuthState(
+            profile="default",
+            access_token="access-1",
+            refresh_token="refresh-1",
+            expires_at=9999999999,
+            scopes=["openid", "vehicle_cmds", "energy_cmds"],
+            region="na",
+        )
+    )
     network_calls = []
 
     def fake_request(method: str, url: str, **kwargs):
@@ -1472,7 +2127,19 @@ def test_every_confirm_required_tool_denies_before_network_without_confirm(tmp_p
             return "na"
         if param.name in {"vin", "vins"}:
             return ["5YJ3E1EA7JF000001"] if param.is_array else "5YJ3E1EA7JF000001"
-        if param.name in {"site_id", "id", "share_user_id", "start_time", "end_time", "charging_time", "departure_time", "time_minutes", "days_of_week", "off_peak_hours_end_time", "preconditioning_times"}:
+        if param.name in {
+            "site_id",
+            "id",
+            "share_user_id",
+            "start_time",
+            "end_time",
+            "charging_time",
+            "departure_time",
+            "time_minutes",
+            "days_of_week",
+            "off_peak_hours_end_time",
+            "preconditioning_times",
+        }:
             return 1
         if param.name in {"lat", "lon", "driver_temp", "passenger_temp", "volume"}:
             return 1.0
@@ -1499,20 +2166,38 @@ def test_every_confirm_required_tool_denies_before_network_without_confirm(tmp_p
     for spec in specs:
         if not any(param.name == "confirm" and param.required for param in spec.params):
             continue
-        args = {param.name: dummy(param) for param in spec.params if param.required and param.name != "confirm"}
+        args = {
+            param.name: dummy(param)
+            for param in spec.params
+            if param.required and param.name != "confirm"
+        }
         result = json.loads(handlers[spec.name](args))
         checked += 1
-        if result.get("ok") is not False or "confirm=true" not in result.get("error", ""):
+        if result.get("ok") is not False or "confirm=true" not in result.get(
+            "error", ""
+        ):
             failures.append({"tool": spec.name, "result": result})
     assert checked >= 100
     assert failures == []
     assert network_calls == []
 
 
-def test_raw_post_requires_confirm_and_rejects_non_api_paths(tmp_path, monkeypatch) -> None:
+def test_raw_post_requires_confirm_and_rejects_non_api_paths(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na"))
-    config.save_auth_state(config.AuthState(profile="default", access_token="access-1", expires_at=9999999999, scopes=["vehicle_cmds"], region="na"))
+    config.save_config(
+        config.PluginConfig(profile="default", client_id="client-123", region="na")
+    )
+    config.save_auth_state(
+        config.AuthState(
+            profile="default",
+            access_token="access-1",
+            expires_at=9999999999,
+            scopes=["vehicle_cmds"],
+            region="na",
+        )
+    )
 
     calls = []
 
@@ -1521,19 +2206,33 @@ def test_raw_post_requires_confirm_and_rejects_non_api_paths(tmp_path, monkeypat
         return make_response(method, url, json_body={"response": {"posted": True}})
 
     monkeypatch.setattr(client.httpx, "request", fake_request)
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
 
-    denied = json.loads(tools_by_name["tescmd_raw_post"]({"path": "/api/1/test", "body": {"hello": "world"}}))
+    denied = json.loads(
+        tools_by_name["tescmd_raw_post"](
+            {"path": "/api/1/test", "body": {"hello": "world"}}
+        )
+    )
     assert denied["ok"] is False
     assert "confirm=true" in denied["error"]
     assert calls == []
 
-    bad_path = json.loads(tools_by_name["tescmd_raw_post"]({"path": "https://evil.example/api/1/test", "confirm": True}))
+    bad_path = json.loads(
+        tools_by_name["tescmd_raw_post"](
+            {"path": "https://evil.example/api/1/test", "confirm": True}
+        )
+    )
     assert bad_path["ok"] is False
     assert "starting with /api/" in bad_path["error"]
     assert calls == []
 
-    allowed = json.loads(tools_by_name["tescmd_raw_post"]({"path": "/api/1/test", "body": {"hello": "world"}, "confirm": True}))
+    allowed = json.loads(
+        tools_by_name["tescmd_raw_post"](
+            {"path": "/api/1/test", "body": {"hello": "world"}, "confirm": True}
+        )
+    )
     assert allowed["ok"] is True
     assert calls and calls[0][1].endswith("/api/1/test")
 
@@ -1551,7 +2250,9 @@ def test_handler_redacts_secrets_from_errors(monkeypatch) -> None:
         )
 
     monkeypatch.setattr(runtime.tools, "execute", explode)
-    spec = next(spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_vehicle_list")
+    spec = next(
+        spec for spec in runtime.list_tool_specs() if spec.name == "tescmd_vehicle_list"
+    )
     payload_text = runtime.make_handler(spec)({})
 
     assert "secret-access" not in payload_text
@@ -1563,10 +2264,27 @@ def test_handler_redacts_secrets_from_errors(monkeypatch) -> None:
     assert payload["payload"]["nested"]["refresh_token"] == "[REDACTED]"
 
 
-def test_account_and_energy_mutations_require_confirm_before_network_call(tmp_path, monkeypatch) -> None:
+def test_account_and_energy_mutations_require_confirm_before_network_call(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na", default_vin="5YJ3E1EA7JF000001"))
-    config.save_auth_state(config.AuthState(profile="default", access_token="access-1", expires_at=9999999999, scopes=["vehicle_cmds", "energy_cmds"], region="na"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            region="na",
+            default_vin="5YJ3E1EA7JF000001",
+        )
+    )
+    config.save_auth_state(
+        config.AuthState(
+            profile="default",
+            access_token="access-1",
+            expires_at=9999999999,
+            scopes=["vehicle_cmds", "energy_cmds"],
+            region="na",
+        )
+    )
 
     calls = []
 
@@ -1575,36 +2293,59 @@ def test_account_and_energy_mutations_require_confirm_before_network_call(tmp_pa
         return make_response(method, url, json_body={"response": {"ok": True}})
 
     monkeypatch.setattr(client.httpx, "request", fake_request)
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
 
-    denied_driver = json.loads(tools_by_name["tescmd_sharing_add_driver"]({"email": "driver@example.com"}))
+    denied_driver = json.loads(
+        tools_by_name["tescmd_sharing_add_driver"]({"email": "driver@example.com"})
+    )
     assert denied_driver["ok"] is False
     assert "confirm=true" in denied_driver["error"]
 
-    denied_energy = json.loads(tools_by_name["tescmd_energy_backup"]({"site_id": 42, "percent": 25}))
+    denied_energy = json.loads(
+        tools_by_name["tescmd_energy_backup"]({"site_id": 42, "percent": 25})
+    )
     assert denied_energy["ok"] is False
     assert "confirm=true" in denied_energy["error"]
 
-    denied_telemetry = json.loads(tools_by_name["tescmd_vehicle_telemetry_create"]({"config": {"hostname": "telemetry.example.com"}}))
+    denied_telemetry = json.loads(
+        tools_by_name["tescmd_vehicle_telemetry_create"](
+            {"config": {"hostname": "telemetry.example.com"}}
+        )
+    )
     assert denied_telemetry["ok"] is False
     assert "confirm=true" in denied_telemetry["error"]
     assert calls == []
 
-    allowed_driver = json.loads(tools_by_name["tescmd_sharing_add_driver"]({"email": "driver@example.com", "confirm": True}))
-    allowed_energy = json.loads(tools_by_name["tescmd_energy_backup"]({"site_id": 42, "percent": 25, "confirm": True}))
-    allowed_telemetry = json.loads(tools_by_name["tescmd_vehicle_telemetry_create"]({"config": {"hostname": "telemetry.example.com"}, "confirm": True}))
+    allowed_driver = json.loads(
+        tools_by_name["tescmd_sharing_add_driver"](
+            {"email": "driver@example.com", "confirm": True}
+        )
+    )
+    allowed_energy = json.loads(
+        tools_by_name["tescmd_energy_backup"](
+            {"site_id": 42, "percent": 25, "confirm": True}
+        )
+    )
+    allowed_telemetry = json.loads(
+        tools_by_name["tescmd_vehicle_telemetry_create"](
+            {"config": {"hostname": "telemetry.example.com"}, "confirm": True}
+        )
+    )
     assert allowed_driver["ok"] is True
     assert allowed_energy["ok"] is True
     assert allowed_telemetry["ok"] is True
     assert len(calls) == 3
 
 
-
 def test_schema_is_closed_and_marks_sensitive_inputs() -> None:
     specs = {spec.name: spec for spec in runtime.list_tool_specs()}
     auth_complete_schema = schemas.build_schema(specs["tescmd_auth_complete"])
     assert auth_complete_schema["parameters"]["additionalProperties"] is False
-    assert auth_complete_schema["parameters"]["properties"]["code"]["x-sensitive"] is True
+    assert (
+        auth_complete_schema["parameters"]["properties"]["code"]["x-sensitive"] is True
+    )
     assert auth_complete_schema["parameters"]["properties"]["code"]["writeOnly"] is True
     vehicle_schema = schemas.build_schema(specs["tescmd_vehicle_status"])
     assert vehicle_schema["parameters"]["properties"]["vin"]["x-sensitive"] is True
@@ -1614,31 +2355,60 @@ def test_schema_is_closed_and_marks_sensitive_inputs() -> None:
 
 def test_domain_validation_and_key_overwrite_guards(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
 
     try:
-        config.save_config(config.PluginConfig(profile="default", client_id="client-123", domain="https://cars.example.com/path"))
+        config.save_config(
+            config.PluginConfig(
+                profile="default",
+                client_id="client-123",
+                domain="https://cars.example.com/path",
+            )
+        )
     except Exception as exc:
         assert "hostname only" in str(exc)
     else:
         raise AssertionError("invalid domain should be rejected")
 
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", domain="cars.example.com"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default", client_id="client-123", domain="cars.example.com"
+        )
+    )
     generated = json.loads(tools_by_name["tescmd_key_generate"]({"confirm": True}))
     assert generated["ok"] is True
     blocked = json.loads(tools_by_name["tescmd_key_generate"]({"confirm": True}))
     assert blocked["ok"] is True
     assert blocked["status"] == "exists"
-    forced = json.loads(tools_by_name["tescmd_key_generate"]({"force": True, "confirm": True}))
+    forced = json.loads(
+        tools_by_name["tescmd_key_generate"]({"force": True, "confirm": True})
+    )
     assert forced["ok"] is True
     assert forced["status"] == "generated"
 
 
-def test_auth_export_requires_confirm_and_never_returns_token_blob(tmp_path, monkeypatch) -> None:
+def test_auth_export_requires_confirm_and_never_returns_token_blob(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na"))
-    config.save_auth_state(config.AuthState(profile="default", access_token="test-access", refresh_token="test-refresh", expires_at=9999999999, scopes=["vehicle_cmds"], region="na"))
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    config.save_config(
+        config.PluginConfig(profile="default", client_id="client-123", region="na")
+    )
+    config.save_auth_state(
+        config.AuthState(
+            profile="default",
+            access_token="test-access",
+            refresh_token="test-refresh",
+            expires_at=9999999999,
+            scopes=["vehicle_cmds"],
+            region="na",
+        )
+    )
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
 
     denied = json.loads(tools_by_name["tescmd_auth_export"]({}))
     assert denied["ok"] is False
@@ -1655,34 +2425,74 @@ def test_auth_export_requires_confirm_and_never_returns_token_blob(tmp_path, mon
 
 def test_signed_command_rejects_non_ok_operation_status(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na", default_vin="5YJ3E1EA7JF000001"))
-    config.save_auth_state(config.AuthState(profile="default", access_token="access-1", refresh_token="refresh-1", expires_at=9999999999, scopes=["vehicle_cmds"], region="na"))
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            region="na",
+            default_vin="5YJ3E1EA7JF000001",
+        )
+    )
+    config.save_auth_state(
+        config.AuthState(
+            profile="default",
+            access_token="access-1",
+            refresh_token="refresh-1",
+            expires_at=9999999999,
+            scopes=["vehicle_cmds"],
+            region="na",
+        )
+    )
     auth.generate_vehicle_command_keypair("default", domain="cars.example.com")
     client_private_key = client.load_private_key("default")
     vehicle_private_key = auth.ec.generate_private_key(auth.ec.SECP256R1())
-    handshake_response = _build_signed_response_for_handshake(client_private_key, vehicle_private_key, epoch=b"epoch-op")
-    failed_response = encode_routable_message(RoutableMessage(message_status=MessageStatus(operation_status=OperationStatus.OPERATIONSTATUS_ERROR)))
+    handshake_response = _build_signed_response_for_handshake(
+        client_private_key, vehicle_private_key, epoch=b"epoch-op"
+    )
+    failed_response = encode_routable_message(
+        RoutableMessage(
+            message_status=MessageStatus(
+                operation_status=OperationStatus.OPERATIONSTATUS_ERROR
+            )
+        )
+    )
     calls: list[str] = []
 
     def fake_request(method: str, url: str, **kwargs):
         calls.append(url)
-        return make_response(method, url, json_body={"response": handshake_response if len(calls) == 1 else failed_response})
+        return make_response(
+            method,
+            url,
+            json_body={
+                "response": handshake_response if len(calls) == 1 else failed_response
+            },
+        )
 
     monkeypatch.setattr(client.httpx, "request", fake_request)
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
     payload = json.loads(tools_by_name["tescmd_security_lock"]({"confirm": True}))
     assert payload["ok"] is False
     assert "OPERATIONSTATUS_ERROR" in payload["error"]
 
 
-def test_unknown_vehicle_command_fails_closed_before_network(tmp_path, monkeypatch) -> None:
+def test_unknown_vehicle_command_fails_closed_before_network(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na"))
-    config.save_auth_state(config.AuthState(profile="default", access_token="access-1", region="na"))
+    config.save_config(
+        config.PluginConfig(profile="default", client_id="client-123", region="na")
+    )
+    config.save_auth_state(
+        config.AuthState(profile="default", access_token="access-1", region="na")
+    )
     fleet = client.TeslaFleetClient(profile="default")
 
     def fail_request(*args, **kwargs):
-        raise AssertionError("unknown vehicle command should not make a network request")
+        raise AssertionError(
+            "unknown vehicle command should not make a network request"
+        )
 
     monkeypatch.setattr(client.httpx, "request", fail_request)
     with pytest.raises(client.TeslaAPIError, match="No vehicle-command registry entry"):
@@ -1691,9 +2501,21 @@ def test_unknown_vehicle_command_fails_closed_before_network(tmp_path, monkeypat
 
 def test_runtime_redacts_key_paths_and_cache_keys(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    config.save_config(config.PluginConfig(profile="default", client_id="client-123", region="na", domain="cars.example.com", default_vin="5YJ3E1EA7JF000001"))
-    config.save_auth_state(config.AuthState(profile="default", access_token="access-1", region="na"))
-    tools_by_name = {spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()}
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            region="na",
+            domain="cars.example.com",
+            default_vin="5YJ3E1EA7JF000001",
+        )
+    )
+    config.save_auth_state(
+        config.AuthState(profile="default", access_token="access-1", region="na")
+    )
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
 
     generated = json.loads(tools_by_name["tescmd_key_generate"]({"confirm": True}))
     shown = json.loads(tools_by_name["tescmd_key_show"]({}))
@@ -1709,7 +2531,9 @@ def test_runtime_redacts_key_paths_and_cache_keys(tmp_path, monkeypatch) -> None
         return {"charge_state": {"battery_level": 88}}
 
     monkeypatch.setattr(client.TeslaFleetClient, "vehicle_status", fake_status)
-    status = json.loads(tools_by_name["tescmd_vehicle_status"]({"endpoints": ["charge_state"]}))
+    status = json.loads(
+        tools_by_name["tescmd_vehicle_status"]({"endpoints": ["charge_state"]})
+    )
     assert status["ok"] is True
     assert "key" not in status["cache"]
 

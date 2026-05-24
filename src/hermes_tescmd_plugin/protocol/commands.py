@@ -35,8 +35,12 @@ class CommandSpec:
 # ---------------------------------------------------------------------------
 
 _VCSEC_COMMANDS: dict[str, CommandSpec] = {
-    "door_lock": CommandSpec(Domain.DOMAIN_VEHICLE_SECURITY, action_type="RKE_ACTION_LOCK"),
-    "door_unlock": CommandSpec(Domain.DOMAIN_VEHICLE_SECURITY, action_type="RKE_ACTION_UNLOCK"),
+    "door_lock": CommandSpec(
+        Domain.DOMAIN_VEHICLE_SECURITY, action_type="RKE_ACTION_LOCK"
+    ),
+    "door_unlock": CommandSpec(
+        Domain.DOMAIN_VEHICLE_SECURITY, action_type="RKE_ACTION_UNLOCK"
+    ),
     "actuate_trunk": CommandSpec(Domain.DOMAIN_VEHICLE_SECURITY),
     "open_tonneau": CommandSpec(Domain.DOMAIN_VEHICLE_SECURITY),
     "close_tonneau": CommandSpec(Domain.DOMAIN_VEHICLE_SECURITY),
@@ -81,7 +85,9 @@ _INFOTAINMENT_COMMANDS: dict[str, CommandSpec] = {
     "set_climate_keeper_mode": CommandSpec(Domain.DOMAIN_INFOTAINMENT),
     "set_cop_temp": CommandSpec(Domain.DOMAIN_INFOTAINMENT),
     "remote_auto_seat_climate_request": CommandSpec(Domain.DOMAIN_INFOTAINMENT),
-    "remote_auto_steering_wheel_heat_climate_request": CommandSpec(Domain.DOMAIN_INFOTAINMENT),
+    "remote_auto_steering_wheel_heat_climate_request": CommandSpec(
+        Domain.DOMAIN_INFOTAINMENT
+    ),
     "remote_steering_wheel_heat_level_request": CommandSpec(Domain.DOMAIN_INFOTAINMENT),
     "set_bioweapon_mode": CommandSpec(Domain.DOMAIN_INFOTAINMENT),
     # Security (infotainment-routed)
@@ -112,7 +118,9 @@ _INFOTAINMENT_COMMANDS: dict[str, CommandSpec] = {
     "adjust_volume": CommandSpec(Domain.DOMAIN_INFOTAINMENT),
     # Navigation
     "navigation_request": CommandSpec(Domain.DOMAIN_INFOTAINMENT),
-    "share": CommandSpec(Domain.DOMAIN_INFOTAINMENT),  # Backwards-compatible alias for navigation_request payloads.
+    "share": CommandSpec(
+        Domain.DOMAIN_INFOTAINMENT
+    ),  # Backwards-compatible alias for navigation_request payloads.
     "navigation_gps_request": CommandSpec(Domain.DOMAIN_INFOTAINMENT),
     "navigation_sc_request": CommandSpec(Domain.DOMAIN_INFOTAINMENT),
     "trigger_homelink": CommandSpec(Domain.DOMAIN_INFOTAINMENT),
@@ -122,7 +130,9 @@ _INFOTAINMENT_COMMANDS: dict[str, CommandSpec] = {
     "cancel_software_update": CommandSpec(Domain.DOMAIN_INFOTAINMENT),
     # Vehicle name / calendar
     "set_vehicle_name": CommandSpec(Domain.DOMAIN_INFOTAINMENT),
-    "upcoming_calendar_entries": CommandSpec(Domain.DOMAIN_INFOTAINMENT, requires_signing=False),
+    "upcoming_calendar_entries": CommandSpec(
+        Domain.DOMAIN_INFOTAINMENT, requires_signing=False
+    ),
     # Windows / sunroof
     "window_control": CommandSpec(Domain.DOMAIN_INFOTAINMENT),
     "sun_roof_control": CommandSpec(Domain.DOMAIN_INFOTAINMENT),
@@ -140,7 +150,9 @@ _UNSIGNED_COMMANDS: dict[str, CommandSpec] = {
     "set_managed_charge_current_request": CommandSpec(
         Domain.DOMAIN_BROADCAST, requires_signing=False
     ),
-    "set_managed_charger_location": CommandSpec(Domain.DOMAIN_BROADCAST, requires_signing=False),
+    "set_managed_charger_location": CommandSpec(
+        Domain.DOMAIN_BROADCAST, requires_signing=False
+    ),
     "set_managed_scheduled_charging_time": CommandSpec(
         Domain.DOMAIN_BROADCAST, requires_signing=False
     ),

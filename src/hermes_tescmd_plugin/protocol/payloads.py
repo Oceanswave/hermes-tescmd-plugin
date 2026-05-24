@@ -60,6 +60,13 @@ _CLOSURE_STOP = 2
 _CLOSURE_OPEN = 3
 _CLOSURE_CLOSE = 4
 
+_TRUNK_MOVE_TYPES = {
+    "move": _CLOSURE_MOVE,
+    "actuate": _CLOSURE_MOVE,
+    "open": _CLOSURE_OPEN,
+    "close": _CLOSURE_CLOSE,
+}
+
 # ClosureMoveRequest field numbers
 _CLOSURE_REAR_TRUNK = 5
 _CLOSURE_FRONT_TRUNK = 6
@@ -76,7 +83,14 @@ def _build_trunk_payload(body: dict[str, Any]) -> bytes:
     """Build VCSEC ClosureMoveRequest for trunk/frunk."""
     is_front = body.get("which_trunk") == "front"
     field = _CLOSURE_FRONT_TRUNK if is_front else _CLOSURE_REAR_TRUNK
-    return _vcsec_closure_move(**{str(field): _CLOSURE_MOVE})
+    move_name = str(body.get("move") or "move").strip().lower()
+    move_type = _TRUNK_MOVE_TYPES.get(move_name)
+    if move_type is None:
+        supported = ", ".join(sorted(_TRUNK_MOVE_TYPES))
+        raise ValueError(
+            f"Unsupported trunk move '{move_name}'. Expected one of: {supported}."
+        )
+    return _vcsec_closure_move(**{str(field): move_type})
 
 
 def _vcsec_closure_move(**fields: int) -> bytes:
@@ -639,9 +653,15 @@ _BUILDERS: dict[str, _PayloadBuilder] = {
     "remote_start_drive": lambda _: _vcsec_rke(_RKE_REMOTE_DRIVE),
     "auto_secure_vehicle": lambda _: _vcsec_rke(_RKE_AUTO_SECURE),
     "actuate_trunk": lambda body: _build_trunk_payload(body),
-    "open_tonneau": lambda _: _vcsec_closure_move(**{str(_CLOSURE_TONNEAU): _CLOSURE_OPEN}),
-    "close_tonneau": lambda _: _vcsec_closure_move(**{str(_CLOSURE_TONNEAU): _CLOSURE_CLOSE}),
-    "stop_tonneau": lambda _: _vcsec_closure_move(**{str(_CLOSURE_TONNEAU): _CLOSURE_STOP}),
+    "open_tonneau": lambda _: _vcsec_closure_move(
+        **{str(_CLOSURE_TONNEAU): _CLOSURE_OPEN}
+    ),
+    "close_tonneau": lambda _: _vcsec_closure_move(
+        **{str(_CLOSURE_TONNEAU): _CLOSURE_CLOSE}
+    ),
+    "stop_tonneau": lambda _: _vcsec_closure_move(
+        **{str(_CLOSURE_TONNEAU): _CLOSURE_STOP}
+    ),
     # Infotainment commands → Action { VehicleAction } payloads
     "charge_start": _charging_start,
     "charge_stop": _charging_stop,
@@ -684,7 +704,9 @@ _BUILDERS: dict[str, _PayloadBuilder] = {
     "speed_limit_clear_pin": lambda body: _speed_limit_clear_pin(body),
     "reset_pin_to_drive_pin": lambda _: _void_vehicle_action(_VA_RESET_PIN_TO_DRIVE),
     "clear_pin_to_drive_admin": lambda _: _void_vehicle_action(_VA_RESET_PIN_TO_DRIVE),
-    "speed_limit_clear_pin_admin": lambda _: _void_vehicle_action(_VA_CLEAR_SPEED_LIMIT_PIN_ADMIN),
+    "speed_limit_clear_pin_admin": lambda _: _void_vehicle_action(
+        _VA_CLEAR_SPEED_LIMIT_PIN_ADMIN
+    ),
     "honk_horn": lambda _: _void_vehicle_action(_VA_HONK_HORN),
     "flash_lights": lambda _: _void_vehicle_action(_VA_FLASH_LIGHTS),
     "set_pin_to_drive": _set_pin_to_drive,
@@ -713,7 +735,9 @@ _BUILDERS: dict[str, _PayloadBuilder] = {
     "trigger_homelink": _trigger_homelink,
     # Software
     "schedule_software_update": _schedule_software_update,
-    "cancel_software_update": lambda _: _void_vehicle_action(_VA_CANCEL_SOFTWARE_UPDATE),
+    "cancel_software_update": lambda _: _void_vehicle_action(
+        _VA_CANCEL_SOFTWARE_UPDATE
+    ),
     # Vehicle
     "set_vehicle_name": _set_vehicle_name,
     # Sunroof

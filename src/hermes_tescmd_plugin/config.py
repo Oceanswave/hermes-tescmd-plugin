@@ -93,8 +93,15 @@ _PROFILE_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 
 def validate_profile(profile: str | None = None) -> str:
     value = profile or DEFAULT_PROFILE
-    if not isinstance(value, str) or not _PROFILE_PATTERN.fullmatch(value) or value in {".", ".."} or ".." in value.split("."):
-        raise PluginStateError("Invalid plugin profile name. Use 1-64 letters, numbers, underscore, hyphen, or dot; path traversal is not allowed.")
+    if (
+        not isinstance(value, str)
+        or not _PROFILE_PATTERN.fullmatch(value)
+        or value in {".", ".."}
+        or ".." in value.split(".")
+    ):
+        raise PluginStateError(
+            "Invalid plugin profile name. Use 1-64 letters, numbers, underscore, hyphen, or dot; path traversal is not allowed."
+        )
     return value
 
 
@@ -105,20 +112,33 @@ def validate_public_domain(value: str | None) -> str | None:
     if not text:
         return None
     if any(ch.isspace() for ch in text) or any(ch in text for ch in "/?#@"):
-        raise PluginStateError("domain must be a hostname only; do not include scheme, path, query, userinfo, or whitespace.")
+        raise PluginStateError(
+            "domain must be a hostname only; do not include scheme, path, query, userinfo, or whitespace."
+        )
     if "://" in text:
-        raise PluginStateError("domain must not include a URL scheme; provide only the hostname.")
+        raise PluginStateError(
+            "domain must not include a URL scheme; provide only the hostname."
+        )
     parsed = urlparse(f"//{text}")
     hostname = parsed.hostname
-    if not hostname or parsed.username or parsed.password or parsed.path not in ("", None):
+    if (
+        not hostname
+        or parsed.username
+        or parsed.password
+        or parsed.path not in ("", None)
+    ):
         raise PluginStateError("domain must be a hostname only.")
     if parsed.port is not None:
-        raise PluginStateError("domain must not include a port; Tesla virtual-key hosting requires HTTPS on the standard port.")
+        raise PluginStateError(
+            "domain must not include a port; Tesla virtual-key hosting requires HTTPS on the standard port."
+        )
     try:
         ascii_host = hostname.encode("idna").decode("ascii")
     except UnicodeError as exc:
         raise PluginStateError("domain is not a valid DNS hostname.") from exc
-    if len(ascii_host) > 253 or any(not label or len(label) > 63 for label in ascii_host.split(".")):
+    if len(ascii_host) > 253 or any(
+        not label or len(label) > 63 for label in ascii_host.split(".")
+    ):
         raise PluginStateError("domain is not a valid DNS hostname.")
     if ascii_host in {"localhost", "localhost.localdomain"}:
         raise PluginStateError("domain must be public HTTPS hostname, not localhost.")
@@ -127,10 +147,10 @@ def validate_public_domain(value: str | None) -> str | None:
     except ValueError:
         ip = None
     if ip and (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved):
-        raise PluginStateError("domain must not be a private, loopback, link-local, or reserved IP address.")
+        raise PluginStateError(
+            "domain must not be a private, loopback, link-local, or reserved IP address."
+        )
     return ascii_host
-
-
 
 
 def validate_oauth_redirect_uri(value: str | None) -> str | None:
@@ -141,11 +161,17 @@ def validate_oauth_redirect_uri(value: str | None) -> str | None:
     if parsed.scheme != "https":
         raise PluginStateError("oauth_redirect_uri must be a public HTTPS URL.")
     if parsed.username or parsed.password or not parsed.hostname:
-        raise PluginStateError("oauth_redirect_uri must not include userinfo and must include a hostname.")
+        raise PluginStateError(
+            "oauth_redirect_uri must not include userinfo and must include a hostname."
+        )
     if parsed.query or parsed.fragment:
-        raise PluginStateError("oauth_redirect_uri must not include query parameters or fragments.")
+        raise PluginStateError(
+            "oauth_redirect_uri must not include query parameters or fragments."
+        )
     if parsed.port is not None:
-        raise PluginStateError("oauth_redirect_uri must use standard HTTPS port 443 and must not include an explicit port.")
+        raise PluginStateError(
+            "oauth_redirect_uri must use standard HTTPS port 443 and must not include an explicit port."
+        )
     host = validate_public_domain(parsed.hostname)
     path = parsed.path or "/callback"
     if not path.startswith("/") or chr(0) in path or ".." in path.split("/"):
@@ -272,8 +298,12 @@ def _load_hermes_auth_profiles() -> dict[str, Any]:
     except Exception:
         return {}
     providers = store.get("providers") if isinstance(store, dict) else None
-    provider_state = providers.get(HERMES_AUTH_PROVIDER_ID) if isinstance(providers, dict) else None
-    profiles = provider_state.get("profiles") if isinstance(provider_state, dict) else None
+    provider_state = (
+        providers.get(HERMES_AUTH_PROVIDER_ID) if isinstance(providers, dict) else None
+    )
+    profiles = (
+        provider_state.get("profiles") if isinstance(provider_state, dict) else None
+    )
     return dict(profiles) if isinstance(profiles, dict) else {}
 
 
@@ -325,8 +355,16 @@ def _clear_hermes_auth_state(profile: str) -> bool:
         with lock:
             store = module._load_auth_store()  # noqa: SLF001
             providers = store.get("providers")
-            provider_state = providers.get(HERMES_AUTH_PROVIDER_ID) if isinstance(providers, dict) else None
-            profiles = provider_state.get("profiles") if isinstance(provider_state, dict) else None
+            provider_state = (
+                providers.get(HERMES_AUTH_PROVIDER_ID)
+                if isinstance(providers, dict)
+                else None
+            )
+            profiles = (
+                provider_state.get("profiles")
+                if isinstance(provider_state, dict)
+                else None
+            )
             if isinstance(profiles, dict):
                 profiles.pop(profile, None)
                 if not profiles and isinstance(providers, dict):
@@ -400,7 +438,6 @@ def clear_pending_auth(profile: str = DEFAULT_PROFILE) -> None:
     _save_profile_map("pending-auth.json", payload)
 
 
-
 @dataclass
 class CacheEntry:
     profile: str
@@ -438,11 +475,18 @@ def load_cache_entry(profile: str, key: str) -> CacheEntry | None:
     return entry
 
 
-def save_cache_entry(profile: str, key: str, value: Any, *, ttl_seconds: int = 60) -> CacheEntry:
+def save_cache_entry(
+    profile: str, key: str, value: Any, *, ttl_seconds: int = 60
+) -> CacheEntry:
     profile = validate_profile(profile)
     payload = _cache_payload()
     profile_payload = payload.setdefault(profile, {})
-    entry = CacheEntry(profile=profile, key=key, value=value, expires_at=int(time.time()) + int(ttl_seconds))
+    entry = CacheEntry(
+        profile=profile,
+        key=key,
+        value=value,
+        expires_at=int(time.time()) + int(ttl_seconds),
+    )
     profile_payload[key] = asdict(entry)
     _save_profile_map("response-cache.json", payload)
     return entry
@@ -456,7 +500,9 @@ def cache_status(profile: str = DEFAULT_PROFILE) -> dict[str, Any]:
     valid = 0
     expired = 0
     for entry_payload in profile_payload.values():
-        expires_at = entry_payload.get("expires_at") if isinstance(entry_payload, dict) else None
+        expires_at = (
+            entry_payload.get("expires_at") if isinstance(entry_payload, dict) else None
+        )
         if expires_at is not None and now >= int(expires_at):
             expired += 1
         else:

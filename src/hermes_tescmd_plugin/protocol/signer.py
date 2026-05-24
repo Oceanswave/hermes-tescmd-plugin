@@ -13,7 +13,12 @@ from __future__ import annotations
 import hashlib
 import hmac
 
-from hermes_tescmd_plugin.protocol.metadata import TAG_CHALLENGE, TAG_PERSONALIZATION, TAG_SIGNATURE_TYPE, encode_tlv
+from hermes_tescmd_plugin.protocol.metadata import (
+    TAG_CHALLENGE,
+    TAG_PERSONALIZATION,
+    TAG_SIGNATURE_TYPE,
+    encode_tlv,
+)
 
 # Derivation labels (from Tesla vehicle-command specification)
 _LABEL_AUTHENTICATED_COMMAND = b"authenticated command"
@@ -85,5 +90,7 @@ def verify_session_info_tag(
             encode_tlv(TAG_CHALLENGE, challenge),
         )
     )
-    computed = hmac.new(session_info_key, metadata + b"\xff" + session_info_bytes, hashlib.sha256).digest()
+    computed = hmac.new(
+        session_info_key, metadata + b"\xff" + session_info_bytes, hashlib.sha256
+    ).digest()
     return hmac.compare_digest(computed, expected_tag)

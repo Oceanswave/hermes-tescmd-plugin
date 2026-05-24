@@ -15,7 +15,10 @@ def test_safe_arg_summary_redacts_location_search_and_unknown_strings() -> None:
             "query": "coffee near home",
             "email": "driver@example.com",
             "nickname": "Home Garage",
-            "raw_payload": {"formatted_address": "123 Main St", "location": {"lat": 37.1, "lon": -122.2}},
+            "raw_payload": {
+                "formatted_address": "123 Main St",
+                "location": {"lat": 37.1, "lon": -122.2},
+            },
             "place_candidates": ["place-id-1", "place-id-2"],
             "percent": 80,
         }
@@ -28,7 +31,12 @@ def test_safe_arg_summary_redacts_location_search_and_unknown_strings() -> None:
     assert summary["destination"] == "[REDACTED]"
     assert summary["query"] == "[REDACTED]"
     assert summary["email"] == "[REDACTED]"
-    assert summary["nickname"] == {"redacted": True, "type": "str", "length": 11, "hash": audit._hash_value("Home Garage")}  # noqa: SLF001
+    assert summary["nickname"] == {
+        "redacted": True,
+        "type": "str",
+        "length": 11,
+        "hash": audit._hash_value("Home Garage"),
+    }  # noqa: SLF001
     assert summary["raw_payload"]["redacted"] is True
     assert summary["raw_payload"]["type"] == "dict"
     assert summary["raw_payload"]["count"] == 2
@@ -44,7 +52,9 @@ def test_safe_arg_summary_redacts_location_search_and_unknown_strings() -> None:
     assert "place-id" not in serialized
 
 
-def test_append_command_event_does_not_write_unknown_arg_values(tmp_path, monkeypatch) -> None:
+def test_append_command_event_does_not_write_unknown_arg_values(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
 
     audit.append_command_event(
@@ -60,7 +70,10 @@ def test_append_command_event_does_not_write_unknown_arg_values(tmp_path, monkey
             "confirm": True,
             "destination": "123 Main St, Anytown, CA",
             "nickname": "Home Garage",
-            "nested": {"address": "456 Secret Ave", "location": {"lat": 37.1, "lon": -122.2}},
+            "nested": {
+                "address": "456 Secret Ave",
+                "location": {"lat": 37.1, "lon": -122.2},
+            },
         },
     )
 

@@ -83,13 +83,19 @@ def _target_summary(args: dict[str, Any]) -> dict[str, Any]:
     vin = args.get("vin") or args.get("default_vin")
     if vin is None:
         try:
-            vin = config.load_config(str(args.get("profile") or config.DEFAULT_PROFILE)).default_vin
+            vin = config.load_config(
+                str(args.get("profile") or config.DEFAULT_PROFILE)
+            ).default_vin
         except Exception:
             vin = None
     if vin is None:
         return {"provided": False}
     text = str(vin)
-    return {"provided": True, "hash": _hash_value(text), "suffix": text[-4:] if len(text) >= 4 else None}
+    return {
+        "provided": True,
+        "hash": _hash_value(text),
+        "suffix": text[-4:] if len(text) >= 4 else None,
+    }
 
 
 def _safe_arg_summary(args: dict[str, Any]) -> dict[str, Any]:
@@ -125,10 +131,14 @@ def _redacted_value_summary(value: Any) -> dict[str, Any]:
         summary["hash"] = _hash_value(value)
     elif isinstance(value, (list, tuple, set)):
         summary["count"] = len(value)
-        summary["hash"] = _hash_value(json.dumps(list(value), sort_keys=True, default=str, separators=(",", ":")))
+        summary["hash"] = _hash_value(
+            json.dumps(list(value), sort_keys=True, default=str, separators=(",", ":"))
+        )
     elif isinstance(value, dict):
         summary["count"] = len(value)
-        summary["hash"] = _hash_value(json.dumps(value, sort_keys=True, default=str, separators=(",", ":")))
+        summary["hash"] = _hash_value(
+            json.dumps(value, sort_keys=True, default=str, separators=(",", ":"))
+        )
     else:
         summary["hash"] = _hash_value(value)
     return summary
@@ -183,13 +193,18 @@ def append_command_event(
         "pid": os.getpid(),
     }
     try:
-        logger.info("tescmd command audit event %s", json.dumps(event, sort_keys=True, separators=(",", ":")))
+        logger.info(
+            "tescmd command audit event %s",
+            json.dumps(event, sort_keys=True, separators=(",", ":")),
+        )
     except Exception:
         pass
     try:
         path = audit_log_path()
         with path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(event, sort_keys=True, separators=(",", ":")) + "\n")
+            handle.write(
+                json.dumps(event, sort_keys=True, separators=(",", ":")) + "\n"
+            )
         path.chmod(0o600)
     except Exception:
         return

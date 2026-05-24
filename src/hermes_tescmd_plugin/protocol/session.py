@@ -20,8 +20,14 @@ from hermes_tescmd_plugin.errors import (
     TeslaAPIError,
     VehicleAsleepError,
 )
-from hermes_tescmd_plugin.crypto.ecdh import derive_session_key, get_uncompressed_public_key
-from hermes_tescmd_plugin.protocol.encoder import build_session_info_request, encode_routable_message
+from hermes_tescmd_plugin.crypto.ecdh import (
+    derive_session_key,
+    get_uncompressed_public_key,
+)
+from hermes_tescmd_plugin.protocol.encoder import (
+    build_session_info_request,
+    encode_routable_message,
+)
 from hermes_tescmd_plugin.protocol.protobuf.messages import (
     FAULT_DESCRIPTIONS,
     KEY_FAULTS,
@@ -44,6 +50,7 @@ def _redact_vin(vin: str) -> str:
     if len(vin) <= 6:
         return "[REDACTED]"
     return f"{vin[:3]}…{vin[-3:]}"
+
 
 if TYPE_CHECKING:
     from cryptography.hazmat.primitives.asymmetric import ec
@@ -73,7 +80,9 @@ class Session:
     time_zero: float  # wall-clock time when the vehicle's epoch counter was 0
     created_at: float
     ttl: float = _SESSION_TTL
-    _counter_lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
+    _counter_lock: threading.Lock = field(
+        default_factory=threading.Lock, repr=False, compare=False
+    )
 
     @property
     def is_expired(self) -> bool:
@@ -210,7 +219,9 @@ class SessionManager:
                     continue
 
                 # Non-transient or exhausted retries.
-                raise SessionError(f"Vehicle rejected handshake for {vin} ({domain.name}): {desc}")
+                raise SessionError(
+                    f"Vehicle rejected handshake for {vin} ({domain.name}): {desc}"
+                )
 
             if not response_msg.session_info:
                 raise SessionError(
@@ -220,7 +231,11 @@ class SessionManager:
             return self._build_session(vin, domain, response_msg)
 
         # Should not be reached, but handle exhausted retries with last fault.
-        desc = FAULT_DESCRIPTIONS.get(last_fault, str(last_fault)) if last_fault else "unknown"
+        desc = (
+            FAULT_DESCRIPTIONS.get(last_fault, str(last_fault))
+            if last_fault
+            else "unknown"
+        )
         raise SessionError(
             f"Handshake failed after {_HANDSHAKE_MAX_RETRIES} attempts "
             f"for {vin} ({domain.name}): {desc}"
@@ -262,7 +277,9 @@ class SessionManager:
                 _redact_vin(vin),
                 domain.name,
             )
-            raise SessionError(f"Empty session handshake response for {vin} ({domain.name})")
+            raise SessionError(
+                f"Empty session handshake response for {vin} ({domain.name})"
+            )
 
         try:
             response_bytes = base64.b64decode(response_b64, validate=True)
@@ -281,11 +298,15 @@ class SessionManager:
         except Exception as exc:
             raise SessionError(f"Failed to parse handshake response: {exc}") from exc
 
-    def _build_session(self, vin: str, domain: Domain, response_msg: RoutableMessage) -> Session:
+    def _build_session(
+        self, vin: str, domain: Domain, response_msg: RoutableMessage
+    ) -> Session:
         """Derive keys and build a Session from a successful handshake response."""
         session_info = SessionInfo.parse(response_msg.session_info)
         if not session_info.public_key:
-            raise SessionError(f"No vehicle public key in session info for {vin} ({domain.name})")
+            raise SessionError(
+                f"No vehicle public key in session info for {vin} ({domain.name})"
+            )
 
         # ECDH key derivation
         try:
