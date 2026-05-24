@@ -96,8 +96,8 @@ jobs:
               "tescmd_raw_post",
           }
           missing = sorted(required - names)
-          if len(ctx.tools) != 173:
-              raise SystemExit(f"expected 173 tools, got {len(ctx.tools)}")
+          if len(ctx.tools) != 175:
+              raise SystemExit(f"expected 175 tools, got {len(ctx.tools)}")
           if len(ctx.skills) != 1:
               raise SystemExit(f"expected 1 skill, got {len(ctx.skills)}")
           if missing:
