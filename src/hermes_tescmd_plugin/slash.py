@@ -88,7 +88,8 @@ def _compact_json(payload: dict[str, Any]) -> str:
 def _format_status(payload: dict[str, Any]) -> str:
     if not payload.get("ok"):
         return _compact_json(payload)
-    bootstrap = payload.get("bootstrap") if isinstance(payload.get("bootstrap"), dict) else {}
+    raw_bootstrap = payload.get("bootstrap")
+    bootstrap: dict[str, Any] = raw_bootstrap if isinstance(raw_bootstrap, dict) else {}
     lines = ["Tesla Fleet status"]
     for key in (
         "app_configured",
