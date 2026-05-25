@@ -134,7 +134,8 @@ def _format_vehicles(payload: dict[str, Any]) -> str:
         identifiers = [
             str(vehicle.get(k)) for k in ("id_s", "vehicle_id", "vin") if vehicle.get(k)
         ]
-        ident = identifiers[0] if identifiers else "no id"
+        ident = _redact_vehicle_identifier(identifiers[0]) if identifiers else None
+        ident = ident or "no id"
         lines.append(f"{idx}. {name} — {state} — {ident}")
     return "\n".join(lines)
 
@@ -171,6 +172,23 @@ def _stringify(value: Any) -> str:
     return str(value)
 
 
+def _redact_vehicle_identifier(value: Any) -> str | None:
+    """Return a human-usable, non-sensitive vehicle identifier hint.
+
+    Slash command output is commonly copied into chats/logs. Keep enough of a
+    VIN/Fleet id for an operator to distinguish vehicles without printing the
+    full identifier.
+    """
+    if value is None:
+        return None
+    ident = str(value).strip()
+    if not ident:
+        return None
+    if len(ident) <= 4:
+        return "••••"
+    return f"…{ident[-4:]}"
+
+
 def _first_dict(*values: Any) -> dict[str, Any]:
     for value in values:
         if isinstance(value, dict):
@@ -191,12 +209,13 @@ def _vehicle_hint(payload: dict[str, Any]) -> str | None:
         or vehicle.get("id_s")
         or vehicle.get("vehicle_id")
     )
-    if name and vin:
-        return f"{name} ({vin})"
+    safe_identifier = _redact_vehicle_identifier(vin)
+    if name and safe_identifier:
+        return f"{name} ({safe_identifier})"
     if name:
         return str(name)
-    if vin:
-        return str(vin)
+    if safe_identifier:
+        return safe_identifier
     return None
 
 
