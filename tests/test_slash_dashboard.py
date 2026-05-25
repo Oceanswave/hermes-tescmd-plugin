@@ -146,6 +146,31 @@ def test_side_effect_slash_command_requires_confirm_before_network(
     assert calls == []
 
 
+def test_slash_command_failure_redacts_sensitive_context() -> None:
+    output = slash._format_command(
+        "tescmd-lock",
+        {
+            "ok": False,
+            "error": (
+                "Tesla rejected VIN 5YJ3E1EA7JF000001 for fleet id "
+                "12345678901234567 with Bearer secret-token-123456"
+            ),
+            "retry_command": "/tescmd-lock 5YJ3E1EA7JF000001 confirm=true",
+            "next_action": "Check vehicle 12345678901234567 enrollment.",
+            "status_code": 403,
+        },
+    )
+
+    assert "/tescmd-lock: failed" in output
+    assert "…0001" in output
+    assert "…4567" in output
+    assert "Bearer [REDACTED]" in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "12345678901234567" not in output
+    assert "secret-token-123456" not in output
+    assert "Try: /tescmd-lock …0001 confirm=true" in output
+
+
 def test_side_effect_slash_command_success_is_human_readable() -> None:
     output = slash._format_command(
         "tescmd-honk",

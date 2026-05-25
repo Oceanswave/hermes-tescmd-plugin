@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shlex
 from collections.abc import Callable
 from typing import Any
@@ -189,6 +190,24 @@ def _redact_vehicle_identifier(value: Any) -> str | None:
     return f"…{ident[-4:]}"
 
 
+_VIN_PATTERN = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b")
+_LONG_NUMERIC_ID_PATTERN = re.compile(r"\b\d{10,}\b")
+_BEARER_TOKEN_PATTERN = re.compile(r"(?i)\b(bearer\s+)[A-Za-z0-9._~+/=-]{8,}")
+
+
+def _redact_slash_text(value: Any) -> str:
+    """Redact sensitive identifiers before printing slash-command summaries."""
+    text = str(value)
+    text = _BEARER_TOKEN_PATTERN.sub(r"\1[REDACTED]", text)
+    text = _VIN_PATTERN.sub(
+        lambda match: _redact_vehicle_identifier(match.group(0)) or "••••", text
+    )
+    text = _LONG_NUMERIC_ID_PATTERN.sub(
+        lambda match: _redact_vehicle_identifier(match.group(0)) or "••••", text
+    )
+    return text
+
+
 def _first_dict(*values: Any) -> dict[str, Any]:
     for value in values:
         if isinstance(value, dict):
@@ -323,20 +342,20 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
 
 def _summarize_failure(name: str, payload: dict[str, Any]) -> list[str]:
     label = _friendly_label(name)
-    error = str(payload.get("error") or "Unknown error")
+    error = _redact_slash_text(payload.get("error") or "Unknown error")
     lines = [f"/{name}: failed — {label} did not run.", f"Reason: {error}"]
     retry = payload.get("retry_command")
     if retry:
-        lines.append(f"Try: {retry}")
+        lines.append(f"Try: {_redact_slash_text(retry)}")
     why = payload.get("why_confirm_is_required")
     if why:
-        lines.append(str(why))
+        lines.append(_redact_slash_text(why))
     next_action = payload.get("next_action")
     if next_action:
-        lines.append(f"Next action: {next_action}")
+        lines.append(f"Next action: {_redact_slash_text(next_action)}")
     status_code = payload.get("status_code")
     if status_code:
-        lines.append(f"Tesla API status: {status_code}")
+        lines.append(f"Tesla API status: {_redact_slash_text(status_code)}")
     return lines
 
 
