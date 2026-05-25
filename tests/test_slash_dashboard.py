@@ -159,9 +159,47 @@ def test_side_effect_slash_command_success_is_human_readable() -> None:
     )
 
     assert output.startswith("/tescmd-honk: success")
-    assert "Vehicle: 5YJ3E1EA7JF000001" in output
+    assert "Vehicle: …0001" in output
+    assert "5YJ3E1EA7JF000001" not in output
     assert "Result: yes" in output
     assert "{" not in output
+
+
+def test_slash_command_success_redacts_named_vehicle_identifier() -> None:
+    output = slash._format_command(
+        "tescmd-lock",
+        {
+            "ok": True,
+            "vehicle": {
+                "display_name": "seaQuest",
+                "id_s": "12345678901234567",
+            },
+            "response": {"result": True},
+        },
+    )
+
+    assert "Vehicle: seaQuest (…4567)" in output
+    assert "12345678901234567" not in output
+    assert "{" not in output
+
+
+def test_vehicle_list_redacts_identifiers() -> None:
+    output = slash._format_vehicles(
+        {
+            "ok": True,
+            "vehicles": [
+                {
+                    "display_name": "Cybertruck",
+                    "state": "online",
+                    "vin": "5YJ3E1EA7JF000001",
+                }
+            ],
+        }
+    )
+
+    assert "Tesla vehicles: 1" in output
+    assert "Cybertruck — online — …0001" in output
+    assert "5YJ3E1EA7JF000001" not in output
 
 
 def test_read_slash_command_success_summarizes_vehicle_data() -> None:
