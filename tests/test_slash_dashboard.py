@@ -269,6 +269,51 @@ def test_vehicle_list_failure_is_human_readable_and_redacted() -> None:
     assert "{" not in output
 
 
+def test_audit_log_slash_output_is_human_readable_and_redacted() -> None:
+    output = slash._format_audit_log(  # noqa: SLF001
+        {
+            "ok": True,
+            "path": "/tmp/hermes/plugins/hermes-tescmd-plugin/audit/commands.jsonl",
+            "events": [
+                {
+                    "tool": "tescmd_security_lock",
+                    "stage": "result",
+                    "ok": False,
+                    "command_name": "door_lock",
+                    "target": {"provided": True, "suffix": "0001"},
+                    "confirm": True,
+                    "wake": True,
+                    "status_code": 408,
+                    "error": "Vehicle 5YJ3E1EA7JF000001 rejected Bearer secret-token-123456",
+                    "args": {"vin": "[REDACTED]"},
+                }
+            ],
+        }
+    )
+
+    assert output.startswith("Tesla command audit log: 1 event(s)")
+    assert "tescmd_security_lock result failed" in output
+    assert "command=door_lock" in output
+    assert "target=…0001" in output
+    assert "confirm=yes" in output
+    assert "wake=yes" in output
+    assert "status=408" in output
+    assert "Vehicle …0001 rejected Bearer [REDACTED]" in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "secret-token-123456" not in output
+    assert "commands.jsonl" not in output
+    assert "{" not in output
+
+
+def test_audit_log_slash_output_handles_empty_log() -> None:
+    output = slash._format_audit_log({"ok": True, "events": []})  # noqa: SLF001
+
+    assert output == (
+        "Tesla command audit log: 0 event(s)\n"
+        "No wake or vehicle-control attempts are recorded yet."
+    )
+
+
 def test_read_slash_command_success_summarizes_vehicle_data() -> None:
     output = slash._format_command(
         "tescmd-charge",
