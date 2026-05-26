@@ -227,6 +227,48 @@ def test_vehicle_list_redacts_identifiers() -> None:
     assert "5YJ3E1EA7JF000001" not in output
 
 
+def test_status_failure_is_human_readable_and_redacted() -> None:
+    output = slash._format_status(
+        {
+            "ok": False,
+            "error": (
+                "Tesla setup failed for VIN 5YJ3E1EA7JF000001 with "
+                "Bearer setup-token-123456"
+            ),
+            "next_action": "Re-check vehicle 12345678901234567 enrollment.",
+            "status_code": 401,
+        }
+    )
+
+    assert output.startswith("/tescmd-status: failed")
+    assert "Reason: Tesla setup failed for VIN …0001" in output
+    assert "Bearer [REDACTED]" in output
+    assert "Next action: Re-check vehicle …4567 enrollment." in output
+    assert "Tesla API status: 401" in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "12345678901234567" not in output
+    assert "setup-token-123456" not in output
+    assert "{" not in output
+
+
+def test_vehicle_list_failure_is_human_readable_and_redacted() -> None:
+    output = slash._format_vehicles(
+        {
+            "ok": False,
+            "error": "Fleet API rejected vehicle 5YJ3E1EA7JF000001",
+            "retry_command": "/tescmd-vehicles profile=default",
+            "status_code": 403,
+        }
+    )
+
+    assert output.startswith("/tescmd-vehicles: failed")
+    assert "Reason: Fleet API rejected vehicle …0001" in output
+    assert "Try: /tescmd-vehicles profile=default" in output
+    assert "Tesla API status: 403" in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "{" not in output
+
+
 def test_read_slash_command_success_summarizes_vehicle_data() -> None:
     output = slash._format_command(
         "tescmd-charge",
