@@ -141,6 +141,55 @@ def _format_vehicles(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _format_audit_log(payload: dict[str, Any]) -> str:
+    if not payload.get("ok"):
+        return _format_command("tescmd-audit-log", payload)
+    events = payload.get("events") or []
+    if not isinstance(events, list):
+        return _format_command("tescmd-audit-log", payload)
+    lines = [f"Tesla command audit log: {len(events)} event(s)"]
+    if not events:
+        lines.append("No wake or vehicle-control attempts are recorded yet.")
+        return "\n".join(lines)
+
+    for idx, event in enumerate(events, 1):
+        if not isinstance(event, dict):
+            lines.append(f"{idx}. {_redact_slash_text(event)}")
+            continue
+        tool = _redact_slash_text(event.get("tool") or "unknown tool")
+        stage = _redact_slash_text(event.get("stage") or "unknown stage")
+        ok = event.get("ok")
+        if ok is True:
+            outcome = "succeeded"
+        elif ok is False:
+            outcome = "failed"
+        else:
+            outcome = "attempted"
+
+        parts = [f"{idx}. {tool} {stage} {outcome}"]
+        command_name = event.get("command_name")
+        if command_name:
+            parts.append(f"command={_redact_slash_text(command_name)}")
+        target = event.get("target")
+        if isinstance(target, dict) and target.get("provided"):
+            suffix = target.get("suffix")
+            parts.append(
+                f"target=…{_redact_slash_text(suffix)}" if suffix else "target=provided"
+            )
+        if event.get("confirm") is not None:
+            parts.append(f"confirm={_stringify(event.get('confirm'))}")
+        if event.get("wake"):
+            parts.append("wake=yes")
+        status_code = event.get("status_code")
+        if status_code:
+            parts.append(f"status={_redact_slash_text(status_code)}")
+        error = event.get("error")
+        if error:
+            parts.append(f"error={_redact_slash_text(error)}")
+        lines.append(" — ".join(parts))
+    return "\n".join(lines)
+
+
 def _add_slash_confirmation_hint(name: str, payload: dict[str, Any]) -> dict[str, Any]:
     if payload.get("ok"):
         return payload
@@ -410,9 +459,7 @@ _COMMANDS: dict[str, tuple[str, str, Callable[[dict[str, Any]], str]]] = {
     "tescmd-audit-log": (
         "Show recent redacted side-effect command and wake audit events.",
         "[limit=20]",
-        lambda ctx: _format_command(
-            "tescmd-audit-log", _run_tool("tescmd_audit_log", ctx["raw_args"])
-        ),
+        lambda ctx: _format_audit_log(_run_tool("tescmd_audit_log", ctx["raw_args"])),
     ),
     "tescmd-vehicles": (
         "List Tesla vehicles on the account.",
