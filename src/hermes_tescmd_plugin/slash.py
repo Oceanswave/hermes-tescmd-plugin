@@ -90,7 +90,7 @@ def _compact_json(payload: dict[str, Any]) -> str:
 
 def _format_status(payload: dict[str, Any]) -> str:
     if not payload.get("ok"):
-        return _compact_json(payload)
+        return _format_command("tescmd-status", payload)
     raw_bootstrap = payload.get("bootstrap")
     bootstrap: dict[str, Any] = raw_bootstrap if isinstance(raw_bootstrap, dict) else {}
     lines = ["Tesla Fleet status"]
@@ -116,7 +116,7 @@ def _format_status(payload: dict[str, Any]) -> str:
 
 def _format_vehicles(payload: dict[str, Any]) -> str:
     if not payload.get("ok"):
-        return _compact_json(payload)
+        return _format_command("tescmd-vehicles", payload)
     vehicles = payload.get("vehicles") or payload.get("response") or []
     if not isinstance(vehicles, list):
         return _compact_json(payload)
