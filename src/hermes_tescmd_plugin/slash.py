@@ -156,7 +156,9 @@ def _format_onboarding(payload: dict[str, Any]) -> str:
             lines.append("Readiness: " + ", ".join(readiness_lines))
 
     if payload.get("mutates_state") is False:
-        lines.append("Safety: read-only; no config, token, key, or vehicle state changes.")
+        lines.append(
+            "Safety: read-only; no config, token, key, or vehicle state changes."
+        )
     return "\n".join(lines)
 
 
