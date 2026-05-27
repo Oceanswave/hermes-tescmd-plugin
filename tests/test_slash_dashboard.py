@@ -274,6 +274,47 @@ def test_vehicle_list_redacts_identifiers() -> None:
     assert "5YJ3E1EA7JF000001" not in output
 
 
+def test_vehicle_list_redacts_embedded_identifiers_in_names_and_raw_entries() -> None:
+    output = slash._format_vehicles(
+        {
+            "ok": True,
+            "vehicles": [
+                {
+                    "display_name": "Loaner 5YJ3E1EA7JF000001",
+                    "state": "linked to fleet 12345678901234567",
+                    "id_s": "12345678901234567",
+                },
+                "raw vehicle 5YJ3E1EA7JF000002 with Bearer secret-token-123456",
+            ],
+        }
+    )
+
+    assert "Loaner …0001 — linked to fleet …4567 — …4567" in output
+    assert "raw vehicle …0002 with Bearer [REDACTED]" in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "5YJ3E1EA7JF000002" not in output
+    assert "12345678901234567" not in output
+    assert "secret-token-123456" not in output
+
+
+def test_success_vehicle_hint_redacts_identifier_in_vehicle_name() -> None:
+    output = slash._format_command(
+        "tescmd-security-status",
+        {
+            "ok": True,
+            "vehicle": {
+                "display_name": "Cybertruck 5YJ3E1EA7JF000001",
+                "id_s": "12345678901234567",
+            },
+            "response": {"result": True},
+        },
+    )
+
+    assert "Vehicle: Cybertruck …0001 (…4567)" in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "12345678901234567" not in output
+
+
 def test_status_failure_is_human_readable_and_redacted() -> None:
     output = slash._format_status(
         {

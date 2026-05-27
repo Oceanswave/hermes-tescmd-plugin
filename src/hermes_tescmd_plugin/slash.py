@@ -171,7 +171,7 @@ def _format_vehicles(payload: dict[str, Any]) -> str:
     lines = [f"Tesla vehicles: {len(vehicles)}"]
     for idx, vehicle in enumerate(vehicles, 1):
         if not isinstance(vehicle, dict):
-            lines.append(f"{idx}. {vehicle}")
+            lines.append(f"{idx}. {_redact_slash_text(vehicle)}")
             continue
         name = (
             vehicle.get("display_name")
@@ -185,7 +185,9 @@ def _format_vehicles(payload: dict[str, Any]) -> str:
         ]
         ident = _redact_vehicle_identifier(identifiers[0]) if identifiers else None
         ident = ident or "no id"
-        lines.append(f"{idx}. {name} — {state} — {ident}")
+        lines.append(
+            f"{idx}. {_redact_slash_text(name)} — {_redact_slash_text(state)} — {ident}"
+        )
     return "\n".join(lines)
 
 
@@ -327,9 +329,9 @@ def _vehicle_hint(payload: dict[str, Any]) -> str | None:
     )
     safe_identifier = _redact_vehicle_identifier(vin)
     if name and safe_identifier:
-        return f"{name} ({safe_identifier})"
+        return f"{_redact_slash_text(name)} ({safe_identifier})"
     if name:
-        return str(name)
+        return _redact_slash_text(name)
     if safe_identifier:
         return safe_identifier
     return None
