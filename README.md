@@ -176,7 +176,7 @@ Hermes also registers a broader quick-command surface for frequent reads and gua
 
 | Group | Slash commands |
 | --- | --- |
-| Readiness/admin | `/tescmd-status`, `/tescmd-auth-status`, `/tescmd-key-show`, `/tescmd-key-validate`, `/tescmd-cache-status`, `/tescmd-cache-clear confirm=true` |
+| Readiness/admin | `/tescmd-status`, `/tescmd-auth-status`, `/tescmd-onboarding`, `/tescmd-key-show`, `/tescmd-key-validate`, `/tescmd-cache-status`, `/tescmd-cache-clear confirm=true` |
 | Vehicle reads | `/tescmd-vehicles`, `/tescmd-vehicle-status`, `/tescmd-drive`, `/tescmd-closures`, `/tescmd-config`, `/tescmd-gui`, `/tescmd-security-status`, `/tescmd-software`, `/tescmd-nearby-chargers`, `/tescmd-alerts`, `/tescmd-release-notes`, `/tescmd-charge`, `/tescmd-climate`, `/tescmd-location` |
 | Security/attention | `/tescmd-wake`, `/tescmd-flash`, `/tescmd-honk`, `/tescmd-lock`, `/tescmd-unlock`, `/tescmd-sentry enabled=true|false` |
 | Climate/charging | `/tescmd-climate-start`, `/tescmd-climate-stop`, `/tescmd-set-temp driver_temp=70 passenger_temp=70`, `/tescmd-charge-start`, `/tescmd-charge-stop`, `/tescmd-charge-limit percent=80`, `/tescmd-charge-amps amps=32`, `/tescmd-charge-port-open`, `/tescmd-charge-port-close` |

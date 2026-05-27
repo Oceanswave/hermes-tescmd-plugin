@@ -47,6 +47,7 @@ def test_registers_tescmd_slash_commands_and_status_handler(
     expected_commands = {
         "tescmd-status",
         "tescmd-auth-status",
+        "tescmd-onboarding",
         "tescmd-key-show",
         "tescmd-key-validate",
         "tescmd-cache-status",
@@ -106,6 +107,52 @@ def test_registers_tescmd_slash_commands_and_status_handler(
     output = by_name["tescmd-status"]["handler"]("")
     assert "Tesla Fleet status" in output
     assert "app_configured: True" in output
+
+
+def test_onboarding_slash_output_is_human_readable_and_read_only() -> None:
+    output = slash._format_onboarding(  # noqa: SLF001
+        {
+            "ok": True,
+            "phase": "auth_login",
+            "next_action": "auth_login",
+            "next_tool": "tescmd_auth_login",
+            "docs_anchor": "docs/ONBOARDING.md#oauth-login",
+            "missing_prerequisites": [
+                "authenticated",
+                "ready_for_vehicle_commands",
+                "vehicle 5YJ3E1EA7JF000001",
+            ],
+            "next_steps": [
+                "Run tescmd_auth_login before using vehicle 12345678901234567.",
+                "Do not paste Bearer secret-token-123456 into chat.",
+            ],
+            "readiness": {
+                "app_configured": True,
+                "authenticated": False,
+                "ready_for_vehicle_reads": False,
+                "ready_for_vehicle_commands": False,
+                "ready_for_signed_commands": False,
+                "key_hosting_ready": True,
+            },
+            "redirect_uri": "https://cars.example.com/callback",
+            "mutates_state": False,
+        }
+    )
+
+    assert output.startswith("Tesla onboarding status")
+    assert "- phase: auth_login" in output
+    assert "- next tool: tescmd_auth_login" in output
+    assert "Missing prerequisites:" in output
+    assert "vehicle …0001" in output
+    assert "Run tescmd_auth_login before using vehicle …4567." in output
+    assert "Bearer [REDACTED]" in output
+    assert "authenticated=no" in output
+    assert "ready_for_vehicle_commands=no" in output
+    assert "Safety: read-only" in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "12345678901234567" not in output
+    assert "secret-token-123456" not in output
+    assert "{" not in output
 
 
 def test_side_effect_slash_command_requires_confirm_before_network(

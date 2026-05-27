@@ -114,6 +114,52 @@ def _format_status(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _format_onboarding(payload: dict[str, Any]) -> str:
+    if not payload.get("ok"):
+        return _format_command("tescmd-onboarding", payload)
+
+    lines = ["Tesla onboarding status"]
+    phase = payload.get("phase") or payload.get("next_action")
+    if phase:
+        lines.append(f"- phase: {_redact_slash_text(phase)}")
+    next_tool = payload.get("next_tool")
+    if next_tool:
+        lines.append(f"- next tool: {_redact_slash_text(next_tool)}")
+    docs_anchor = payload.get("docs_anchor")
+    if docs_anchor:
+        lines.append(f"- docs: {_redact_slash_text(docs_anchor)}")
+
+    missing = payload.get("missing_prerequisites")
+    if isinstance(missing, list) and missing:
+        lines.append("Missing prerequisites:")
+        lines.extend(f"- {_redact_slash_text(item)}" for item in missing[:6])
+
+    next_steps = payload.get("next_steps")
+    if isinstance(next_steps, list) and next_steps:
+        lines.append("Next steps:")
+        lines.extend(f"- {_redact_slash_text(step)}" for step in next_steps[:4])
+
+    readiness = payload.get("readiness")
+    if isinstance(readiness, dict):
+        readiness_lines = []
+        for key in (
+            "app_configured",
+            "authenticated",
+            "ready_for_vehicle_reads",
+            "ready_for_vehicle_commands",
+            "ready_for_signed_commands",
+            "key_hosting_ready",
+        ):
+            if key in readiness:
+                readiness_lines.append(f"{key}={_stringify(readiness[key])}")
+        if readiness_lines:
+            lines.append("Readiness: " + ", ".join(readiness_lines))
+
+    if payload.get("mutates_state") is False:
+        lines.append("Safety: read-only; no config, token, key, or vehicle state changes.")
+    return "\n".join(lines)
+
+
 def _format_vehicles(payload: dict[str, Any]) -> str:
     if not payload.get("ok"):
         return _format_command("tescmd-vehicles", payload)
@@ -426,6 +472,13 @@ _COMMANDS: dict[str, tuple[str, str, Callable[[dict[str, Any]], str]]] = {
         "[profile=default]",
         lambda ctx: _format_command(
             "tescmd-auth-status", _run_tool("tescmd_auth_status", ctx["raw_args"])
+        ),
+    ),
+    "tescmd-onboarding": (
+        "Show guided read-only setup phase and next steps.",
+        "[profile=default]",
+        lambda ctx: _format_onboarding(
+            _run_tool("tescmd_onboarding_status", ctx["raw_args"])
         ),
     ),
     "tescmd-key-show": (
