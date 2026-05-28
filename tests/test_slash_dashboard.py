@@ -93,6 +93,37 @@ def test_navigation_positional_parsing_preserves_explicit_named_vin() -> None:
     }
 
 
+def test_run_tool_navigation_keeps_explicit_vin_and_joins_unquoted_destination(
+    monkeypatch,
+) -> None:
+    captured: dict = {}
+    spec = slash.runtime.ToolSpec(
+        name="tescmd_navigation_send",
+        description="Send navigation destination.",
+        operation="navigation_send",
+    )
+
+    def fake_handler(args: dict) -> str:
+        captured.update(args)
+        return json.dumps({"ok": True, "response": {"result": True}})
+
+    monkeypatch.setattr(slash.runtime, "list_tool_specs", lambda: [spec])
+    monkeypatch.setattr(slash.runtime, "make_handler", lambda _spec: fake_handler)
+
+    result = slash._run_tool(
+        "tescmd_navigation_send",
+        "vin=5YJ3E1EA7JF000001 123 Main St confirm=true",
+        positional_name="destination",
+    )
+
+    assert result["ok"] is True
+    assert captured == {
+        "vin": "5YJ3E1EA7JF000001",
+        "destination": "123 Main St",
+        "confirm": True,
+    }
+
+
 def test_registers_tescmd_slash_commands_and_status_handler(
     tmp_path, monkeypatch
 ) -> None:
