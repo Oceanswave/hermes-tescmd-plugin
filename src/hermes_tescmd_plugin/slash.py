@@ -78,9 +78,13 @@ def _run_tool(
 ) -> dict[str, Any]:
     specs = _tool_specs_by_name()
     spec = specs[tool_name]
-    args = parse_args(raw_args)
-    if positional_name != "vin" and positional_name not in args and "vin" in args:
-        args[positional_name] = args.pop("vin")
+    args = parse_args(raw_args, positional_name=positional_name)
+    if positional_name != "vin" and args.get("extra") and positional_name in args:
+        extra = args.pop("extra")
+        if isinstance(extra, list):
+            args[positional_name] = " ".join(
+                str(part) for part in (args[positional_name], *extra) if str(part)
+            )
     if defaults:
         args = {**defaults, **args}
     payload = runtime.make_handler(spec)(args)
