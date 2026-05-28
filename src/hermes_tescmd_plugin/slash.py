@@ -70,11 +70,17 @@ def _tool_specs_by_name() -> dict[str, runtime.ToolSpec]:
 
 
 def _run_tool(
-    tool_name: str, raw_args: str = "", defaults: dict[str, Any] | None = None
+    tool_name: str,
+    raw_args: str = "",
+    defaults: dict[str, Any] | None = None,
+    *,
+    positional_name: str = "vin",
 ) -> dict[str, Any]:
     specs = _tool_specs_by_name()
     spec = specs[tool_name]
     args = parse_args(raw_args)
+    if positional_name != "vin" and positional_name not in args and "vin" in args:
+        args[positional_name] = args.pop("vin")
     if defaults:
         args = {**defaults, **args}
     payload = runtime.make_handler(spec)(args)
@@ -822,7 +828,12 @@ _COMMANDS: dict[str, tuple[str, str, Callable[[dict[str, Any]], str]]] = {
         "Send navigation destination string; requires confirm=true.",
         "[vin] destination='address or place' confirm=true",
         lambda ctx: _format_command(
-            "tescmd-nav", _run_tool("tescmd_navigation_send", ctx["raw_args"])
+            "tescmd-nav",
+            _run_tool(
+                "tescmd_navigation_send",
+                ctx["raw_args"],
+                positional_name="destination",
+            ),
         ),
     ),
     "tescmd-nav-search": (
@@ -830,7 +841,11 @@ _COMMANDS: dict[str, tuple[str, str, Callable[[dict[str, Any]], str]]] = {
         "query='address or place' [limit=5]",
         lambda ctx: _format_command(
             "tescmd-nav-search",
-            _run_tool("tescmd_navigation_place_search", ctx["raw_args"]),
+            _run_tool(
+                "tescmd_navigation_place_search",
+                ctx["raw_args"],
+                positional_name="query",
+            ),
         ),
     ),
     "tescmd-nav-waypoints": (

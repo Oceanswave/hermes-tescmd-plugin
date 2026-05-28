@@ -36,6 +36,63 @@ def test_slash_args_parse_key_values_arrays_and_bare_vin() -> None:
     assert args["percent"] == 80
 
 
+def test_navigation_slash_commands_treat_bare_text_as_destination_or_query(
+    monkeypatch,
+) -> None:
+    calls: list[tuple[str, str, dict | None, str]] = []
+
+    def fake_run_tool(
+        tool_name: str,
+        raw_args: str = "",
+        defaults: dict | None = None,
+        *,
+        positional_name: str = "vin",
+    ) -> dict:
+        calls.append((tool_name, raw_args, defaults, positional_name))
+        return {"ok": True, "response": {"result": True}}
+
+    monkeypatch.setattr(slash, "_run_tool", fake_run_tool)
+    commands = slash.command_definitions()
+
+    nav_output = commands["tescmd-nav"]["handler"](
+        {"raw_args": "'123 Main St' confirm=true"}
+    )
+    search_output = commands["tescmd-nav-search"]["handler"](
+        {"raw_args": "'coffee shop' limit=3"}
+    )
+
+    assert nav_output.startswith("/tescmd-nav: success")
+    assert search_output.startswith("/tescmd-nav-search: success")
+    assert calls == [
+        (
+            "tescmd_navigation_send",
+            "'123 Main St' confirm=true",
+            None,
+            "destination",
+        ),
+        (
+            "tescmd_navigation_place_search",
+            "'coffee shop' limit=3",
+            None,
+            "query",
+        ),
+    ]
+
+
+def test_navigation_positional_parsing_preserves_explicit_named_vin() -> None:
+    assert slash.parse_args("'123 Main St'", positional_name="destination") == {
+        "destination": "123 Main St"
+    }
+    assert slash.parse_args(
+        "vin=5YJ3E1EA7JF000001 destination='123 Main St' confirm=true",
+        positional_name="destination",
+    ) == {
+        "destination": "123 Main St",
+        "vin": "5YJ3E1EA7JF000001",
+        "confirm": True,
+    }
+
+
 def test_registers_tescmd_slash_commands_and_status_handler(
     tmp_path, monkeypatch
 ) -> None:
