@@ -425,7 +425,7 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     lat = location.get("latitude") or location.get("lat")
     lon = location.get("longitude") or location.get("lon") or location.get("lng")
     if lat is not None and lon is not None:
-        lines.append(f"Location: {lat}, {lon}")
+        lines.append("Location: available (coordinates redacted)")
 
     response = _first_dict(
         payload.get("response"), payload.get("result"), payload.get("payload")
@@ -437,7 +437,7 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
         or payload.get("message")
     )
     if result:
-        lines.append(f"Result: {_stringify(result)}")
+        lines.append(f"Result: {_redact_slash_text(_stringify(result))}")
     elif not any(
         line.startswith(("Charge:", "Climate:", "Location:")) for line in lines
     ):
