@@ -513,6 +513,49 @@ def test_read_slash_command_success_summarizes_vehicle_data() -> None:
     assert "{" not in output
 
 
+def test_drive_slash_summary_redacts_precise_coordinates() -> None:
+    output = slash._format_command(
+        "tescmd-drive",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "data": {
+                "drive_state": {
+                    "latitude": 37.7749295,
+                    "longitude": -122.4194155,
+                }
+            },
+        },
+    )
+
+    assert "Location: available (coordinates redacted)" in output
+    assert "37.7749295" not in output
+    assert "-122.4194155" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "{" not in output
+
+
+def test_success_result_redacts_sensitive_identifiers() -> None:
+    output = slash._format_command(
+        "tescmd-nav",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "response": {
+                "message": (
+                    "sent destination for 5YJ3E1EA7JF000001 via "
+                    "Bearer nav-token-123456789"
+                )
+            },
+        },
+    )
+
+    assert "Result: sent destination for …0001 via Bearer [REDACTED]" in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "nav-token-123456789" not in output
+    assert "{" not in output
+
+
 def test_dashboard_catalog_includes_expanded_reads_and_actions() -> None:
     catalog = tools()
 
