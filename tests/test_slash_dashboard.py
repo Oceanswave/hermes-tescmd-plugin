@@ -535,6 +535,53 @@ def test_drive_slash_summary_redacts_precise_coordinates() -> None:
     assert "{" not in output
 
 
+def test_nearby_chargers_slash_summary_is_human_readable_and_location_safe() -> None:
+    output = slash._format_command(
+        "tescmd-nearby-chargers",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "sites": {
+                "superchargers": [
+                    {
+                        "name": "Downtown Supercharger 5YJ3E1EA7JF000002",
+                        "available_stalls": 4,
+                        "total_stalls": 8,
+                        "distance_miles": 3.2,
+                        "latitude": 37.7749295,
+                        "longitude": -122.4194155,
+                    },
+                    {"name": "Mall Supercharger", "available_stalls": 0},
+                ],
+                "destination_charging": [
+                    {
+                        "name": "Hotel destination charger",
+                        "distance_km": 12,
+                        "lat": 37.1,
+                        "lng": -122.1,
+                    }
+                ],
+            },
+        },
+    )
+
+    assert output.startswith("/tescmd-nearby-chargers: success")
+    assert "Nearby chargers: 2 Supercharger(s), 1 destination charger(s)" in output
+    assert (
+        "Top Superchargers: Downtown Supercharger …0002 (4/8 stalls, 3.2 mi); Mall Supercharger (0 stalls available)"
+        in output
+    )
+    assert "Top destination chargers: Hotel destination charger (12 km)" in output
+    assert "Result: command accepted" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "5YJ3E1EA7JF000002" not in output
+    assert "37.7749295" not in output
+    assert "-122.4194155" not in output
+    assert "37.1" not in output
+    assert "-122.1" not in output
+    assert "{" not in output
+
+
 def test_success_result_redacts_sensitive_identifiers() -> None:
     output = slash._format_command(
         "tescmd-nav",
