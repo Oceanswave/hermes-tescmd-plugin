@@ -361,6 +361,91 @@ def _payload_section(payload: dict[str, Any], *keys: str) -> dict[str, Any]:
     return {}
 
 
+def _collection_from_payload(payload: dict[str, Any], *keys: str) -> list[Any]:
+    for container in (
+        payload,
+        payload.get("data") if isinstance(payload.get("data"), dict) else None,
+        payload.get("response") if isinstance(payload.get("response"), dict) else None,
+        payload.get("sites") if isinstance(payload.get("sites"), dict) else None,
+    ):
+        if not isinstance(container, dict):
+            continue
+        for key in keys:
+            value = container.get(key)
+            if isinstance(value, list):
+                return value
+    return []
+
+
+def _charger_distance(site: dict[str, Any]) -> str | None:
+    for key, unit in (
+        ("distance_miles", "mi"),
+        ("distance_mi", "mi"),
+        ("distance", "mi"),
+        ("distance_km", "km"),
+    ):
+        value = site.get(key)
+        if value is None:
+            continue
+        return f"{value} {unit}"
+    return None
+
+
+def _charger_label(site: Any) -> str:
+    if not isinstance(site, dict):
+        return _redact_slash_text(site)
+    name = (
+        site.get("name") or site.get("site_name") or site.get("location") or "Unnamed"
+    )
+    bits = [_redact_slash_text(name)]
+    available = site.get("available_stalls")
+    if available is None:
+        available = site.get("available")
+    total = site.get("total_stalls")
+    if total is None:
+        total = site.get("stalls")
+    if available is not None and total is not None:
+        bits.append(f"{available}/{total} stalls")
+    elif available is not None:
+        bits.append(f"{available} stalls available")
+    distance = _charger_distance(site)
+    if distance:
+        bits.append(distance)
+    if len(bits) == 1:
+        return bits[0]
+    return f"{bits[0]} (" + ", ".join(bits[1:]) + ")"
+
+
+def _summarize_nearby_chargers(payload: dict[str, Any]) -> list[str]:
+    superchargers = _collection_from_payload(
+        payload, "superchargers", "nearby_superchargers"
+    )
+    destination = _collection_from_payload(
+        payload, "destination_charging", "destination_chargers"
+    )
+    total = len(superchargers) + len(destination)
+    if total == 0:
+        return ["Nearby chargers: no charging sites returned."]
+
+    parts = []
+    if superchargers:
+        parts.append(f"{len(superchargers)} Supercharger(s)")
+    if destination:
+        parts.append(f"{len(destination)} destination charger(s)")
+    lines = ["Nearby chargers: " + ", ".join(parts)]
+    if superchargers:
+        lines.append(
+            "Top Superchargers: "
+            + "; ".join(_charger_label(site) for site in superchargers[:3])
+        )
+    if destination:
+        lines.append(
+            "Top destination chargers: "
+            + "; ".join(_charger_label(site) for site in destination[:3])
+        )
+    return lines
+
+
 def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     label = _friendly_label(name)
     lines = [f"/{name}: success — {label} completed."]
@@ -427,6 +512,9 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     if lat is not None and lon is not None:
         lines.append("Location: available (coordinates redacted)")
 
+    if name == "tescmd-nearby-chargers":
+        lines.extend(_summarize_nearby_chargers(payload))
+
     response = _first_dict(
         payload.get("response"), payload.get("result"), payload.get("payload")
     )
@@ -439,7 +527,8 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     if result:
         lines.append(f"Result: {_redact_slash_text(_stringify(result))}")
     elif not any(
-        line.startswith(("Charge:", "Climate:", "Location:")) for line in lines
+        line.startswith(("Charge:", "Climate:", "Location:", "Nearby chargers:"))
+        for line in lines
     ):
         lines.append("Result: command accepted by Tesla Fleet API.")
 
