@@ -261,6 +261,62 @@ def _key_presence(profile: str) -> tuple[Path | None, Path | None, bool]:
     return private_path, public_path, present
 
 
+_CAPABILITY_REQUIRED_SCOPES = {
+    "vehicle_reads": ["vehicle_device_data"],
+    "vehicle_commands": ["vehicle_cmds"],
+    "vehicle_charging_commands": ["vehicle_charging_cmds"],
+    "vehicle_location": ["vehicle_location"],
+    "energy_reads": ["energy_device_data"],
+    "energy_commands": ["energy_cmds"],
+    "user_data": ["user_data"],
+}
+
+
+def _scope_readiness(
+    *, cfg: config.PluginConfig, auth_state: config.AuthState
+) -> dict[str, Any]:
+    """Summarize OAuth scope readiness without leaking tokens or app secrets."""
+
+    configured_user_scopes = [
+        scope for scope in cfg.scopes if scope not in config.PARTNER_ONLY_SCOPES
+    ]
+    granted_scopes = list(auth_state.scopes)
+    granted_set = set(granted_scopes)
+    missing_granted_user_scopes = [
+        scope
+        for scope in configured_user_scopes
+        if granted_set and scope not in granted_set
+    ]
+
+    def has_scopes(required: list[str]) -> bool:
+        # Some older/imported token stores do not preserve granted scopes. Treat
+        # an authenticated-but-empty scope list as unknown instead of failing the
+        # operator's readiness dashboard closed on incomplete local metadata.
+        return not granted_set or all(scope in granted_set for scope in required)
+
+    return {
+        "configured_user_scopes": configured_user_scopes,
+        "configured_partner_only_scopes": [
+            scope for scope in cfg.scopes if scope in config.PARTNER_ONLY_SCOPES
+        ],
+        "granted_scopes": granted_scopes,
+        "missing_granted_user_scopes": missing_granted_user_scopes,
+        "grant_scope_source": "token" if granted_scopes else "unknown_or_config",
+        "capabilities": {
+            name: {
+                "required_scopes": required,
+                "ready": bool(auth_state.is_authenticated() and has_scopes(required)),
+                "missing_scopes": [
+                    scope
+                    for scope in required
+                    if granted_set and scope not in granted_set
+                ],
+            }
+            for name, required in _CAPABILITY_REQUIRED_SCOPES.items()
+        },
+    }
+
+
 def _bootstrap_status(
     *,
     profile: str,
@@ -273,6 +329,8 @@ def _bootstrap_status(
     _, _, key_present = _key_presence(profile)
     has_domain = bool(cfg.domain)
     authenticated = auth_state.is_authenticated()
+    scope_readiness = _scope_readiness(cfg=cfg, auth_state=auth_state)
+    scope_capabilities = scope_readiness["capabilities"]
     key_validation = (
         _hosted_key_validation(profile=profile, cfg=cfg)
         if has_domain and key_present
@@ -290,21 +348,29 @@ def _bootstrap_status(
         "login_ready": bool(cfg.client_id),
         "pending_login": pending is not None,
         "authenticated": authenticated,
-        "ready_for_vehicle_reads": bool(authenticated),
-        "ready_for_vehicle_commands": bool(authenticated and cfg.default_vin),
+        "ready_for_vehicle_reads": bool(scope_capabilities["vehicle_reads"]["ready"]),
+        "ready_for_vehicle_commands": bool(
+            scope_capabilities["vehicle_commands"]["ready"] and cfg.default_vin
+        ),
         "ready_for_signed_commands": bool(
-            authenticated and cfg.default_vin and key_present
+            scope_capabilities["vehicle_commands"]["ready"]
+            and cfg.default_vin
+            and key_present
         ),
         "ready_for_partner_registration": bool(
             cfg.client_id and cfg.client_secret and cfg.domain
         ),
-        "ready_for_energy_reads": bool(authenticated),
+        "ready_for_energy_reads": bool(scope_capabilities["energy_reads"]["ready"]),
         "ready_for_google_place_search": bool(cfg.google_maps_api_key),
         "missing_for_vehicle_commands": [
             name
             for name, missing in (
                 ("authenticated", not authenticated),
                 ("default_vin", not bool(cfg.default_vin)),
+                (
+                    "scope:vehicle_cmds",
+                    bool(scope_capabilities["vehicle_commands"]["missing_scopes"]),
+                ),
             )
             if missing
         ],
@@ -314,9 +380,14 @@ def _bootstrap_status(
                 ("authenticated", not authenticated),
                 ("default_vin", not bool(cfg.default_vin)),
                 ("vehicle_command_key", not key_present),
+                (
+                    "scope:vehicle_cmds",
+                    bool(scope_capabilities["vehicle_commands"]["missing_scopes"]),
+                ),
             )
             if missing
         ],
+        "scope_readiness": scope_readiness,
         "partner_ready": bool(cfg.client_id and cfg.client_secret and cfg.domain),
         "partner_registered_candidate": bool(
             cfg.client_id and cfg.client_secret and cfg.domain
@@ -739,11 +810,16 @@ def handle_onboarding_status(args: dict[str, Any]) -> dict[str, Any]:
         name for name, missing in bootstrap_payload["missing"].items() if missing
     ]
     bootstrap = bootstrap_payload["bootstrap"]
+    scope_readiness = bootstrap["scope_readiness"]
     missing_prerequisites = list(
         dict.fromkeys(
             missing_config
             + bootstrap.get("missing_for_vehicle_commands", [])
             + bootstrap.get("missing_for_signed_commands", [])
+            + [
+                f"scope:{scope}"
+                for scope in scope_readiness["missing_granted_user_scopes"]
+            ]
         )
     )
     return {
@@ -756,6 +832,7 @@ def handle_onboarding_status(args: dict[str, Any]) -> dict[str, Any]:
         "missing_prerequisites": missing_prerequisites,
         "next_steps": bootstrap_payload["next_steps"],
         "readiness": bootstrap,
+        "scope_readiness": scope_readiness,
         "redirect_uri": bootstrap_payload["redirect_uri"],
         "expected_public_key_url": bootstrap_payload["expected_public_key_url"],
         "enrollment_url": bootstrap_payload["enrollment_url"],
