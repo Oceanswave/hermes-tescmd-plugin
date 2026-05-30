@@ -124,6 +124,80 @@ def _format_status(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _format_auth_status(payload: dict[str, Any]) -> str:
+    if not payload.get("ok"):
+        return _format_command("tescmd-auth-status", payload)
+
+    lines = ["Tesla auth status"]
+    for key in ("profile", "region", "domain"):
+        value = payload.get(key)
+        if value:
+            lines.append(f"- {key}: {_redact_slash_text(value)}")
+    for key in ("configured", "authenticated", "pending_login"):
+        if key in payload:
+            lines.append(f"- {key}: {_stringify(payload[key])}")
+
+    default_vin = payload.get("default_vin")
+    if default_vin:
+        lines.append(f"- default vehicle: {_redact_slash_text(default_vin)}")
+
+    bootstrap = payload.get("bootstrap")
+    scope_readiness = (
+        bootstrap.get("scope_readiness") if isinstance(bootstrap, dict) else None
+    )
+    if isinstance(scope_readiness, dict):
+        source = scope_readiness.get("grant_scope_source")
+        if source:
+            lines.append(f"- scope source: {_redact_slash_text(source)}")
+        missing = scope_readiness.get("missing_granted_user_scopes")
+        if isinstance(missing, list) and missing:
+            lines.append(
+                "- missing granted scopes: "
+                + ", ".join(_redact_slash_text(scope) for scope in missing)
+            )
+        elif payload.get("authenticated"):
+            lines.append("- missing granted scopes: none detected")
+
+        capabilities = scope_readiness.get("capabilities")
+        if isinstance(capabilities, dict) and capabilities:
+            capability_lines = []
+            for name, details in capabilities.items():
+                if not isinstance(details, dict):
+                    continue
+                state = "ready" if details.get("ready") else "missing"
+                capability_line = f"{_redact_slash_text(name)}={state}"
+                missing_scopes = details.get("missing_scopes")
+                if isinstance(missing_scopes, list) and missing_scopes:
+                    capability_line += (
+                        " (needs "
+                        + ", ".join(
+                            _redact_slash_text(scope) for scope in missing_scopes
+                        )
+                        + ")"
+                    )
+                capability_lines.append(capability_line)
+            if capability_lines:
+                lines.append("Capabilities: " + "; ".join(capability_lines))
+
+    configured_scopes = payload.get("configured_user_scopes") or payload.get("scopes")
+    if isinstance(configured_scopes, list) and configured_scopes:
+        lines.append(
+            "Configured user scopes: "
+            + ", ".join(_redact_slash_text(scope) for scope in configured_scopes[:8])
+        )
+
+    vehicle_command_key = payload.get("vehicle_command_key")
+    if isinstance(vehicle_command_key, dict):
+        private_present = bool(vehicle_command_key.get("private_key_path"))
+        public_present = bool(vehicle_command_key.get("public_key_path"))
+        lines.append(
+            "Vehicle-command key paths: "
+            f"private={'configured' if private_present else 'missing'}, "
+            f"public={'configured' if public_present else 'missing'}"
+        )
+    return "\n".join(lines)
+
+
 def _format_onboarding(payload: dict[str, Any]) -> str:
     if not payload.get("ok"):
         return _format_command("tescmd-onboarding", payload)
@@ -573,8 +647,8 @@ _COMMANDS: dict[str, tuple[str, str, Callable[[dict[str, Any]], str]]] = {
     "tescmd-auth-status": (
         "Show OAuth/profile/key readiness details.",
         "[profile=default]",
-        lambda ctx: _format_command(
-            "tescmd-auth-status", _run_tool("tescmd_auth_status", ctx["raw_args"])
+        lambda ctx: _format_auth_status(
+            _run_tool("tescmd_auth_status", ctx["raw_args"])
         ),
     ),
     "tescmd-onboarding": (
