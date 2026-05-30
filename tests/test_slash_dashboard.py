@@ -243,6 +243,96 @@ def test_onboarding_slash_output_is_human_readable_and_read_only() -> None:
     assert "{" not in output
 
 
+def test_auth_status_slash_output_summarizes_scope_readiness() -> None:
+    output = slash._format_auth_status(  # noqa: SLF001
+        {
+            "ok": True,
+            "profile": "default",
+            "configured": True,
+            "authenticated": True,
+            "pending_login": False,
+            "region": "na",
+            "domain": "cars.example.com",
+            "default_vin": "5YJ3E1EA7JF000001",
+            "configured_user_scopes": [
+                "openid",
+                "offline_access",
+                "vehicle_device_data",
+                "vehicle_cmds",
+            ],
+            "vehicle_command_key": {
+                "private_key_path": "/tmp/hermes/plugins/tescmd/private.pem",
+                "public_key_path": "/tmp/hermes/plugins/tescmd/public.pem",
+            },
+            "bootstrap": {
+                "scope_readiness": {
+                    "grant_scope_source": "token",
+                    "missing_granted_user_scopes": ["vehicle_device_data"],
+                    "capabilities": {
+                        "vehicle_reads": {
+                            "ready": False,
+                            "missing_scopes": ["vehicle_device_data"],
+                        },
+                        "vehicle_commands": {
+                            "ready": True,
+                            "missing_scopes": [],
+                        },
+                    },
+                }
+            },
+        }
+    )
+
+    assert output.startswith("Tesla auth status")
+    assert "authenticated: yes" in output
+    assert "pending_login: no" in output
+    assert "default vehicle: …0001" in output
+    assert "scope source: token" in output
+    assert "missing granted scopes: vehicle_device_data" in output
+    assert "vehicle_reads=missing (needs vehicle_device_data)" in output
+    assert "vehicle_commands=ready" in output
+    assert "Configured user scopes: openid, offline_access" in output
+    assert "Vehicle-command key paths: private=configured, public=configured" in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "/tmp/hermes" not in output
+    assert "{" not in output
+
+
+def test_auth_status_slash_command_uses_human_formatter(monkeypatch) -> None:
+    def fake_run_tool(
+        tool_name: str, raw_args: str = "", defaults=None, **kwargs
+    ) -> dict:
+        assert tool_name == "tescmd_auth_status"
+        return {
+            "ok": True,
+            "configured": True,
+            "authenticated": True,
+            "pending_login": False,
+            "scopes": ["openid"],
+            "bootstrap": {
+                "scope_readiness": {
+                    "grant_scope_source": "token",
+                    "missing_granted_user_scopes": [],
+                    "capabilities": {
+                        "vehicle_reads": {"ready": True, "missing_scopes": []}
+                    },
+                }
+            },
+        }
+
+    monkeypatch.setattr(slash, "_run_tool", fake_run_tool)
+
+    output = slash.command_definitions()["tescmd-auth-status"]["handler"](
+        {"raw_args": ""}
+    )
+
+    assert output.startswith("Tesla auth status")
+    assert "missing granted scopes: none detected" in output
+    assert "vehicle_reads=ready" in output
+    assert "command accepted by Tesla Fleet API" not in output
+    assert "{" not in output
+
+
 def test_side_effect_slash_command_requires_confirm_before_network(
     tmp_path, monkeypatch
 ) -> None:
