@@ -733,6 +733,51 @@ def test_onboarding_status_returns_read_only_next_step(tmp_path, monkeypatch) ->
     assert configured["next_tool"] == "tescmd_auth_login"
 
 
+def test_onboarding_status_reports_missing_oauth_scopes(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
+
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            domain="cars.example.com",
+            default_vin="5YJ3E1EA7JF000001",
+            scopes=["openid", "vehicle_device_data", "vehicle_cmds"],
+        )
+    )
+    config.save_auth_state(
+        config.AuthState(
+            profile="default",
+            access_token="access-1",
+            refresh_token="refresh-1",
+            expires_at=9999999999,
+            scopes=["openid", "vehicle_cmds"],
+            region="na",
+        )
+    )
+
+    status = json.loads(tools_by_name["tescmd_status"]({}))
+    assert status["bootstrap"]["ready_for_vehicle_reads"] is False
+    assert status["bootstrap"]["ready_for_vehicle_commands"] is True
+    assert status["bootstrap"]["scope_readiness"]["missing_granted_user_scopes"] == [
+        "vehicle_device_data"
+    ]
+    assert status["bootstrap"]["scope_readiness"]["capabilities"]["vehicle_reads"] == {
+        "required_scopes": ["vehicle_device_data"],
+        "ready": False,
+        "missing_scopes": ["vehicle_device_data"],
+    }
+
+    onboarding = json.loads(tools_by_name["tescmd_onboarding_status"]({}))
+    assert onboarding["mutates_state"] is False
+    assert onboarding["scope_readiness"] == onboarding["readiness"]["scope_readiness"]
+    assert "scope:vehicle_device_data" in onboarding["missing_prerequisites"]
+    assert "access-1" not in json.dumps(onboarding)
+
+
 def test_auth_login_without_client_id_points_to_readme_setup(
     tmp_path, monkeypatch
 ) -> None:
