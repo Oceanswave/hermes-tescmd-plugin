@@ -197,6 +197,31 @@ def test_registers_tescmd_slash_commands_and_status_handler(
     assert "app_configured: True" in output
 
 
+def test_status_slash_output_redacts_next_action_and_steps() -> None:
+    output = slash._format_status(  # noqa: SLF001
+        {
+            "ok": True,
+            "bootstrap": {
+                "app_configured": True,
+                "authenticated": False,
+            },
+            "next_action": "Complete OAuth for vehicle 5YJ3E1EA7JF000001",
+            "next_steps": [
+                "Open https://cars.example.com/callback?code=secret-token-123456&vin=5YJ3E1EA7JF000001",
+                "Then run tescmd_auth_complete for Fleet vehicle 12345678901234567.",
+            ],
+        }
+    )
+
+    assert output.startswith("Tesla Fleet status")
+    assert "vehicle …0001" in output
+    assert "Fleet vehicle …4567" in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "12345678901234567" not in output
+    assert "secret-token-123456" not in output
+    assert "{" not in output
+
+
 def test_onboarding_slash_output_is_human_readable_and_read_only() -> None:
     output = slash._format_onboarding(  # noqa: SLF001
         {
