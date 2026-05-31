@@ -465,29 +465,36 @@ def _charger_distance(site: dict[str, Any]) -> str | None:
     return None
 
 
-def _charger_label(site: Any) -> str:
+def _charger_label(site: Any, *, order: int | None = None) -> str:
     if not isinstance(site, dict):
-        return _redact_slash_text(site)
-    name = (
-        site.get("name") or site.get("site_name") or site.get("location") or "Unnamed"
-    )
-    bits = [_redact_slash_text(name)]
-    available = site.get("available_stalls")
-    if available is None:
-        available = site.get("available")
-    total = site.get("total_stalls")
-    if total is None:
-        total = site.get("stalls")
-    if available is not None and total is not None:
-        bits.append(f"{available}/{total} stalls")
-    elif available is not None:
-        bits.append(f"{available} stalls available")
-    distance = _charger_distance(site)
-    if distance:
-        bits.append(distance)
-    if len(bits) == 1:
-        return bits[0]
-    return f"{bits[0]} (" + ", ".join(bits[1:]) + ")"
+        label = _redact_slash_text(site)
+    else:
+        name = (
+            site.get("name")
+            or site.get("site_name")
+            or site.get("location")
+            or "Unnamed"
+        )
+        bits = [_redact_slash_text(name)]
+        available = site.get("available_stalls")
+        if available is None:
+            available = site.get("available")
+        total = site.get("total_stalls")
+        if total is None:
+            total = site.get("stalls")
+        if available is not None and total is not None:
+            bits.append(f"{available}/{total} stalls")
+        elif available is not None:
+            bits.append(f"{available} stalls available")
+        distance = _charger_distance(site)
+        if distance:
+            bits.append(distance)
+        label = (
+            bits[0] if len(bits) == 1 else f"{bits[0]} (" + ", ".join(bits[1:]) + ")"
+        )
+    if order is not None:
+        return f"#{order} {label}"
+    return label
 
 
 def _summarize_nearby_chargers(payload: dict[str, Any]) -> list[str]:
@@ -510,7 +517,14 @@ def _summarize_nearby_chargers(payload: dict[str, Any]) -> list[str]:
     if superchargers:
         lines.append(
             "Top Superchargers: "
-            + "; ".join(_charger_label(site) for site in superchargers[:3])
+            + "; ".join(
+                _charger_label(site, order=idx)
+                for idx, site in enumerate(superchargers[:3], 1)
+            )
+        )
+        lines.append(
+            "Navigation: use tescmd_navigation_supercharger order=N confirm=true "
+            "with the matching Supercharger number."
         )
     if destination:
         lines.append(

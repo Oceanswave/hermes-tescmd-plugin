@@ -658,9 +658,13 @@ def test_nearby_chargers_slash_summary_is_human_readable_and_location_safe() -> 
     assert output.startswith("/tescmd-nearby-chargers: success")
     assert "Nearby chargers: 2 Supercharger(s), 1 destination charger(s)" in output
     assert (
-        "Top Superchargers: Downtown Supercharger …0002 (4/8 stalls, 3.2 mi); Mall Supercharger (0 stalls available)"
+        "Top Superchargers: #1 Downtown Supercharger …0002 (4/8 stalls, 3.2 mi); #2 Mall Supercharger (0 stalls available)"
         in output
     )
+    assert (
+        "Navigation: use tescmd_navigation_supercharger order=N confirm=true "
+        "with the matching Supercharger number."
+    ) in output
     assert "Top destination chargers: Hotel destination charger (12 km)" in output
     assert "Result: command accepted" not in output
     assert "5YJ3E1EA7JF000001" not in output
