@@ -116,11 +116,11 @@ def _format_status(payload: dict[str, Any]) -> str:
             lines.append(f"- {key}: {bootstrap[key]}")
     next_action = payload.get("next_action")
     if next_action:
-        lines.append(f"- next_action: {next_action}")
+        lines.append(f"- next_action: {_redact_slash_text(next_action)}")
     next_steps = payload.get("next_steps")
     if isinstance(next_steps, list) and next_steps:
         lines.append("Next steps:")
-        lines.extend(f"- {step}" for step in next_steps[:3])
+        lines.extend(f"- {_redact_slash_text(step)}" for step in next_steps[:3])
     return "\n".join(lines)
 
 
@@ -376,12 +376,16 @@ def _redact_vehicle_identifier(value: Any) -> str | None:
 _VIN_PATTERN = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b")
 _LONG_NUMERIC_ID_PATTERN = re.compile(r"\b\d{10,}\b")
 _BEARER_TOKEN_PATTERN = re.compile(r"(?i)\b(bearer\s+)[A-Za-z0-9._~+/=-]{8,}")
+_SENSITIVE_QUERY_VALUE_PATTERN = re.compile(
+    r"(?i)([?&](?:code|state|token|access_token|refresh_token|id_token)=)[^\s&]+"
+)
 
 
 def _redact_slash_text(value: Any) -> str:
     """Redact sensitive identifiers before printing slash-command summaries."""
     text = str(value)
     text = _BEARER_TOKEN_PATTERN.sub(r"\1[REDACTED]", text)
+    text = _SENSITIVE_QUERY_VALUE_PATTERN.sub(r"\1[REDACTED]", text)
     text = _VIN_PATTERN.sub(
         lambda match: _redact_vehicle_identifier(match.group(0)) or "••••", text
     )
