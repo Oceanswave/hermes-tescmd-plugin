@@ -221,6 +221,57 @@
   gap: 0.35rem;
 }
 
+.tescmd-empty-state {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.7rem;
+  align-items: center;
+  border: 1px dashed color-mix(in srgb, var(--tescmd-blue) 42%, var(--color-border));
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  background:
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--tescmd-blue) 10%, transparent), transparent 30%),
+    color-mix(in srgb, var(--color-card) 90%, transparent);
+}
+
+.tescmd-empty-icon {
+  width: 2.2rem;
+  height: 2.2rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--tescmd-blue) 40%, var(--color-border));
+  border-radius: 999px;
+  color: var(--tescmd-blue);
+  background: color-mix(in srgb, var(--tescmd-blue) 12%, transparent);
+}
+
+.tescmd-empty-copy {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.tescmd-empty-copy strong {
+  font-size: 0.98rem;
+  letter-spacing: -0.02em;
+}
+
+.tescmd-empty-copy p,
+.tescmd-empty-copy ol,
+.tescmd-empty-copy small {
+  margin: 0;
+  color: var(--color-muted-foreground);
+  font-size: 0.78rem;
+  line-height: 1.32;
+}
+
+.tescmd-empty-copy ol {
+  padding-left: 1.05rem;
+}
+
+.tescmd-empty-action {
+  justify-self: end;
+}
+
 .tescmd-workbench {
   display: grid;
   grid-template-columns: minmax(18rem, 0.95fr) minmax(20rem, 1.05fr);
@@ -505,18 +556,17 @@
   min-height: 14.4rem;
   max-height: 14.4rem;
   display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 0.25rem;
-  color: var(--color-muted-foreground);
+  align-items: center;
+  padding: 0.65rem;
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--color-card) 92%, transparent), color-mix(in srgb, #020617 22%, var(--color-card))),
     repeating-linear-gradient(45deg, transparent 0 12px, color-mix(in srgb, var(--color-border) 45%, transparent) 12px 13px);
 }
 
-.tescmd-map-empty div {
-  color: var(--color-foreground);
-  font-weight: 700;
+.tescmd-map-empty .tescmd-empty-state {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  text-align: center;
 }
 
 .tescmd-json {
@@ -571,6 +621,15 @@
 
   .tescmd-onboarding-card {
     align-items: stretch;
+  }
+
+  .tescmd-empty-state {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .tescmd-empty-action {
+    justify-self: start;
   }
 
   .tescmd-map-shell,

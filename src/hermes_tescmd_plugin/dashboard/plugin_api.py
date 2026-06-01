@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from hermes_tescmd_plugin import runtime
 from hermes_tescmd_plugin.dashboard import ensure_dashboard_installed
+from hermes_tescmd_plugin.slash import _redact_slash_text, _redact_vehicle_identifier
 
 router = APIRouter()
 
@@ -146,6 +147,57 @@ def _base_vehicle_args(
     return args
 
 
+_IDENTIFIER_KEYS = {"vin", "id_s", "vehicle_id"}
+_LOCATION_KEYS = {
+    "destination",
+    "lat",
+    "latitude",
+    "lon",
+    "lng",
+    "longitude",
+    "native_latitude",
+    "native_longitude",
+    "place_id",
+    "place_ids",
+}
+_SECRET_KEY_PARTS = ("token", "secret", "authorization", "bearer", "pin", "password")
+
+
+def _dashboard_display_payload(value: Any) -> Any:
+    """Return a JSON-safe dashboard payload suitable for the visible debug panel.
+
+    The dashboard needs raw values internally for maps and targeted actions, but
+    the human-facing "Last payload" panel is easy to screenshot or copy. Keep the
+    structural debugging breadcrumbs while redacting full vehicle identifiers,
+    tokens/secrets/PINs, navigation destinations, and precise coordinates.
+    """
+    if isinstance(value, dict):
+        safe: dict[str, Any] = {}
+        for key, item in value.items():
+            key_text = str(key)
+            lowered = key_text.lower()
+            if lowered in _IDENTIFIER_KEYS:
+                safe[key_text] = _redact_vehicle_identifier(item) or "[REDACTED]"
+            elif lowered in _LOCATION_KEYS:
+                safe[key_text] = "[REDACTED_LOCATION]"
+            elif any(part in lowered for part in _SECRET_KEY_PARTS):
+                safe[key_text] = "[REDACTED]"
+            else:
+                safe[key_text] = _dashboard_display_payload(item)
+        return safe
+    if isinstance(value, list):
+        return [_dashboard_display_payload(item) for item in value]
+    if isinstance(value, str):
+        return _redact_slash_text(value)
+    return value
+
+
+def _with_display_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    payload = dict(payload)
+    payload["display_payload"] = _dashboard_display_payload(payload)
+    return payload
+
+
 @router.get("/install")
 def install_assets() -> dict[str, Any]:
     return ensure_dashboard_installed()
@@ -165,7 +217,7 @@ def tools() -> dict[str, Any]:
 
 @router.get("/status")
 def status(profile: str = "default") -> dict[str, Any]:
-    return _run("tescmd_status", {"profile": profile})
+    return _with_display_payload(_run("tescmd_status", {"profile": profile}))
 
 
 @router.get("/vehicles")
@@ -173,7 +225,7 @@ def vehicles(profile: str = "default", region: str | None = None) -> dict[str, A
     args: dict[str, Any] = {"profile": profile}
     if region:
         args["region"] = region
-    return _run("tescmd_vehicle_list", args)
+    return _with_display_payload(_run("tescmd_vehicle_list", args))
 
 
 def _safe_run(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
@@ -212,7 +264,7 @@ def overview(
         "closures": _safe_run("tescmd_vehicle_closures_status", read_args),
         "security": _safe_run("tescmd_security_status", read_args),
     }
-    return {
+    payload = {
         "ok": True,
         "profile": profile,
         "vin": vin,
@@ -225,6 +277,7 @@ def overview(
         ),
         "sections": sections,
     }
+    return _with_display_payload(payload)
 
 
 @router.get("/vehicle")
@@ -247,7 +300,7 @@ def vehicle(
         args["endpoints"] = [
             part.strip() for part in endpoints.split(",") if part.strip()
         ]
-    return _run("tescmd_vehicle_status", args)
+    return _with_display_payload(_run("tescmd_vehicle_status", args))
 
 
 @router.get("/read/{read_key}")
@@ -282,7 +335,7 @@ def read(
         args.update({"wake": wake, "confirm": confirm, "no_cache": no_cache})
         if units:
             args["units"] = units
-    return _run(tool_name, args)
+    return _with_display_payload(_run(tool_name, args))
 
 
 @router.post("/quick-action")
@@ -299,4 +352,4 @@ def quick_action(body: QuickActionBody) -> dict[str, Any]:
         value = getattr(body, field)
         if value is not None:
             args[field] = value
-    return _run(tool_name, args)
+    return _with_display_payload(_run(tool_name, args))

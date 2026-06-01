@@ -9,6 +9,7 @@ from hermes_tescmd_plugin import config, slash
 from hermes_tescmd_plugin.dashboard import ensure_dashboard_installed
 from hermes_tescmd_plugin.dashboard.plugin_api import (
     QuickActionBody,
+    _dashboard_display_payload,
     overview,
     quick_action,
     read,
@@ -917,6 +918,51 @@ def test_success_result_redacts_sensitive_identifiers() -> None:
     assert "{" not in output
 
 
+def test_dashboard_redacts_visible_debug_payload_privacy_fields() -> None:
+    payload = {
+        "vin": "5YJ3E1EA7JF000001",
+        "vehicle": {"id_s": "12345678901234567", "display_name": "seaQuest"},
+        "drive_state": {"latitude": 37.33182, "longitude": -122.03118},
+        "navigation": {
+            "destination": "1 Infinite Loop, Cupertino",
+            "place_ids": ["abc"],
+        },
+        "auth": {
+            "access_token": "secret-access-token-123456",
+            "message": "Bearer nav-token-123456789 for 5YJ3E1EA7JF000001",
+        },
+    }
+
+    redacted = _dashboard_display_payload(payload)
+    rendered = json.dumps(redacted)
+
+    assert redacted["vin"] == "…0001"
+    assert redacted["vehicle"]["id_s"] == "…4567"
+    assert redacted["vehicle"]["display_name"] == "seaQuest"
+    assert redacted["drive_state"]["latitude"] == "[REDACTED_LOCATION]"
+    assert redacted["drive_state"]["longitude"] == "[REDACTED_LOCATION]"
+    assert redacted["navigation"]["destination"] == "[REDACTED_LOCATION]"
+    assert redacted["navigation"]["place_ids"] == "[REDACTED_LOCATION]"
+    assert redacted["auth"]["access_token"] == "[REDACTED]"
+    assert "5YJ3E1EA7JF000001" not in rendered
+    assert "12345678901234567" not in rendered
+    assert "secret...3456" not in rendered
+    assert "nav-token-123456789" not in rendered
+    assert "37.33182" not in rendered
+    assert "1 Infinite Loop" not in rendered
+
+
+def test_dashboard_payload_panel_uses_redacted_display_payload() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+
+    assert (
+        "const displayData = data && data.display_payload ? data.display_payload : data;"
+        in asset
+    )
+    assert "Redacted last payload" in asset
+    assert "Debug view hides full vehicle identifiers" in asset
+
+
 def test_dashboard_catalog_includes_expanded_reads_and_actions() -> None:
     catalog = tools()
 
@@ -950,6 +996,7 @@ def test_dashboard_overview_collects_visual_read_sections_without_wake(
     )
 
     assert payload["ok"] is True
+    assert payload["display_payload"]["vin"] == "…0001"
     assert payload["sections"]["charge"]["tool"] == "tescmd_charge_status"
     assert payload["sections"]["location"]["tool"] == "tescmd_vehicle_location"
     assert payload["sections"]["climate"]["tool"] == "tescmd_climate_status"
@@ -1012,6 +1059,28 @@ def test_dashboard_shows_busy_banner_during_refresh() -> None:
     assert ".tescmd-busy-banner" in style
 
 
+def test_dashboard_empty_states_give_actionable_safe_guidance() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+
+    assert "function EmptyState" in asset
+    assert "No vehicle overview loaded" in asset
+    assert "Start with a read-only refresh" in asset
+    assert "does not arm quick actions or run physical Tesla side effects" in asset
+    assert "Only enable wake + confirm" in asset
+    assert "No payload selected" in asset
+    assert "confirm-gated quick action" in asset
+    assert "No location fix yet" in asset
+    assert "Precise coordinates stay inside the dashboard payload" in asset
+    assert 'role: "region"' in asset
+    assert ".tescmd-empty-state" in style
+    assert ".tescmd-empty-action" in style
+    assert ".tescmd-map-empty .tescmd-empty-state" in style
+    assert "No payload yet." not in asset
+    assert "Refresh to load charge, climate, security, and map widgets." not in asset
+    assert "No vehicle coordinates yet" not in asset
+
+
 def test_dashboard_read_passes_wake_confirm_no_cache_and_units(monkeypatch) -> None:
     calls: list[tuple[str, dict]] = []
 
@@ -1032,7 +1101,7 @@ def test_dashboard_read_passes_wake_confirm_no_cache_and_units(monkeypatch) -> N
         units="metric",
     )
 
-    assert payload == {"ok": True}
+    assert payload == {"ok": True, "display_payload": {"ok": True}}
     assert calls == [
         (
             "tescmd_software_status",
@@ -1069,7 +1138,7 @@ def test_dashboard_quick_action_passes_extra_action_arguments(monkeypatch) -> No
         )
     )
 
-    assert payload == {"ok": True}
+    assert payload == {"ok": True, "display_payload": {"ok": True}}
     assert calls == [
         (
             "tescmd_charge_limit",
