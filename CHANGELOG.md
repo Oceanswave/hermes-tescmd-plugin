@@ -2,7 +2,7 @@
 
 ## 0.5.0a22
 
-- Added a `/tescmd` dashboard refresh-in-progress banner that tells users controls are disabled while Tesla data refreshes, reducing accidental duplicate command submissions.
+- Added user-friendly `/tescmd` dashboard loading/updating cues: first page load says the dashboard is loading, later refreshes say Tesla data is updating, and the copy avoids implementation details about duplicate command prevention.
 - Clarified the `/tescmd` dashboard onboarding card so an already-authenticated, command-ready install is labeled operational without repeatedly surfacing public-key hosting guidance after OAuth app setup is complete.
 - Added `tescmd_onboarding_status`, a non-mutating guided setup checklist that reports the current onboarding phase, missing prerequisites, next tool, docs anchor, and readiness booleans without writing config, auth, key, or vehicle state.
 - Added onboarding guidance to the `/tescmd` dashboard overview and admin read catalog so setup state is visible beside vehicle widgets.

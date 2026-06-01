@@ -110,11 +110,12 @@
     );
   }
 
-  function BusyBanner({ loading }) {
+  function BusyBanner({ loading, mode }) {
     if (!loading) return null;
+    const initial = mode === "initial";
     return h("div", { className: "tescmd-busy-banner", role: "status", "aria-live": "polite" },
-      h("strong", null, "Refreshing Tesla data…"),
-      h("span", null, "Hold tight — controls are disabled so the command is not reissued.")
+      h("strong", null, initial ? "Loading Tesla dashboard…" : "Updating Tesla data…"),
+      h("span", null, initial ? "Fetching setup and vehicle status." : "This can take a moment while Tesla responds.")
     );
   }
 
@@ -340,6 +341,7 @@
     const [overview, setOverview] = hooks.useState(null);
     const [detail, setDetail] = hooks.useState(null);
     const [loading, setLoading] = hooks.useState(false);
+    const [loadingMode, setLoadingMode] = hooks.useState("");
     const [error, setError] = hooks.useState("");
     const [confirm, setConfirm] = hooks.useState(false);
     const [wakeReads, setWakeReads] = hooks.useState(false);
@@ -380,8 +382,9 @@
       return params.toString();
     };
 
-    const refresh = hooks.useCallback(async () => {
+    const refresh = hooks.useCallback(async (mode) => {
       setLoading(true);
+      setLoadingMode(mode || (overview ? "refresh" : "initial"));
       setError("");
       try {
         const overviewPayload = await api(`/overview?${overviewQuery()}`);
@@ -395,13 +398,15 @@
         setError(String((err && err.message) || err));
       } finally {
         setLoading(false);
+        setLoadingMode("");
       }
-    }, [profile, region, vin, noCache, units]);
+    }, [profile, region, vin, noCache, units, overview]);
 
-    hooks.useEffect(() => { refresh(); }, []);
+    hooks.useEffect(() => { refresh("initial"); }, []);
 
     async function runRead(kind) {
       setLoading(true);
+      setLoadingMode("refresh");
       setError("");
       try {
         const payload = await api(`/read/${kind}?${query(true)}`);
@@ -413,6 +418,7 @@
         setError(String((err && err.message) || err));
       } finally {
         setLoading(false);
+        setLoadingMode("");
       }
     }
 
@@ -443,6 +449,7 @@
 
     async function runAction(action) {
       setLoading(true);
+      setLoadingMode("refresh");
       setError("");
       try {
         const payload = await api("/quick-action", {
@@ -456,6 +463,7 @@
         setError(String((err && err.message) || err));
       } finally {
         setLoading(false);
+        setLoadingMode("");
       }
     }
 
@@ -468,10 +476,10 @@
         ),
         h("div", { className: "tescmd-hero-actions" },
           h(Badge, { className: confirm ? "tescmd-warn" : "tescmd-ok" }, confirm ? "actions armed" : "read-only"),
-          h(Button, { onClick: refresh, disabled: loading }, loading ? "Refreshing..." : "Refresh overview")
+          h(Button, { onClick: () => refresh("refresh"), disabled: loading }, loading ? (loadingMode === "initial" ? "Loading..." : "Updating...") : "Refresh overview")
         )
       ),
-      h(BusyBanner, { loading }),
+      h(BusyBanner, { loading, mode: loadingMode }),
       overview && overview.onboarding ? h(OnboardingCard, { onboarding: overview.onboarding }) : null,
       h(Card, { className: "tescmd-overview-card" },
         h(CardHeader, null, h(CardTitle, null, "Vehicle overview")),

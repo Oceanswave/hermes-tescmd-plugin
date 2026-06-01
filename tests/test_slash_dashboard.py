@@ -985,9 +985,15 @@ def test_dashboard_shows_busy_banner_during_refresh() -> None:
     style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
 
     assert "BusyBanner" in asset
-    assert "Refreshing Tesla data…" in asset
-    assert "controls are disabled so the command is not reissued" in asset
-    assert "h(BusyBanner, { loading })" in asset
+    assert "Loading Tesla dashboard…" in asset
+    assert "Fetching setup and vehicle status." in asset
+    assert "Updating Tesla data…" in asset
+    assert "This can take a moment while Tesla responds." in asset
+    assert "controls are disabled" not in asset
+    assert "command is not reissued" not in asset
+    assert "h(BusyBanner, { loading, mode: loadingMode })" in asset
+    assert 'refresh("initial")' in asset
+    assert 'refresh("refresh")' in asset
     assert ".tescmd-busy-banner" in style
 
 
