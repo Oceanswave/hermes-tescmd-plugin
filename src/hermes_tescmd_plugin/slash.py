@@ -269,10 +269,44 @@ def _format_vehicles(payload: dict[str, Any]) -> str:
         ]
         ident = _redact_vehicle_identifier(identifiers[0]) if identifiers else None
         ident = ident or "no id"
-        lines.append(
-            f"{idx}. {_redact_slash_text(name)} — {_redact_slash_text(state)} — {ident}"
-        )
+        parts = [
+            _redact_slash_text(name),
+            _redact_slash_text(state),
+            ident,
+        ]
+        model_hint = _vehicle_model_hint(vehicle)
+        if model_hint:
+            parts.append(model_hint)
+        lines.append(f"{idx}. " + " — ".join(parts))
     return "\n".join(lines)
+
+
+def _vehicle_model_hint(vehicle: dict[str, Any]) -> str | None:
+    """Return a non-sensitive model/capability hint for target selection.
+
+    Tesla vehicle-list payloads often include a nested ``vehicle_config`` with
+    ``car_type`` (for example ``cybertruck``) and sometimes trim information.
+    Showing that hint in `/tescmd-vehicles` helps operators pick the intended
+    car without exposing full VINs or Fleet identifiers.
+    """
+    config = vehicle.get("vehicle_config")
+    if not isinstance(config, dict):
+        config = {}
+
+    car_type = vehicle.get("car_type") or config.get("car_type")
+    trim = (
+        vehicle.get("trim_badging")
+        or vehicle.get("trim")
+        or config.get("trim_badging")
+        or config.get("trim")
+    )
+
+    hints = []
+    if car_type:
+        hints.append(f"type={_redact_slash_text(car_type)}")
+    if trim and str(trim).strip().lower() != str(car_type).strip().lower():
+        hints.append(f"trim={_redact_slash_text(trim)}")
+    return ", ".join(hints) if hints else None
 
 
 def _format_audit_log(payload: dict[str, Any]) -> str:

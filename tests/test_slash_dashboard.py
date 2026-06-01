@@ -477,6 +477,38 @@ def test_vehicle_list_redacts_identifiers() -> None:
     assert "5YJ3E1EA7JF000001" not in output
 
 
+def test_vehicle_list_includes_safe_model_hints_for_target_selection() -> None:
+    output = slash._format_vehicles(
+        {
+            "ok": True,
+            "vehicles": [
+                {
+                    "display_name": "seaQuest",
+                    "state": "asleep",
+                    "id_s": "12345678901234567",
+                    "vehicle_config": {
+                        "car_type": "cybertruck",
+                        "trim_badging": "AWD",
+                    },
+                },
+                {
+                    "display_name": "Roadtrip 5YJ3E1EA7JF000001",
+                    "state": "online",
+                    "vin": "5YJ3E1EA7JF000001",
+                    "car_type": "models",
+                    "trim": "12345678901234567",
+                },
+            ],
+        }
+    )
+
+    assert "seaQuest — asleep — …4567 — type=cybertruck, trim=AWD" in output
+    assert "Roadtrip …0001 — online — …0001 — type=models, trim=…4567" in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "12345678901234567" not in output
+    assert "{" not in output
+
+
 def test_vehicle_list_redacts_embedded_identifiers_in_names_and_raw_entries() -> None:
     output = slash._format_vehicles(
         {
