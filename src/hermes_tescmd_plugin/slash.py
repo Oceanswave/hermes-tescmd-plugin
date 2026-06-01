@@ -572,6 +572,32 @@ def _summarize_nearby_chargers(payload: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _charge_detail_parts(charge: dict[str, Any]) -> list[str]:
+    parts: list[str] = []
+    if charge.get("battery_level") is not None:
+        parts.append(f"{charge.get('battery_level')}%")
+    if charge.get("charging_state"):
+        parts.append(str(charge.get("charging_state")))
+    if charge.get("charge_limit_soc") is not None:
+        parts.append(f"limit {charge.get('charge_limit_soc')}%")
+    if charge.get("battery_range") is not None:
+        parts.append(f"range {charge.get('battery_range')} mi")
+    if charge.get("charger_power") is not None:
+        parts.append(f"{charge.get('charger_power')} kW")
+    if charge.get("charger_actual_current") is not None:
+        parts.append(f"{charge.get('charger_actual_current')} A")
+    if charge.get("time_to_full_charge") is not None:
+        parts.append(f"{charge.get('time_to_full_charge')} h to full")
+    cable = charge.get("conn_charge_cable")
+    if cable and str(cable).lower() not in {"none", "unknown"}:
+        parts.append(f"cable {_redact_slash_text(str(cable))}")
+    if charge.get("charge_port_door_open") is not None:
+        parts.append(
+            "port open" if charge.get("charge_port_door_open") else "port closed"
+        )
+    return parts
+
+
 def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     label = _friendly_label(name)
     lines = [f"/{name}: success — {label} completed."]
@@ -590,24 +616,9 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
 
     charge = _payload_section(payload, "charge_state")
     if charge:
-        lines.append(
-            "Charge: "
-            + ", ".join(
-                part
-                for part in (
-                    f"{charge.get('battery_level')}%"
-                    if charge.get("battery_level") is not None
-                    else None,
-                    str(charge.get("charging_state"))
-                    if charge.get("charging_state")
-                    else None,
-                    f"limit {charge.get('charge_limit_soc')}%"
-                    if charge.get("charge_limit_soc") is not None
-                    else None,
-                )
-                if part
-            )
-        )
+        charge_parts = _charge_detail_parts(charge)
+        if charge_parts:
+            lines.append("Charge: " + ", ".join(charge_parts))
 
     climate = _payload_section(payload, "climate_state")
     if climate:
