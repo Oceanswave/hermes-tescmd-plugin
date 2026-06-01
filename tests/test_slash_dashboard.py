@@ -968,6 +968,16 @@ def test_dashboard_overview_collects_visual_read_sections_without_wake(
     ) in calls
 
 
+def test_dashboard_labels_operational_onboarding_as_ready() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+
+    assert "Operational status" in asset
+    assert "Vehicle reads and commands ready" in asset
+    assert "setup complete for operations" in asset
+    assert "Maintenance check:" in asset
+    assert '["Key hosting", bootstrap.key_hosting_ready, "check"]' in asset
+
+
 def test_dashboard_read_passes_wake_confirm_no_cache_and_units(monkeypatch) -> None:
     calls: list[tuple[str, dict]] = []
 

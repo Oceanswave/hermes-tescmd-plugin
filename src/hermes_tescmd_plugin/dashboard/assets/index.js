@@ -53,23 +53,33 @@
   function readinessRows(status) {
     const bootstrap = (status && status.bootstrap) || {};
     return [
-      ["App", bootstrap.app_configured],
-      ["Auth", bootstrap.authenticated],
-      ["Reads", bootstrap.ready_for_vehicle_reads],
-      ["Commands", bootstrap.ready_for_vehicle_commands],
-      ["Signed", bootstrap.ready_for_signed_commands],
-      ["Key hosted", bootstrap.key_hosting_ready],
+      ["App", bootstrap.app_configured, "missing"],
+      ["Auth", bootstrap.authenticated, "missing"],
+      ["Reads", bootstrap.ready_for_vehicle_reads, "missing"],
+      ["Commands", bootstrap.ready_for_vehicle_commands, "missing"],
+      ["Signed", bootstrap.ready_for_signed_commands, "missing"],
+      ["Key hosting", bootstrap.key_hosting_ready, "check"],
     ];
   }
 
   function Readiness({ status }) {
     return h("div", { className: "tescmd-readiness" },
-      readinessRows(status).map(([label, value]) =>
+      readinessRows(status).map(([label, value, falseLabel]) =>
         h("div", { key: label, className: "tescmd-readiness-item" },
           h("span", null, label),
-          h(Badge, { className: value ? "tescmd-ok" : "tescmd-warn" }, value ? "ready" : "missing")
+          h(Badge, { className: value ? "tescmd-ok" : "tescmd-warn" }, value ? "ready" : falseLabel)
         )
       )
+    );
+  }
+
+  function onboardingOperational(onboarding) {
+    const readiness = (onboarding && onboarding.readiness) || {};
+    return Boolean(
+      readiness.authenticated &&
+      readiness.ready_for_vehicle_reads &&
+      readiness.ready_for_vehicle_commands &&
+      readiness.ready_for_signed_commands
     );
   }
 
@@ -77,14 +87,20 @@
     if (!onboarding) return null;
     const missing = Array.isArray(onboarding.missing_prerequisites) ? onboarding.missing_prerequisites : [];
     const steps = Array.isArray(onboarding.next_steps) ? onboarding.next_steps.slice(0, 2) : [];
+    const operational = onboardingOperational(onboarding);
+    const next = onboarding.next_tool || onboarding.next_action || "Ready";
     return h("div", { className: "tescmd-onboarding-card" },
       h("div", null,
-        h("span", { className: "tescmd-widget-label" }, "Next setup step"),
-        h("strong", null, onboarding.next_tool || onboarding.next_action || "Ready"),
-        h("small", null, onboarding.docs_anchor || "docs/ONBOARDING.md")
+        h("span", { className: "tescmd-widget-label" }, operational ? "Operational status" : "Next setup step"),
+        h("strong", null, operational ? "Vehicle reads and commands ready" : next),
+        h("small", null, operational && next !== "Ready" ? `Maintenance check: ${next}` : (onboarding.docs_anchor || "docs/ONBOARDING.md"))
       ),
-      missing.length ? h("div", { className: "tescmd-missing-list" }, missing.slice(0, 4).map((item) => h(Badge, { key: item, className: "tescmd-warn" }, item))) : h(Badge, { className: "tescmd-ok" }, "no missing prerequisites"),
-      steps.length ? h("ol", null, steps.map((step, index) => h("li", { key: index }, step))) : null
+      operational
+        ? h(Badge, { className: "tescmd-ok" }, "setup complete for operations")
+        : missing.length
+          ? h("div", { className: "tescmd-missing-list" }, missing.slice(0, 4).map((item) => h(Badge, { key: item, className: "tescmd-warn" }, item)))
+          : h(Badge, { className: "tescmd-ok" }, "no missing prerequisites"),
+      steps.length ? h("ol", null, steps.map((step, index) => h("li", { key: index }, operational ? `Optional maintenance: ${step}` : step))) : null
     );
   }
 

@@ -2,6 +2,7 @@
 
 ## 0.5.0a22
 
+- Clarified the `/tescmd` dashboard onboarding card so an already-authenticated, command-ready install is labeled operational, with public-key hosting shown as an optional maintenance check instead of a blocking setup step.
 - Added `tescmd_onboarding_status`, a non-mutating guided setup checklist that reports the current onboarding phase, missing prerequisites, next tool, docs anchor, and readiness booleans without writing config, auth, key, or vehicle state.
 - Added onboarding guidance to the `/tescmd` dashboard overview and admin read catalog so setup state is visible beside vehicle widgets.
 - Polished the dashboard into a compact command-center layout with read-only/action-armed status, setup guidance, a two-column workbench, and clearer last-payload placement.
