@@ -93,20 +93,18 @@
     if (!onboarding) return null;
     const missing = Array.isArray(onboarding.missing_prerequisites) ? onboarding.missing_prerequisites : [];
     const steps = Array.isArray(onboarding.next_steps) ? onboarding.next_steps.slice(0, 2) : [];
-    const operational = onboardingOperational(onboarding);
+    if (onboardingOperational(onboarding)) return null;
     const next = onboarding.next_tool || onboarding.next_action || "Ready";
     return h("div", { className: "tescmd-onboarding-card" },
       h("div", null,
-        h("span", { className: "tescmd-widget-label" }, operational ? "Operational status" : "Next setup step"),
-        h("strong", null, operational ? "Vehicle reads and commands ready" : next),
-        h("small", null, operational ? "Tesla OAuth app setup complete for dashboard operations." : (onboarding.docs_anchor || "docs/ONBOARDING.md"))
+        h("span", { className: "tescmd-widget-label" }, "Next setup step"),
+        h("strong", null, next),
+        h("small", null, onboarding.docs_anchor || "docs/ONBOARDING.md")
       ),
-      operational
-        ? h(Badge, { className: "tescmd-ok" }, "setup complete for operations")
-        : missing.length
-          ? h("div", { className: "tescmd-missing-list" }, missing.slice(0, 4).map((item) => h(Badge, { key: item, className: "tescmd-warn" }, item)))
-          : h(Badge, { className: "tescmd-ok" }, "no missing prerequisites"),
-      !operational && steps.length ? h("ol", null, steps.map((step, index) => h("li", { key: index }, step))) : null
+      missing.length
+        ? h("div", { className: "tescmd-missing-list" }, missing.slice(0, 4).map((item) => h(Badge, { key: item, className: "tescmd-warn" }, item)))
+        : h(Badge, { className: "tescmd-ok" }, "no missing prerequisites"),
+      steps.length ? h("ol", null, steps.map((step, index) => h("li", { key: index }, step))) : null
     );
   }
 

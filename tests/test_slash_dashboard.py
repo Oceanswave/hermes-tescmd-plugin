@@ -968,13 +968,14 @@ def test_dashboard_overview_collects_visual_read_sections_without_wake(
     ) in calls
 
 
-def test_dashboard_labels_operational_onboarding_as_ready() -> None:
+def test_dashboard_hides_operational_onboarding_banner() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
 
-    assert "Operational status" in asset
-    assert "Vehicle reads and commands ready" in asset
-    assert "setup complete for operations" in asset
-    assert "Tesla OAuth app setup complete for dashboard operations." in asset
+    assert "if (onboardingOperational(onboarding)) return null;" in asset
+    assert "Operational status" not in asset
+    assert "Vehicle reads and commands ready" not in asset
+    assert "setup complete for operations" not in asset
+    assert "Tesla OAuth app setup complete for dashboard operations." not in asset
     assert "Maintenance check:" not in asset
     assert "Optional maintenance:" not in asset
     assert '["OAuth app key", bootstrap.key_hosting_ready, "check"]' in asset
