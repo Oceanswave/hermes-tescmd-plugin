@@ -34,7 +34,8 @@
   ];
 
   function JsonBlock({ data }) {
-    return h("pre", { className: "tescmd-json" }, JSON.stringify(data, null, 2));
+    const displayData = data && data.display_payload ? data.display_payload : data;
+    return h("pre", { className: "tescmd-json" }, JSON.stringify(displayData, null, 2));
   }
 
   function Field({ label, children }) {
@@ -114,6 +115,21 @@
     return h("div", { className: "tescmd-busy-banner", role: "status", "aria-live": "polite" },
       h("strong", null, initial ? "Loading Tesla dashboard…" : "Updating Tesla data…"),
       h("span", null, initial ? "Fetching setup and vehicle status." : "This can take a moment while Tesla responds.")
+    );
+  }
+
+  function EmptyState({ title, body, steps, note, action }) {
+    return h("div", { className: "tescmd-empty-state", role: "region", "aria-label": title },
+      h("div", { className: "tescmd-empty-icon", "aria-hidden": "true" }, "⚡"),
+      h("div", { className: "tescmd-empty-copy" },
+        h("strong", null, title),
+        h("p", null, body),
+        Array.isArray(steps) && steps.length
+          ? h("ol", null, steps.map((step, index) => h("li", { key: index }, step)))
+          : null,
+        note ? h("small", null, note) : null
+      ),
+      action ? h("div", { className: "tescmd-empty-action" }, action) : null
     );
   }
 
@@ -368,8 +384,12 @@
 
     if (lat == null || lon == null) {
       return h("div", { className: "tescmd-map tescmd-map-empty" },
-        h("div", null, "No vehicle coordinates yet"),
-        h("small", null, "Run Location or Refresh overview after vehicle data is available.")
+        h(EmptyState, {
+          title: "No location fix yet",
+          body: "The map stays blank until a vehicle location payload includes coordinates.",
+          steps: ["Run Location for a read-only location check.", "If the vehicle is asleep, turn on wake + confirm before a wake-enabled read."],
+          note: "Precise coordinates stay inside the dashboard payload and are not shown in slash summaries.",
+        })
       );
     }
     return h("div", { className: "tescmd-map-shell" },
@@ -529,7 +549,13 @@
       overview && overview.onboarding ? h(OnboardingCard, { onboarding: overview.onboarding }) : null,
       h(Card, { className: "tescmd-overview-card" },
         h(CardHeader, null, h(CardTitle, null, "Vehicle overview")),
-        h(CardContent, null, overview ? h(VehicleSnapshot, { overview, runAction, loading, confirm }) : h("p", { className: "tescmd-muted" }, "Refresh to load charge, climate, security, and map widgets."))
+        h(CardContent, null, overview ? h(VehicleSnapshot, { overview, runAction, loading, confirm }) : h(EmptyState, {
+          title: "No vehicle overview loaded",
+          body: "Start with a read-only refresh to populate charge, climate, security, and map widgets.",
+          steps: ["Check profile, region, and vehicle override if the configured default is not the target vehicle.", "Use no-cache when you need fresh Fleet API data.", "Only enable wake + confirm when you intentionally want to wake a sleeping vehicle."],
+          note: "Refreshing the overview does not arm quick actions or run physical Tesla side effects.",
+          action: h(Button, { onClick: () => refresh("refresh"), disabled: loading }, loading ? "Loading..." : "Refresh overview"),
+        }))
       ),
       h(Card, { className: "tescmd-controls-card" },
         h(CardHeader, null, h(CardTitle, null, "Options")),
@@ -583,8 +609,16 @@
       ),
       error ? h(Card, { className: "tescmd-error-card" }, h(CardContent, null, h("p", { className: "tescmd-error" }, error))) : null,
       h(Card, { className: "tescmd-payload-card" },
-        h(CardHeader, null, h(CardTitle, null, "Last payload")),
-        h(CardContent, null, detail ? h(JsonBlock, { data: detail }) : h("p", { className: "tescmd-muted" }, "No payload yet."))
+        h(CardHeader, null, h(CardTitle, null, "Redacted last payload")),
+        h(CardContent, null,
+          h("p", { className: "tescmd-muted" }, "Debug view hides full vehicle identifiers, tokens, navigation destinations, and precise coordinates."),
+          detail ? h(JsonBlock, { data: detail }) : h(EmptyState, {
+            title: "No payload selected",
+            body: "Run a read or a confirm-gated quick action to inspect the latest redacted plugin response here.",
+            steps: ["Reads are safe by default and only wake the vehicle when wake + confirm are both enabled.", "Quick actions stay disabled until you check the physical side-effect confirmation."],
+            note: "Sensitive IDs and raw coordinates should stay out of human-facing slash summaries.",
+          })
+        )
       )
       )
     );
