@@ -660,6 +660,44 @@ def test_read_slash_command_success_summarizes_vehicle_data() -> None:
     assert "{" not in output
 
 
+def test_charge_slash_summary_includes_operator_details_without_location_or_ids() -> (
+    None
+):
+    output = slash._format_command(
+        "tescmd-charge",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "data": {
+                "charge_state": {
+                    "battery_level": 44,
+                    "charging_state": "Charging",
+                    "charge_limit_soc": 85,
+                    "battery_range": 126.5,
+                    "charger_power": 7,
+                    "charger_actual_current": 32,
+                    "time_to_full_charge": 2.25,
+                    "conn_charge_cable": "SAE 5YJ3E1EA7JF000002",
+                    "charge_port_door_open": True,
+                    "latitude": 37.7749295,
+                    "longitude": -122.4194155,
+                }
+            },
+        },
+    )
+
+    assert output.startswith("/tescmd-charge: success")
+    assert (
+        "Charge: 44%, Charging, limit 85%, range 126.5 mi, 7 kW, "
+        "32 A, 2.25 h to full, cable SAE …0002, port open"
+    ) in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "5YJ3E1EA7JF000002" not in output
+    assert "37.7749295" not in output
+    assert "-122.4194155" not in output
+    assert "{" not in output
+
+
 def test_drive_slash_summary_redacts_precise_coordinates() -> None:
     output = slash._format_command(
         "tescmd-drive",
