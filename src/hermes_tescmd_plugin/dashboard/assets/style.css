@@ -142,7 +142,8 @@
   overflow: visible;
 }
 
-.tescmd-onboarding-card {
+.tescmd-onboarding-card,
+.tescmd-busy-banner {
   display: grid;
   grid-template-columns: minmax(14rem, 0.8fr) minmax(10rem, auto) minmax(18rem, 1.25fr);
   gap: 0.75rem;
@@ -153,6 +154,23 @@
   background:
     radial-gradient(circle at 0 0, color-mix(in srgb, var(--tescmd-blue) 13%, transparent), transparent 28%),
     color-mix(in srgb, var(--color-card) 92%, transparent);
+}
+
+.tescmd-busy-banner {
+  grid-template-columns: auto 1fr;
+  border-color: color-mix(in srgb, var(--tescmd-amber) 45%, var(--color-border));
+  background:
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--tescmd-amber) 16%, transparent), transparent 28%),
+    color-mix(in srgb, var(--color-card) 94%, transparent);
+}
+
+.tescmd-busy-banner strong {
+  color: var(--tescmd-amber);
+}
+
+.tescmd-busy-banner span {
+  color: var(--color-muted-foreground);
+  font-size: 0.82rem;
 }
 
 .tescmd-onboarding-card strong {

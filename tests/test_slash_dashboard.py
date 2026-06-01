@@ -974,8 +974,21 @@ def test_dashboard_labels_operational_onboarding_as_ready() -> None:
     assert "Operational status" in asset
     assert "Vehicle reads and commands ready" in asset
     assert "setup complete for operations" in asset
-    assert "Maintenance check:" in asset
-    assert '["Key hosting", bootstrap.key_hosting_ready, "check"]' in asset
+    assert "Tesla OAuth app setup complete for dashboard operations." in asset
+    assert "Maintenance check:" not in asset
+    assert "Optional maintenance:" not in asset
+    assert '["OAuth app key", bootstrap.key_hosting_ready, "check"]' in asset
+
+
+def test_dashboard_shows_busy_banner_during_refresh() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+
+    assert "BusyBanner" in asset
+    assert "Refreshing Tesla data…" in asset
+    assert "controls are disabled so the command is not reissued" in asset
+    assert "h(BusyBanner, { loading })" in asset
+    assert ".tescmd-busy-banner" in style
 
 
 def test_dashboard_read_passes_wake_confirm_no_cache_and_units(monkeypatch) -> None:

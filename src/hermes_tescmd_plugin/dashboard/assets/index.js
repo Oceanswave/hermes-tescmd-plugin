@@ -50,16 +50,27 @@
     }));
   }
 
+  function bootstrapOperational(bootstrap) {
+    return Boolean(
+      bootstrap &&
+      bootstrap.authenticated &&
+      bootstrap.ready_for_vehicle_reads &&
+      bootstrap.ready_for_vehicle_commands &&
+      bootstrap.ready_for_signed_commands
+    );
+  }
+
   function readinessRows(status) {
     const bootstrap = (status && status.bootstrap) || {};
-    return [
+    const rows = [
       ["App", bootstrap.app_configured, "missing"],
       ["Auth", bootstrap.authenticated, "missing"],
       ["Reads", bootstrap.ready_for_vehicle_reads, "missing"],
       ["Commands", bootstrap.ready_for_vehicle_commands, "missing"],
       ["Signed", bootstrap.ready_for_signed_commands, "missing"],
-      ["Key hosting", bootstrap.key_hosting_ready, "check"],
     ];
+    if (!bootstrapOperational(bootstrap)) rows.push(["OAuth app key", bootstrap.key_hosting_ready, "check"]);
+    return rows;
   }
 
   function Readiness({ status }) {
@@ -75,12 +86,7 @@
 
   function onboardingOperational(onboarding) {
     const readiness = (onboarding && onboarding.readiness) || {};
-    return Boolean(
-      readiness.authenticated &&
-      readiness.ready_for_vehicle_reads &&
-      readiness.ready_for_vehicle_commands &&
-      readiness.ready_for_signed_commands
-    );
+    return bootstrapOperational(readiness);
   }
 
   function OnboardingCard({ onboarding }) {
@@ -93,14 +99,22 @@
       h("div", null,
         h("span", { className: "tescmd-widget-label" }, operational ? "Operational status" : "Next setup step"),
         h("strong", null, operational ? "Vehicle reads and commands ready" : next),
-        h("small", null, operational && next !== "Ready" ? `Maintenance check: ${next}` : (onboarding.docs_anchor || "docs/ONBOARDING.md"))
+        h("small", null, operational ? "Tesla OAuth app setup complete for dashboard operations." : (onboarding.docs_anchor || "docs/ONBOARDING.md"))
       ),
       operational
         ? h(Badge, { className: "tescmd-ok" }, "setup complete for operations")
         : missing.length
           ? h("div", { className: "tescmd-missing-list" }, missing.slice(0, 4).map((item) => h(Badge, { key: item, className: "tescmd-warn" }, item)))
           : h(Badge, { className: "tescmd-ok" }, "no missing prerequisites"),
-      steps.length ? h("ol", null, steps.map((step, index) => h("li", { key: index }, operational ? `Optional maintenance: ${step}` : step))) : null
+      !operational && steps.length ? h("ol", null, steps.map((step, index) => h("li", { key: index }, step))) : null
+    );
+  }
+
+  function BusyBanner({ loading }) {
+    if (!loading) return null;
+    return h("div", { className: "tescmd-busy-banner", role: "status", "aria-live": "polite" },
+      h("strong", null, "Refreshing Tesla data…"),
+      h("span", null, "Hold tight — controls are disabled so the command is not reissued.")
     );
   }
 
@@ -457,6 +471,7 @@
           h(Button, { onClick: refresh, disabled: loading }, loading ? "Refreshing..." : "Refresh overview")
         )
       ),
+      h(BusyBanner, { loading }),
       overview && overview.onboarding ? h(OnboardingCard, { onboarding: overview.onboarding }) : null,
       h(Card, { className: "tescmd-overview-card" },
         h(CardHeader, null, h(CardTitle, null, "Vehicle overview")),
