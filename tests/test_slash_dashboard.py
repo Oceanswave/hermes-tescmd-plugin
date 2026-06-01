@@ -698,6 +698,54 @@ def test_charge_slash_summary_includes_operator_details_without_location_or_ids(
     assert "{" not in output
 
 
+def test_charge_action_summary_includes_safe_requested_value() -> None:
+    output = slash._format_command(
+        "tescmd-charge-limit",
+        {
+            "ok": True,
+            "profile": "default",
+            "region": "na",
+            "vin": "5YJ3E1EA7JF000001",
+            "command": "set_charge_limit",
+            "request": {"percent": 85, "confirm": True, "vin": "5YJ3E1EA7JF000001"},
+            "response": {"result": True},
+        },
+    )
+
+    assert output.startswith("/tescmd-charge-limit: success")
+    assert "Charging action: set charge limit to 85%." in output
+    assert "Result: Tesla accepted the charging command." in output
+    assert "confirm" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "{" not in output
+
+
+def test_charge_action_slash_handler_exposes_only_safe_request_details(monkeypatch) -> None:
+    def fake_run_tool(tool_name, raw_args='', defaults=None, *, positional_name='vin', expose_args=()):
+        assert tool_name == "tescmd_charge_limit"
+        assert raw_args == "5YJ3E1EA7JF000001 percent=85 confirm=true"
+        assert expose_args == ("percent",)
+        return {
+            "ok": True,
+            "vin": "…0001",
+            "command": "set_charge_limit",
+            "request": {"percent": 85},
+            "response": {"result": True},
+        }
+
+    monkeypatch.setattr(slash, "_run_tool", fake_run_tool)
+
+    output = slash.command_definitions()["tescmd-charge-limit"]["handler"](
+        {"raw_args": "5YJ3E1EA7JF000001 percent=85 confirm=true"}
+    )
+
+    assert "Charging action: set charge limit to 85%." in output
+    assert "Result: Tesla accepted the charging command." in output
+    assert "confirm" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "{" not in output
+
+
 def test_drive_slash_summary_redacts_precise_coordinates() -> None:
     output = slash._format_command(
         "tescmd-drive",

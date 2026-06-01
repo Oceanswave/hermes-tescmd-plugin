@@ -75,6 +75,7 @@ def _run_tool(
     defaults: dict[str, Any] | None = None,
     *,
     positional_name: str = "vin",
+    expose_args: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     specs = _tool_specs_by_name()
     spec = specs[tool_name]
@@ -89,9 +90,18 @@ def _run_tool(
         args = {**defaults, **args}
     payload = runtime.make_handler(spec)(args)
     try:
-        return json.loads(payload)
+        parsed = json.loads(payload)
     except json.JSONDecodeError:
         return {"ok": False, "operation": spec.operation, "error": payload}
+    if expose_args and isinstance(parsed, dict) and parsed.get("ok"):
+        request = {
+            key: args[key]
+            for key in expose_args
+            if key in args and args[key] is not None
+        }
+        if request:
+            parsed["request"] = request
+    return parsed
 
 
 def _compact_json(payload: dict[str, Any]) -> str:
@@ -598,6 +608,30 @@ def _charge_detail_parts(charge: dict[str, Any]) -> list[str]:
     return parts
 
 
+def _charge_action_summary(name: str, payload: dict[str, Any]) -> str | None:
+    raw_request = payload.get("request")
+    request: dict[str, Any] = raw_request if isinstance(raw_request, dict) else {}
+    if name == "tescmd-charge-start":
+        return "start charging."
+    if name == "tescmd-charge-stop":
+        return "stop charging."
+    if name == "tescmd-charge-port-open":
+        return "open the charge port."
+    if name == "tescmd-charge-port-close":
+        return "close the charge port."
+    if name == "tescmd-charge-limit":
+        percent = request.get("percent")
+        if percent is not None:
+            return f"set charge limit to {percent}%."
+        return "set charge limit."
+    if name == "tescmd-charge-amps":
+        amps = request.get("amps")
+        if amps is not None:
+            return f"set charging current to {amps} A."
+        return "set charging current."
+    return None
+
+
 def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     label = _friendly_label(name)
     lines = [f"/{name}: success — {label} completed."]
@@ -619,6 +653,10 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
         charge_parts = _charge_detail_parts(charge)
         if charge_parts:
             lines.append("Charge: " + ", ".join(charge_parts))
+
+    charge_action = _charge_action_summary(name, payload)
+    if charge_action:
+        lines.append(f"Charging action: {charge_action}")
 
     climate = _payload_section(payload, "climate_state")
     if climate:
@@ -662,7 +700,10 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
         or payload.get("message")
     )
     if result:
-        lines.append(f"Result: {_redact_slash_text(_stringify(result))}")
+        if result is True and charge_action:
+            lines.append("Result: Tesla accepted the charging command.")
+        else:
+            lines.append(f"Result: {_redact_slash_text(_stringify(result))}")
     elif not any(
         line.startswith(("Charge:", "Climate:", "Location:", "Nearby chargers:"))
         for line in lines
@@ -935,14 +976,18 @@ _COMMANDS: dict[str, tuple[str, str, Callable[[dict[str, Any]], str]]] = {
         "Set charge limit percentage; requires confirm=true.",
         "[vin] percent=80 confirm=true",
         lambda ctx: _format_command(
-            "tescmd-charge-limit", _run_tool("tescmd_charge_limit", ctx["raw_args"])
+            "tescmd-charge-limit",
+            _run_tool(
+                "tescmd_charge_limit", ctx["raw_args"], expose_args=("percent",)
+            ),
         ),
     ),
     "tescmd-charge-amps": (
         "Set charge amperage; requires confirm=true.",
         "[vin] amps=32 confirm=true",
         lambda ctx: _format_command(
-            "tescmd-charge-amps", _run_tool("tescmd_charge_set_amps", ctx["raw_args"])
+            "tescmd-charge-amps",
+            _run_tool("tescmd_charge_set_amps", ctx["raw_args"], expose_args=("amps",)),
         ),
     ),
     "tescmd-charge-port-open": (
