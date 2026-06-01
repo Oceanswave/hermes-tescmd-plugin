@@ -977,9 +977,7 @@ _COMMANDS: dict[str, tuple[str, str, Callable[[dict[str, Any]], str]]] = {
         "[vin] percent=80 confirm=true",
         lambda ctx: _format_command(
             "tescmd-charge-limit",
-            _run_tool(
-                "tescmd_charge_limit", ctx["raw_args"], expose_args=("percent",)
-            ),
+            _run_tool("tescmd_charge_limit", ctx["raw_args"], expose_args=("percent",)),
         ),
     ),
     "tescmd-charge-amps": (

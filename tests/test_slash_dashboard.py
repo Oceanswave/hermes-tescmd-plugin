@@ -720,8 +720,12 @@ def test_charge_action_summary_includes_safe_requested_value() -> None:
     assert "{" not in output
 
 
-def test_charge_action_slash_handler_exposes_only_safe_request_details(monkeypatch) -> None:
-    def fake_run_tool(tool_name, raw_args='', defaults=None, *, positional_name='vin', expose_args=()):
+def test_charge_action_slash_handler_exposes_only_safe_request_details(
+    monkeypatch,
+) -> None:
+    def fake_run_tool(
+        tool_name, raw_args="", defaults=None, *, positional_name="vin", expose_args=()
+    ):
         assert tool_name == "tescmd_charge_limit"
         assert raw_args == "5YJ3E1EA7JF000001 percent=85 confirm=true"
         assert expose_args == ("percent",)
