@@ -750,6 +750,79 @@ def test_charge_action_slash_handler_exposes_only_safe_request_details(
     assert "{" not in output
 
 
+def test_climate_slash_summary_is_human_readable_and_privacy_safe() -> None:
+    output = slash._format_command(
+        "tescmd-climate",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "data": {
+                "climate_state": {
+                    "is_climate_on": True,
+                    "inside_temp": 21.5,
+                    "outside_temp": 8,
+                    "driver_temp_setting": 22,
+                    "passenger_temp_setting": 22.5,
+                    "fan_status": 3,
+                    "is_front_defroster_on": True,
+                    "is_rear_defroster_on": False,
+                    "steering_wheel_heater": True,
+                    "seat_heater_left": 2,
+                    "seat_heater_right": 0,
+                    "latitude": 37.7749295,
+                    "longitude": -122.4194155,
+                }
+            },
+        },
+    )
+
+    assert output.startswith("/tescmd-climate: success")
+    assert (
+        "Climate: on, inside 21.5°, outside 8°, driver target 22°, "
+        "passenger target 22.5°, fan 3, front defroster on, "
+        "steering heat on, seat heat driver"
+    ) in output
+    assert "Result: command accepted" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "37.7749295" not in output
+    assert "-122.4194155" not in output
+    assert "{" not in output
+
+
+def test_climate_set_temp_action_summary_uses_exposed_request(monkeypatch) -> None:
+    captured: dict = {}
+    spec = slash.runtime.ToolSpec(
+        name="tescmd_climate_set_temps",
+        description="Set climate temperatures.",
+        operation="vehicle_command",
+    )
+
+    def fake_handler(args: dict) -> str:
+        captured.update(args)
+        return json.dumps({"ok": True, "response": {"result": True}})
+
+    monkeypatch.setattr(slash.runtime, "list_tool_specs", lambda: [spec])
+    monkeypatch.setattr(slash.runtime, "make_handler", lambda _spec: fake_handler)
+
+    output = slash.command_definitions()["tescmd-set-temp"]["handler"](
+        {"raw_args": "5YJ3E1EA7JF000001 driver_temp=70 passenger_temp=71 confirm=true"}
+    )
+
+    assert captured == {
+        "vin": "5YJ3E1EA7JF000001",
+        "driver_temp": 70,
+        "passenger_temp": 71,
+        "confirm": True,
+    }
+    assert (
+        "Climate action: set cabin targets to driver 70° and passenger 71°." in output
+    )
+    assert "Result: Tesla accepted the climate command." in output
+    assert "confirm" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "{" not in output
+
+
 def test_drive_slash_summary_redacts_precise_coordinates() -> None:
     output = slash._format_command(
         "tescmd-drive",

@@ -632,6 +632,62 @@ def _charge_action_summary(name: str, payload: dict[str, Any]) -> str | None:
     return None
 
 
+def _climate_detail_parts(climate: dict[str, Any]) -> list[str]:
+    parts: list[str] = []
+    if climate.get("is_climate_on") is not None:
+        parts.append("on" if climate.get("is_climate_on") else "off")
+    if climate.get("inside_temp") is not None:
+        parts.append(f"inside {climate.get('inside_temp')}°")
+    if climate.get("outside_temp") is not None:
+        parts.append(f"outside {climate.get('outside_temp')}°")
+    if climate.get("driver_temp_setting") is not None:
+        parts.append(f"driver target {climate.get('driver_temp_setting')}°")
+    if climate.get("passenger_temp_setting") is not None:
+        parts.append(f"passenger target {climate.get('passenger_temp_setting')}°")
+    if climate.get("fan_status") is not None:
+        parts.append(f"fan {climate.get('fan_status')}")
+    if climate.get("is_front_defroster_on"):
+        parts.append("front defroster on")
+    if climate.get("is_rear_defroster_on"):
+        parts.append("rear defroster on")
+    if climate.get("steering_wheel_heater"):
+        parts.append("steering heat on")
+    seat_heat = [
+        label
+        for key, label in (
+            ("seat_heater_left", "driver"),
+            ("seat_heater_right", "passenger"),
+            ("seat_heater_rear_left", "rear-left"),
+            ("seat_heater_rear_center", "rear-center"),
+            ("seat_heater_rear_right", "rear-right"),
+        )
+        if climate.get(key)
+    ]
+    if seat_heat:
+        parts.append("seat heat " + "/".join(seat_heat))
+    return parts
+
+
+def _climate_action_summary(name: str, payload: dict[str, Any]) -> str | None:
+    raw_request = payload.get("request")
+    request: dict[str, Any] = raw_request if isinstance(raw_request, dict) else {}
+    if name == "tescmd-climate-start":
+        return "start climate control."
+    if name == "tescmd-climate-stop":
+        return "stop climate control."
+    if name == "tescmd-set-temp":
+        driver = request.get("driver_temp")
+        passenger = request.get("passenger_temp")
+        if driver is not None and passenger is not None:
+            return f"set cabin targets to driver {driver}° and passenger {passenger}°."
+        if driver is not None:
+            return f"set driver cabin target to {driver}°."
+        if passenger is not None:
+            return f"set passenger cabin target to {passenger}°."
+        return "set cabin temperature targets."
+    return None
+
+
 def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     label = _friendly_label(name)
     lines = [f"/{name}: success — {label} completed."]
@@ -660,26 +716,13 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
 
     climate = _payload_section(payload, "climate_state")
     if climate:
-        lines.append(
-            "Climate: "
-            + ", ".join(
-                part
-                for part in (
-                    "on"
-                    if climate.get("is_climate_on")
-                    else "off"
-                    if climate.get("is_climate_on") is not None
-                    else None,
-                    f"inside {climate.get('inside_temp')}°"
-                    if climate.get("inside_temp") is not None
-                    else None,
-                    f"outside {climate.get('outside_temp')}°"
-                    if climate.get("outside_temp") is not None
-                    else None,
-                )
-                if part
-            )
-        )
+        climate_parts = _climate_detail_parts(climate)
+        if climate_parts:
+            lines.append("Climate: " + ", ".join(climate_parts))
+
+    climate_action = _climate_action_summary(name, payload)
+    if climate_action:
+        lines.append(f"Climate action: {climate_action}")
 
     location = _payload_section(payload, "location", "location_data", "drive_state")
     lat = location.get("latitude") or location.get("lat")
@@ -702,6 +745,8 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     if result:
         if result is True and charge_action:
             lines.append("Result: Tesla accepted the charging command.")
+        elif result is True and climate_action:
+            lines.append("Result: Tesla accepted the climate command.")
         else:
             lines.append(f"Result: {_redact_slash_text(_stringify(result))}")
     elif not any(
@@ -955,7 +1000,12 @@ _COMMANDS: dict[str, tuple[str, str, Callable[[dict[str, Any]], str]]] = {
         "Set driver/passenger cabin temperatures; requires confirm=true.",
         "[vin] driver_temp=70 passenger_temp=70 confirm=true",
         lambda ctx: _format_command(
-            "tescmd-set-temp", _run_tool("tescmd_climate_set_temps", ctx["raw_args"])
+            "tescmd-set-temp",
+            _run_tool(
+                "tescmd_climate_set_temps",
+                ctx["raw_args"],
+                expose_args=("driver_temp", "passenger_temp"),
+            ),
         ),
     ),
     "tescmd-charge-start": (
