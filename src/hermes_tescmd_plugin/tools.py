@@ -411,6 +411,14 @@ def _bootstrap_missing(cfg: config.PluginConfig) -> dict[str, bool]:
     }
 
 
+def _bootstrap_operational(bootstrap: dict[str, Any]) -> bool:
+    return bool(
+        bootstrap.get("ready_for_vehicle_reads")
+        and bootstrap.get("ready_for_vehicle_commands")
+        and bootstrap.get("ready_for_signed_commands")
+    )
+
+
 def _bootstrap_next_steps(
     *, cfg: config.PluginConfig, bootstrap: dict[str, Any], redirect_uri: str | None
 ) -> tuple[str, list[str]]:
@@ -429,6 +437,13 @@ def _bootstrap_next_steps(
             [
                 "Tesla app credentials are saved. Run tescmd_auth_login and open the returned auth_url.",
                 "After Tesla redirects to the public callback URL, copy the full redirected URL and run tescmd_auth_complete with callback_url.",
+            ],
+        )
+    if _bootstrap_operational(bootstrap):
+        return (
+            "operational",
+            [
+                "Tesla app setup, authentication, vehicle reads, and signed vehicle commands are operational.",
             ],
         )
     if cfg.domain and not bootstrap["key_present"]:
@@ -782,6 +797,7 @@ def _onboarding_docs_anchor(next_action: str) -> str:
         "key_deploy": "docs/ONBOARDING.md#host-and-validate-the-public-key",
         "auth_register": "docs/ONBOARDING.md#partner-registration-and-enrollment",
         "vehicle_list": "docs/ONBOARDING.md#first-read-proof",
+        "operational": "docs/ONBOARDING.md#first-read-proof",
         "setup": "docs/ONBOARDING.md#manual-plugin-config",
     }.get(next_action, "docs/ONBOARDING.md")
 

@@ -707,6 +707,68 @@ def test_bootstrap_key_steps_require_real_hosting_and_client_secret(
     assert ready["bootstrap"]["enrollment_ready"] is True
 
 
+def test_operational_bootstrap_suppresses_key_hosting_next_step(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    tools_by_name = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
+
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            client_secret="secret-123",
+            domain="cars.example.com",
+            default_vin="5YJ3E1EA7JF000001",
+            scopes=["openid", "vehicle_device_data", "vehicle_cmds"],
+        )
+    )
+    auth.generate_vehicle_command_keypair("default", domain="cars.example.com")
+    key_cfg = config.load_config("default")
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            client_secret="secret-123",
+            domain="cars.example.com",
+            default_vin="5YJ3E1EA7JF000001",
+            scopes=["openid", "vehicle_device_data", "vehicle_cmds"],
+            vehicle_command_key_private_path=key_cfg.vehicle_command_key_private_path,
+            vehicle_command_key_public_path=key_cfg.vehicle_command_key_public_path,
+        )
+    )
+    config.save_auth_state(
+        config.AuthState(
+            profile="default",
+            access_token="access-1",
+            refresh_token="refresh-1",
+            expires_at=9999999999,
+            scopes=["openid", "vehicle_device_data", "vehicle_cmds"],
+            region="na",
+        )
+    )
+
+    status = json.loads(tools_by_name["tescmd_status"]({}))
+    assert status["bootstrap"]["ready_for_vehicle_reads"] is True
+    assert status["bootstrap"]["ready_for_vehicle_commands"] is True
+    assert status["bootstrap"]["ready_for_signed_commands"] is True
+    assert status["bootstrap"]["key_hosting_ready"] is False
+    assert status["next_action"] == "operational"
+    assert status["next_steps"] == [
+        "Tesla app setup, authentication, vehicle reads, and signed vehicle commands are operational."
+    ]
+    assert "public key is not reachable" not in json.dumps(status).lower()
+
+    onboarding = json.loads(tools_by_name["tescmd_onboarding_status"]({}))
+    assert onboarding["phase"] == "operational"
+    assert onboarding["next_action"] == "operational"
+    assert onboarding["next_tool"] is None
+    assert onboarding["missing_prerequisites"] == []
+    assert onboarding["next_steps"] == status["next_steps"]
+
+
 def test_onboarding_status_returns_read_only_next_step(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     tools_by_name = {
