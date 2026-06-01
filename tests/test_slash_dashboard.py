@@ -981,6 +981,20 @@ def test_dashboard_hides_operational_onboarding_banner() -> None:
     assert '["OAuth app key", bootstrap.key_hosting_ready, "check"]' in asset
 
 
+def test_dashboard_shows_sleep_status_with_wake_button() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+
+    assert "function vehicleAvailability" in asset
+    assert "VehicleSleepStatus" in asset
+    assert "is asleep" in asset
+    assert "Wake vehicle" in asset
+    assert 'runAction("wake")' in asset
+    assert "Turn on action confirmation to wake the vehicle." in asset
+    assert "h(VehicleSnapshot, { overview, runAction, loading, confirm })" in asset
+    assert ".tescmd-sleep-status" in style
+
+
 def test_dashboard_shows_busy_banner_during_refresh() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()

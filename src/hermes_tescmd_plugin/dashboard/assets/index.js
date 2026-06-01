@@ -220,27 +220,75 @@
     return { lat, lon, heading, speed, raw: Object.keys(location).length ? location : drive };
   }
 
-  function VehicleSnapshot({ overview }) {
+  function selectedVehicle(overview) {
+    const vehiclesPayload = (overview && overview.vehicles) || {};
+    const vehicles = Array.isArray(vehiclesPayload.vehicles) ? vehiclesPayload.vehicles : [];
+    const target = overview && overview.vin ? String(overview.vin) : "";
+    if (target) {
+      return vehicles.find((vehicle) => [vehicle.id_s, vehicle.vehicle_id, vehicle.id, vehicle.vin].some((id) => id != null && String(id) === target)) || null;
+    }
+    return vehicles.find((vehicle) => String(vehicle.state || "").toLowerCase() === "asleep") || vehicles[0] || null;
+  }
+
+  function sectionErrorText(overview) {
+    const sections = (overview && overview.sections) || {};
+    return Object.values(sections).map((payload) => {
+      if (!payload || typeof payload !== "object") return "";
+      const nested = payload.payload && typeof payload.payload === "object" ? payload.payload.error : "";
+      return [payload.error, nested].filter(Boolean).join(" ");
+    }).join(" ").toLowerCase();
+  }
+
+  function vehicleAvailability(overview) {
+    const vehicle = selectedVehicle(overview);
+    const state = String((vehicle && vehicle.state) || "").toLowerCase();
+    const errors = sectionErrorText(overview);
+    const unavailable = errors.includes("vehicle unavailable") || errors.includes("offline") || errors.includes("asleep");
+    const asleep = state === "asleep" || (unavailable && errors.includes("asleep"));
+    const offline = state === "offline" || (unavailable && errors.includes("offline"));
+    const name = (vehicle && (vehicle.display_name || vehicle.vehicle_name || vehicle.name)) || "Vehicle";
+    if (asleep) return { sleeping: true, label: `${name} is asleep`, detail: "Wake it to fetch live vehicle status." };
+    if (offline) return { sleeping: true, label: `${name} is offline or asleep`, detail: "Wake it to check for live status." };
+    return { sleeping: false, label: state ? `${name} is ${state}` : "Vehicle status unknown", detail: "" };
+  }
+
+  function VehicleSleepStatus({ availability, runAction, loading, confirm }) {
+    if (!availability || !availability.sleeping) return null;
+    return h("div", { className: "tescmd-sleep-status" },
+      h("div", null,
+        h("strong", null, availability.label),
+        h("small", null, availability.detail)
+      ),
+      h(Button, { onClick: () => runAction("wake"), disabled: loading || !confirm }, loading ? "Waking..." : "Wake vehicle"),
+      !confirm ? h("small", { className: "tescmd-muted" }, "Turn on action confirmation to wake the vehicle.") : null
+    );
+  }
+
+  function VehicleSnapshot({ overview, runAction, loading, confirm }) {
     const charge = chargeSummary(overview);
     const climate = climateSummary(overview);
     const security = securitySummary(overview);
     const location = locationSummary(overview);
     const chargeStyle = { "--tescmd-charge": `${Math.max(0, Math.min(100, charge.level ?? 0))}%` };
-    return h("div", { className: "tescmd-visual-grid" },
-      h("div", { className: "tescmd-charge-widget" },
-        h("div", { className: "tescmd-widget-label" }, "Charge"),
-        h("div", { className: "tescmd-battery", style: chargeStyle }, h("span", null, charge.level == null ? "—" : `${Math.round(charge.level)}%`)),
-        h("div", { className: "tescmd-metric-row" }, h("span", null, "State"), h("strong", null, charge.state || "unknown")),
-        h("div", { className: "tescmd-metric-row" }, h("span", null, "Limit"), h("strong", null, charge.limit == null ? "—" : `${charge.limit}%`)),
-        h("div", { className: "tescmd-metric-row" }, h("span", null, "Range"), h("strong", null, charge.range == null ? "—" : `${Math.round(charge.range)} mi`)),
-        h("div", { className: "tescmd-metric-row" }, h("span", null, "Power"), h("strong", null, charge.power == null ? "—" : `${charge.power} kW`))
-      ),
-      h("div", { className: "tescmd-stack-widgets" },
-        h("div", { className: "tescmd-mini-widget" }, h("span", null, "Climate"), h("strong", null, climate.on ? "On" : "Off"), h("small", null, `Inside ${climate.inside == null ? "—" : climate.inside.toFixed(1)}° · Outside ${climate.outside == null ? "—" : climate.outside.toFixed(1)}°`)),
-        h("div", { className: "tescmd-mini-widget" }, h("span", null, "Security"), h("strong", null, security.locked === true ? "Locked" : security.locked === false ? "Unlocked" : "Unknown"), h("small", null, `${security.openCount} open closure${security.openCount === 1 ? "" : "s"} · Sentry ${security.sentry ? "on" : "off/unknown"}`)),
-        h("div", { className: "tescmd-mini-widget" }, h("span", null, "Location"), h("strong", null, location.lat == null || location.lon == null ? "No coordinates" : `${location.lat.toFixed(4)}, ${location.lon.toFixed(4)}`), h("small", null, location.speed == null ? "Speed unavailable" : `${location.speed} mph`))
-      ),
-      h(LeafletMap, { location })
+    const availability = vehicleAvailability(overview);
+    return h("div", null,
+      h(VehicleSleepStatus, { availability, runAction, loading, confirm }),
+      h("div", { className: "tescmd-visual-grid" },
+        h("div", { className: "tescmd-charge-widget" },
+          h("div", { className: "tescmd-widget-label" }, "Charge"),
+          h("div", { className: "tescmd-battery", style: chargeStyle }, h("span", null, charge.level == null ? "—" : `${Math.round(charge.level)}%`)),
+          h("div", { className: "tescmd-metric-row" }, h("span", null, "State"), h("strong", null, charge.state || "unknown")),
+          h("div", { className: "tescmd-metric-row" }, h("span", null, "Limit"), h("strong", null, charge.limit == null ? "—" : `${charge.limit}%`)),
+          h("div", { className: "tescmd-metric-row" }, h("span", null, "Range"), h("strong", null, charge.range == null ? "—" : `${Math.round(charge.range)} mi`)),
+          h("div", { className: "tescmd-metric-row" }, h("span", null, "Power"), h("strong", null, charge.power == null ? "—" : `${charge.power} kW`))
+        ),
+        h("div", { className: "tescmd-stack-widgets" },
+          h("div", { className: "tescmd-mini-widget" }, h("span", null, "Climate"), h("strong", null, climate.on ? "On" : "Off"), h("small", null, `Inside ${climate.inside == null ? "—" : climate.inside.toFixed(1)}° · Outside ${climate.outside == null ? "—" : climate.outside.toFixed(1)}°`)),
+          h("div", { className: "tescmd-mini-widget" }, h("span", null, "Security"), h("strong", null, security.locked === true ? "Locked" : security.locked === false ? "Unlocked" : "Unknown"), h("small", null, `${security.openCount} open closure${security.openCount === 1 ? "" : "s"} · Sentry ${security.sentry ? "on" : "off/unknown"}`)),
+          h("div", { className: "tescmd-mini-widget" }, h("span", null, "Location"), h("strong", null, location.lat == null || location.lon == null ? "No coordinates" : `${location.lat.toFixed(4)}, ${location.lon.toFixed(4)}`), h("small", null, location.speed == null ? "Speed unavailable" : `${location.speed} mph`))
+        ),
+        h(LeafletMap, { location })
+      )
     );
   }
 
@@ -481,7 +529,7 @@
       overview && overview.onboarding ? h(OnboardingCard, { onboarding: overview.onboarding }) : null,
       h(Card, { className: "tescmd-overview-card" },
         h(CardHeader, null, h(CardTitle, null, "Vehicle overview")),
-        h(CardContent, null, overview ? h(VehicleSnapshot, { overview }) : h("p", { className: "tescmd-muted" }, "Refresh to load charge, climate, security, and map widgets."))
+        h(CardContent, null, overview ? h(VehicleSnapshot, { overview, runAction, loading, confirm }) : h("p", { className: "tescmd-muted" }, "Refresh to load charge, climate, security, and map widgets."))
       ),
       h(Card, { className: "tescmd-controls-card" },
         h(CardHeader, null, h(CardTitle, null, "Options")),

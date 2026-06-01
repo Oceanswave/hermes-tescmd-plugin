@@ -2,6 +2,7 @@
 
 ## 0.5.0a22
 
+- Added an asleep/offline status callout to the `/tescmd` vehicle overview with a wake button, so sleeping vehicles clearly explain why live status is unavailable and offer the confirm-gated wake action.
 - Added user-friendly `/tescmd` dashboard loading/updating cues: first page load says the dashboard is loading, later refreshes say Tesla data is updating, and the copy avoids implementation details about duplicate command prevention.
 - Hid the `/tescmd` setup/onboarding banner once setup is operational; the dashboard now only shows setup guidance when there is still an actionable onboarding step.
 - Added `tescmd_onboarding_status`, a non-mutating guided setup checklist that reports the current onboarding phase, missing prerequisites, next tool, docs anchor, and readiness booleans without writing config, auth, key, or vehicle state.
