@@ -897,6 +897,76 @@ def test_nearby_chargers_slash_summary_is_human_readable_and_location_safe() -> 
     assert "{" not in output
 
 
+def test_security_status_slash_summary_reports_lock_and_sentry_privately() -> None:
+    output = slash._format_command(
+        "tescmd-security-status",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "data": {
+                "vehicle_state": {
+                    "locked": "locked",
+                    "sentry_mode": "off",
+                    "valet_mode": False,
+                    "latitude": 37.7749295,
+                    "longitude": -122.4194155,
+                }
+            },
+        },
+    )
+
+    assert output.startswith("/tescmd-security-status: success")
+    assert "Security: locked, Sentry off" in output
+    assert "Result: command accepted" not in output
+    assert "valet off" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "37.7749295" not in output
+    assert "-122.4194155" not in output
+    assert "{" not in output
+
+
+def test_closures_slash_summary_reports_open_items_privately() -> None:
+    output = slash._format_command(
+        "tescmd-closures",
+        {
+            "ok": True,
+            "vehicle": {
+                "display_name": "Cybertruck 5YJ3E1EA7JF000001",
+                "id_s": "12345678901234567",
+            },
+            "data": {
+                "vehicle_state": {
+                    "locked": False,
+                    "sentry_mode": True,
+                    "df": 0,
+                    "pf": 1,
+                    "dr": 0,
+                    "pr": 0,
+                    "fd_window": 0,
+                    "fp_window": 0,
+                    "rd_window": 1,
+                    "rp_window": 0,
+                    "ft": 0,
+                    "rt": 0,
+                    "charge_port_door_open": True,
+                }
+            },
+        },
+    )
+
+    assert output.startswith("/tescmd-closures: success")
+    assert "Vehicle: Cybertruck …0001 (…4567)" in output
+    assert "Security: unlocked, Sentry on" in output
+    assert (
+        "Closures: open: passenger door, rear-left window, charge port, "
+        "8 reported closed"
+    ) in output
+    assert "Result: command accepted" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "12345678901234567" not in output
+    assert "{" not in output
+
+
 def test_success_result_redacts_sensitive_identifiers() -> None:
     output = slash._format_command(
         "tescmd-nav",
