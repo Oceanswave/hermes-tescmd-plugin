@@ -688,6 +688,74 @@ def _climate_action_summary(name: str, payload: dict[str, Any]) -> str | None:
     return None
 
 
+def _state_flag(value: Any, *, true_text: str, false_text: str) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in _TRUE_VALUES or normalized in {"open", "opened", "on"}:
+            return true_text
+        if normalized in _FALSE_VALUES or normalized in {"closed", "off"}:
+            return false_text
+        return _redact_slash_text(value)
+    return true_text if bool(value) else false_text
+
+
+def _security_detail_parts(state: dict[str, Any]) -> list[str]:
+    parts: list[str] = []
+    locked = _state_flag(state.get("locked"), true_text="locked", false_text="unlocked")
+    if locked:
+        parts.append(locked)
+    sentry = _state_flag(
+        state.get("sentry_mode"), true_text="Sentry on", false_text="Sentry off"
+    )
+    if sentry:
+        parts.append(sentry)
+    valet = _state_flag(
+        state.get("valet_mode"), true_text="valet on", false_text="valet off"
+    )
+    if valet == "valet on":
+        parts.append(valet)
+    return parts
+
+
+def _closure_detail_parts(state: dict[str, Any]) -> list[str]:
+    closure_fields = (
+        ("df", "driver door"),
+        ("pf", "passenger door"),
+        ("dr", "rear-left door"),
+        ("pr", "rear-right door"),
+        ("fd_window", "driver window"),
+        ("fp_window", "passenger window"),
+        ("rd_window", "rear-left window"),
+        ("rp_window", "rear-right window"),
+        ("ft", "frunk"),
+        ("rt", "trunk"),
+        ("charge_port_door_open", "charge port"),
+    )
+    open_items: list[str] = []
+    closed_count = 0
+    for key, label in closure_fields:
+        if key not in state:
+            continue
+        value = state.get(key)
+        if value is None:
+            continue
+        if bool(value):
+            open_items.append(label)
+        else:
+            closed_count += 1
+
+    parts: list[str] = []
+    if open_items:
+        parts.append("open: " + ", ".join(open_items))
+    if closed_count and not open_items:
+        parts.append("all reported closures closed")
+    elif closed_count:
+        parts.append(f"{closed_count} reported closed")
+    return parts
+
+
 def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     label = _friendly_label(name)
     lines = [f"/{name}: success — {label} completed."]
@@ -724,6 +792,18 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     if climate_action:
         lines.append(f"Climate action: {climate_action}")
 
+    security = _payload_section(payload, "security_state", "vehicle_state")
+    if name in {"tescmd-security-status", "tescmd-closures"} and security:
+        security_parts = _security_detail_parts(security)
+        if security_parts:
+            lines.append("Security: " + ", ".join(security_parts))
+
+    closures = _payload_section(payload, "closures", "vehicle_state")
+    if name == "tescmd-closures" and closures:
+        closure_parts = _closure_detail_parts(closures)
+        if closure_parts:
+            lines.append("Closures: " + ", ".join(closure_parts))
+
     location = _payload_section(payload, "location", "location_data", "drive_state")
     lat = location.get("latitude") or location.get("lat")
     lon = location.get("longitude") or location.get("lon") or location.get("lng")
@@ -750,7 +830,16 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
         else:
             lines.append(f"Result: {_redact_slash_text(_stringify(result))}")
     elif not any(
-        line.startswith(("Charge:", "Climate:", "Location:", "Nearby chargers:"))
+        line.startswith(
+            (
+                "Charge:",
+                "Climate:",
+                "Security:",
+                "Closures:",
+                "Location:",
+                "Nearby chargers:",
+            )
+        )
         for line in lines
     ):
         lines.append("Result: command accepted by Tesla Fleet API.")
