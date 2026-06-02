@@ -1647,6 +1647,184 @@ def test_security_commands_use_signed_command_protocol_and_reuse_session(
     assert all(url.endswith("/signed_command") for _, url, _ in calls)
 
 
+def test_cached_signed_command_manager_uses_latest_client_auth_state(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            region="na",
+            default_vin="5YJ3E1EA7JF000001",
+        )
+    )
+    config.save_auth_state(
+        config.AuthState(
+            profile="default",
+            access_token="access-old",
+            refresh_token="refresh-old",
+            expires_at=9999999999,
+            scopes=["openid", "vehicle_cmds"],
+            region="na",
+        )
+    )
+    auth.generate_vehicle_command_keypair("default", domain="cars.example.com")
+    client._SESSION_MANAGERS.clear()
+
+    old_client = client.TeslaFleetClient()
+    old_manager = old_client._signed_command_session_manager()
+    config.save_auth_state(
+        config.AuthState(
+            profile="default",
+            access_token="access-new",
+            refresh_token="refresh-new",
+            expires_at=9999999999,
+            scopes=["openid", "vehicle_cmds"],
+            region="na",
+        )
+    )
+
+    new_client = client.TeslaFleetClient()
+    new_manager = new_client._signed_command_session_manager()
+
+    assert new_manager is old_manager
+    assert new_manager._client is new_client
+    assert new_manager._client.auth_state.access_token == "access-new"
+
+
+def test_fleet_request_silently_reloads_repaired_auth_and_retries_once(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    config.save_config(
+        config.PluginConfig(profile="default", client_id="client-123", region="na")
+    )
+    config.save_auth_state(
+        config.AuthState(
+            profile="default",
+            access_token="access-old",
+            refresh_token="refresh-old",
+            expires_at=9999999999,
+            scopes=["openid", "vehicle_cmds"],
+            region="na",
+        )
+    )
+    stale_client = client.TeslaFleetClient()
+    config.save_auth_state(
+        config.AuthState(
+            profile="default",
+            access_token="access-new",
+            refresh_token="refresh-new",
+            expires_at=9999999999,
+            scopes=["openid", "vehicle_cmds"],
+            region="na",
+        )
+    )
+    authorizations: list[str] = []
+
+    def fake_request(method: str, url: str, **kwargs):
+        authorizations.append(kwargs["headers"]["Authorization"])
+        if len(authorizations) == 1:
+            return make_response(
+                method,
+                url,
+                status_code=401,
+                json_body={
+                    "error": "login_required",
+                    "error_description": "The refresh_token is invalid",
+                    "refresh_token": "raw-refresh-secret",
+                    "access_token": "raw-access-secret",
+                },
+            )
+        return make_response(method, url, json_body={"response": {"ok": True}})
+
+    monkeypatch.setattr(client.httpx, "request", fake_request)
+
+    payload = stale_client.raw_get("/api/1/users/me")
+
+    assert payload == {"response": {"ok": True}}
+    assert authorizations == ["Bearer access-old", "Bearer access-new"]
+
+
+def test_expired_stale_auth_reloads_repaired_auth_before_command_request(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    config.save_config(
+        config.PluginConfig(profile="default", client_id="client-123", region="na")
+    )
+    config.save_auth_state(
+        config.AuthState(
+            profile="default",
+            access_token="access-old",
+            refresh_token="refresh-old",
+            expires_at=1,
+            scopes=["openid", "vehicle_cmds"],
+            region="na",
+        )
+    )
+    stale_client = client.TeslaFleetClient()
+    config.save_auth_state(
+        config.AuthState(
+            profile="default",
+            access_token="access-new",
+            refresh_token="refresh-new",
+            expires_at=9999999999,
+            scopes=["openid", "vehicle_cmds"],
+            region="na",
+        )
+    )
+    command_authorizations: list[str] = []
+    refresh_attempts: list[str] = []
+
+    def fake_request(method: str, url: str, **kwargs):
+        if url == client.TOKEN_URL:
+            refresh_attempts.append(kwargs["data"]["refresh_token"])
+            return make_response(
+                method,
+                url,
+                status_code=401,
+                json_body={
+                    "error": "login_required",
+                    "error_description": "The refresh_token is invalid",
+                    "refresh_token": "raw-refresh-secret",
+                },
+            )
+        command_authorizations.append(kwargs["headers"]["Authorization"])
+        return make_response(method, url, json_body={"response": {"ok": True}})
+
+    monkeypatch.setattr(client.httpx, "request", fake_request)
+
+    payload = stale_client.raw_get("/api/1/users/me")
+
+    assert payload == {"response": {"ok": True}}
+    assert refresh_attempts == ["refresh-old"]
+    assert command_authorizations == ["Bearer access-new"]
+
+
+def test_login_required_error_output_redacts_raw_secrets_and_vins() -> None:
+    exc = client.TeslaAPIError(
+        '{"error":"login_required","refresh_token":"raw-refresh-secret","vin":"5YJ3E1EA7JF000001"}',
+        status_code=401,
+        payload={
+            "error": "login_required",
+            "error_description": "The refresh_token is invalid",
+            "access_token": "raw-access-secret",
+            "refresh_token": "raw-refresh-secret",
+            "vin": "5YJ3E1EA7JF000001",
+        },
+    )
+
+    payload = runtime._error_payload(exc, "vehicle_command")
+    encoded = json.dumps(payload)
+
+    assert "raw-refresh-secret" not in encoded
+    assert "raw-access-secret" not in encoded
+    assert "5YJ3E1EA7JF000001" not in encoded
+    assert "login_required" in encoded
+
+
 def test_charge_limit_uses_signed_protocol_when_vehicle_command_key_exists(
     tmp_path, monkeypatch
 ) -> None:
