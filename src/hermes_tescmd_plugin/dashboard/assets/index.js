@@ -256,6 +256,28 @@
     return { lat, lon, heading, speed, raw: Object.keys(location).length ? location : drive };
   }
 
+  function displayLocation(location, precision) {
+    const lat = location && location.lat;
+    const lon = location && location.lon;
+    if (lat == null || lon == null) return { lat: null, lon: null, label: "No coordinates", note: "Speed unavailable", precise: false };
+    const precise = precision === "precise";
+    const displayLat = precise ? lat : Number(lat.toFixed(2));
+    const displayLon = precise ? lon : Number(lon.toFixed(2));
+    const coordLabel = precise
+      ? `${lat.toFixed(5)}, ${lon.toFixed(5)}`
+      : `≈ ${displayLat.toFixed(2)}, ${displayLon.toFixed(2)}`;
+    const speedNote = location.speed == null ? "Speed unavailable" : `${location.speed} mph`;
+    return {
+      lat: displayLat,
+      lon: displayLon,
+      label: coordLabel,
+      note: precise ? `${speedNote} · precise coordinates visible` : `${speedNote} · precise coordinates hidden`,
+      precise,
+      zoom: precise ? 14 : 10,
+      popup: precise ? "Vehicle location" : "Approximate vehicle area",
+    };
+  }
+
   function selectedVehicle(overview) {
     const vehiclesPayload = (overview && overview.vehicles) || {};
     const vehicles = Array.isArray(vehiclesPayload.vehicles) ? vehiclesPayload.vehicles : [];
@@ -300,11 +322,12 @@
     );
   }
 
-  function VehicleSnapshot({ overview, runAction, loading, confirm }) {
+  function VehicleSnapshot({ overview, runAction, loading, confirm, locationPrecision }) {
     const charge = chargeSummary(overview);
     const climate = climateSummary(overview);
     const security = securitySummary(overview);
     const location = locationSummary(overview);
+    const visibleLocation = displayLocation(location, locationPrecision);
     const chargeStyle = { "--tescmd-charge": `${Math.max(0, Math.min(100, charge.level ?? 0))}%` };
     const availability = vehicleAvailability(overview);
     return h("div", null,
@@ -321,9 +344,9 @@
         h("div", { className: "tescmd-stack-widgets" },
           h("div", { className: "tescmd-mini-widget" }, h("span", null, "Climate"), h("strong", null, climate.on ? "On" : "Off"), h("small", null, `Inside ${climate.inside == null ? "—" : climate.inside.toFixed(1)}° · Outside ${climate.outside == null ? "—" : climate.outside.toFixed(1)}°`)),
           h("div", { className: "tescmd-mini-widget" }, h("span", null, "Security"), h("strong", null, security.locked === true ? "Locked" : security.locked === false ? "Unlocked" : "Unknown"), h("small", null, `${security.openCount} open closure${security.openCount === 1 ? "" : "s"} · Sentry ${security.sentry ? "on" : "off/unknown"}`)),
-          h("div", { className: "tescmd-mini-widget" }, h("span", null, "Location"), h("strong", null, location.lat == null || location.lon == null ? "No coordinates" : `${location.lat.toFixed(4)}, ${location.lon.toFixed(4)}`), h("small", null, location.speed == null ? "Speed unavailable" : `${location.speed} mph`))
+          h("div", { className: "tescmd-mini-widget" }, h("span", null, "Location"), h("strong", null, visibleLocation.label), h("small", null, visibleLocation.note))
         ),
-        h(LeafletMap, { location })
+        h(LeafletMap, { visibleLocation })
       )
     );
   }
@@ -352,12 +375,14 @@
     return window.__tescmdLeafletPromise;
   }
 
-  function LeafletMap({ location }) {
+  function LeafletMap({ visibleLocation }) {
     const ref = hooks.useRef(null);
     const mapRef = hooks.useRef(null);
     const markerRef = hooks.useRef(null);
-    const lat = location && location.lat;
-    const lon = location && location.lon;
+    const lat = visibleLocation && visibleLocation.lat;
+    const lon = visibleLocation && visibleLocation.lon;
+    const label = (visibleLocation && visibleLocation.label) || "No coordinates";
+    const precise = Boolean(visibleLocation && visibleLocation.precise);
 
     hooks.useEffect(() => {
       if (lat == null || lon == null || !ref.current) return undefined;
@@ -370,7 +395,7 @@
             zoomControl: false,
             attributionControl: true,
             scrollWheelZoom: false,
-          }).setView([lat, lon], 14);
+          }).setView([lat, lon], visibleLocation.zoom || 10);
           L.control.zoom({ position: "bottomright" }).addTo(mapRef.current);
           L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
             maxZoom: 19,
@@ -384,10 +409,10 @@
           });
           markerRef.current = L.marker([lat, lon], { icon: markerIcon }).addTo(mapRef.current);
         } else {
-          mapRef.current.setView([lat, lon], mapRef.current.getZoom() || 14);
+          mapRef.current.setView([lat, lon], visibleLocation.zoom || 10);
           markerRef.current.setLatLng([lat, lon]);
         }
-        markerRef.current.bindPopup("Vehicle location");
+        markerRef.current.bindPopup(visibleLocation.popup || "Approximate vehicle area");
         if (window.ResizeObserver && !resizeObserver) {
           resizeObserver = new ResizeObserver(() => mapRef.current && mapRef.current.invalidateSize());
           resizeObserver.observe(ref.current);
@@ -400,7 +425,7 @@
         cancelled = true;
         if (resizeObserver) resizeObserver.disconnect();
       };
-    }, [lat, lon]);
+    }, [lat, lon, precise, visibleLocation.zoom, visibleLocation.popup]);
 
     if (lat == null || lon == null) {
       return h("div", { className: "tescmd-map tescmd-map-empty" },
@@ -413,7 +438,7 @@
       );
     }
     return h("div", { className: "tescmd-map-shell" },
-      h("div", { className: "tescmd-map-meta" }, h("strong", null, "Vehicle map"), h("span", null, `${lat.toFixed(5)}, ${lon.toFixed(5)}`)),
+      h("div", { className: "tescmd-map-meta" }, h("strong", null, precise ? "Vehicle map" : "Approximate area"), h("span", null, label)),
       h("div", { ref, className: "tescmd-map" })
     );
   }
@@ -433,6 +458,7 @@
     const [wakeReads, setWakeReads] = hooks.useState(false);
     const [noCache, setNoCache] = hooks.useState(false);
     const [units, setUnits] = hooks.useState("");
+    const [locationPrecision, setLocationPrecision] = hooks.useState("approximate");
     const [enabled, setEnabled] = hooks.useState(true);
     const [percent, setPercent] = hooks.useState("80");
     const [amps, setAmps] = hooks.useState("32");
@@ -569,7 +595,7 @@
       overview && overview.onboarding ? h(OnboardingCard, { onboarding: overview.onboarding }) : null,
       h(Card, { className: "tescmd-overview-card" },
         h(CardHeader, null, h(CardTitle, null, "Vehicle overview")),
-        h(CardContent, null, overview ? h(VehicleSnapshot, { overview, runAction, loading, confirm }) : h(EmptyState, {
+        h(CardContent, null, overview ? h(VehicleSnapshot, { overview, runAction, loading, confirm, locationPrecision }) : h(EmptyState, {
           title: "No vehicle overview loaded",
           body: "Start with a read-only refresh to populate charge, climate, security, and map widgets.",
           steps: ["Check profile, region, and vehicle override if the configured default is not the target vehicle.", "Use no-cache when you need fresh Fleet API data.", "Only enable wake + confirm when you intentionally want to wake a sleeping vehicle."],
@@ -591,8 +617,14 @@
               h("label", { className: "tescmd-inline" }, h("input", { type: "checkbox", checked: noCache, onChange: (event) => setNoCache(event.target.checked) }), " no cache")
             ),
             h(Field, { label: "Units" }, h("select", { className: "tescmd-select", value: units, onChange: (event) => setUnits(event.target.value) },
-              h("option", { value: "" }, "Configured"), h("option", { value: "metric" }, "Metric"), h("option", { value: "imperial" }, "Imperial")
-            ))
+              h("option", { value: "" }, "Configured"), h("option", { value: "metric" }, "Metric"), h("option", { value: "us" }, "US")
+            )),
+            h(Field, { label: "Location display" },
+              h("select", { className: "tescmd-select", value: locationPrecision, onChange: (event) => setLocationPrecision(event.target.value) },
+                h("option", { value: "approximate" }, "Approximate area"), h("option", { value: "precise" }, "Precise coordinates")
+              ),
+              h("small", { className: "tescmd-muted" }, "Approximate mode rounds visible map text and marker position; raw payload stays redacted below.")
+            )
           ),
           status ? h(Readiness, { status }) : null
         )
