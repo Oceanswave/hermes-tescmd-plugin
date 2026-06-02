@@ -133,6 +133,27 @@
     );
   }
 
+  function vehicleModelHint(vehicle) {
+    const config = (vehicle && vehicle.vehicle_config) || {};
+    const hints = [
+      config.car_type,
+      config.trim_badging,
+      config.exterior_color,
+      vehicle && vehicle.model,
+      vehicle && vehicle.car_type,
+    ].filter((value) => value !== undefined && value !== null && String(value).trim() !== "")
+      .map((value) => String(value).replace(/_/g, " "));
+    const unique = [...new Set(hints)];
+    return unique.slice(0, 2).join(" · ");
+  }
+
+  function vehiclePickerLabel(vehicle, index) {
+    const name = vehicle.display_name || vehicle.vehicle_name || vehicle.name || `Vehicle ${index + 1}`;
+    const state = vehicle.state || "unknown";
+    const hint = vehicleModelHint(vehicle);
+    return hint ? `${name} — ${hint} — ${state}` : `${name} — ${state}`;
+  }
+
   function VehiclePicker({ vehicles, vin, setVin }) {
     const list = Array.isArray(vehicles) ? vehicles : [];
     return h(Field, { label: "Vehicle" },
@@ -144,16 +165,15 @@
         h("option", { value: "" }, "Configured default"),
         list.map((vehicle, index) => {
           const id = vehicle.id_s || vehicle.vehicle_id || vehicle.id || vehicle.vin || "";
-          const name = vehicle.display_name || vehicle.vehicle_name || vehicle.name || `Vehicle ${index + 1}`;
-          const state = vehicle.state || "unknown";
-          return h("option", { key: `${id}-${index}`, value: id }, `${name} — ${state}`);
+          return h("option", { key: `${id}-${index}`, value: id }, vehiclePickerLabel(vehicle, index));
         })
       ),
       h(Input, {
         placeholder: "VIN or id_s override",
         value: vin || "",
         onChange: (event) => setVin(event.target.value),
-      })
+      }),
+      h("small", { className: "tescmd-muted" }, "Vehicle menu labels show safe model hints only; full VIN/Fleet IDs stay out of visible option text.")
     );
   }
 

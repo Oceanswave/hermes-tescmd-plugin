@@ -1112,6 +1112,23 @@ def test_dashboard_shows_sleep_status_with_wake_button() -> None:
     assert ".tescmd-sleep-status" in style
 
 
+def test_dashboard_vehicle_picker_uses_safe_model_hints_not_visible_ids() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+
+    assert "function vehicleModelHint" in asset
+    assert "vehicle_config" in asset
+    assert "config.car_type" in asset
+    assert "config.trim_badging" in asset
+    assert "vehiclePickerLabel(vehicle, index)" in asset
+    assert "Vehicle menu labels show safe model hints only" in asset
+    assert "full VIN/Fleet IDs stay out of visible option text" in asset
+    assert "`${name} — ${hint} — ${state}`" in asset
+    assert "`${name} — ${state}`" in asset
+    assert "`${name} — ${id} — ${state}`" not in asset
+    assert "`${name} — ${vehicle.vin}" not in asset
+    assert "`${name} — ${vehicle.id_s}" not in asset
+
+
 def test_dashboard_shows_busy_banner_during_refresh() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
