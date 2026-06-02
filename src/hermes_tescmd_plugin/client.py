@@ -272,16 +272,76 @@ class TeslaFleetClient:
         self.region = region_override or self.cfg.region or self.auth_state.region
         self.base_url = fleet_base_url(self.region)
 
+    def _apply_auth_state(self, state: config.AuthState) -> None:
+        self.auth_state = state
+        self.region = self.auth_state.region or self.cfg.region
+        self.base_url = fleet_base_url(self.region)
+
+    @staticmethod
+    def _looks_like_stale_auth_error(exc: TeslaAPIError) -> bool:
+        values: list[str] = [str(exc)]
+
+        def collect(value: Any) -> None:
+            if isinstance(value, dict):
+                for item in value.values():
+                    collect(item)
+            elif isinstance(value, list):
+                for item in value:
+                    collect(item)
+            elif isinstance(value, str):
+                values.append(value)
+
+        collect(exc.payload)
+        text = "\n".join(values).lower()
+        return "login_required" in text or (
+            "refresh" in text and "invalid" in text and "token" in text
+        )
+
+    def _silent_auth_self_heal(self) -> bool:
+        """Reload/refresh repaired auth state and update both auth stores.
+
+        Returns true when this client now has a usable access token.  This keeps
+        routine command paths quiet when another tool invocation has already
+        repaired Hermes' intrinsic auth store or when a normal refresh can repair
+        the plugin-owned mirror.  If Tesla rejects the latest refresh token, the
+        original login-required failure is allowed to surface as the concise
+        actionable error.
+        """
+
+        latest = config.load_auth_state(self.profile)
+        if latest.access_token and latest != self.auth_state:
+            self._apply_auth_state(latest)
+            if not self.auth_state.is_expired():
+                return True
+        candidate = latest if latest.refresh_token else self.auth_state
+        if not candidate.refresh_token:
+            return False
+        try:
+            refreshed = refresh_access_token(self.cfg, candidate)
+        except TeslaAPIError:
+            return False
+        config.save_auth_state(refreshed)
+        self._apply_auth_state(refreshed)
+        return bool(self.auth_state.access_token)
+
     def _ensure_access_token(self) -> str:
         if not self.auth_state.access_token:
-            raise TeslaAPIError(
-                "Tesla authentication is not configured for this profile."
-            )
+            healed = self._silent_auth_self_heal()
+            if not healed:
+                raise TeslaAPIError(
+                    "Tesla authentication is not configured for this profile."
+                )
         if self.auth_state.is_expired():
-            self.auth_state = refresh_access_token(self.cfg, self.auth_state)
-            config.save_auth_state(self.auth_state)
-            self.region = self.auth_state.region or self.cfg.region
-            self.base_url = fleet_base_url(self.region)
+            try:
+                refreshed = refresh_access_token(self.cfg, self.auth_state)
+            except TeslaAPIError as exc:
+                if not self._looks_like_stale_auth_error(exc):
+                    raise
+                if not self._silent_auth_self_heal():
+                    raise
+            else:
+                config.save_auth_state(refreshed)
+                self._apply_auth_state(refreshed)
         assert self.auth_state.access_token is not None
         return self.auth_state.access_token
 
@@ -306,9 +366,18 @@ class TeslaFleetClient:
 
     def request(self, method: str, path: str, **kwargs: Any) -> Any:
         path = self._validate_api_path(path)
-        response = request(
-            method, f"{self.base_url}{path}", headers=self._headers(), **kwargs
-        )
+        try:
+            response = request(
+                method, f"{self.base_url}{path}", headers=self._headers(), **kwargs
+            )
+        except TeslaAPIError as exc:
+            if not self._looks_like_stale_auth_error(exc):
+                raise
+            if not self._silent_auth_self_heal():
+                raise
+            response = request(
+                method, f"{self.base_url}{path}", headers=self._headers(), **kwargs
+            )
         return response.data
 
     async def post(self, path: str, **kwargs: Any) -> Any:
@@ -364,6 +433,8 @@ class TeslaFleetClient:
             if manager is None:
                 manager = SessionManager(load_private_key(self.profile), self)
                 _SESSION_MANAGERS[cache_key] = manager
+            else:
+                manager.update_client(self)
         return manager
 
     def _decode_signed_command_response(

@@ -120,6 +120,20 @@ class SessionManager:
         self._sessions: dict[tuple[str, Domain], Session] = {}
         self._lock = asyncio.Lock()
 
+    def update_client(self, client: TeslaFleetClient) -> None:
+        """Point future handshakes at the newest Fleet client/auth state.
+
+        SessionManager instances are intentionally cached across tool calls so a
+        signed-command session can be reused. The Fleet client they use for
+        handshakes must not be cached forever, though: auth_refresh or Hermes
+        auth-store mirroring may repair tokens between calls. Updating the
+        client preserves valid vehicle sessions while ensuring any new handshake
+        reads the latest plugin/Hermes auth state instead of a stale refresh
+        token captured by an earlier command invocation.
+        """
+
+        self._client = client
+
     @property
     def client_public_key(self) -> bytes:
         return self._client_public_key
