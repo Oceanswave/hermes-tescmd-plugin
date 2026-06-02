@@ -1174,8 +1174,35 @@ def test_dashboard_shows_sleep_status_with_wake_button() -> None:
     assert "Wake vehicle" in asset
     assert 'runAction("wake")' in asset
     assert "Turn on action confirmation to wake the vehicle." in asset
-    assert "h(VehicleSnapshot, { overview, runAction, loading, confirm })" in asset
+    assert (
+        "h(VehicleSnapshot, { overview, runAction, loading, confirm, locationPrecision })"
+        in asset
+    )
     assert ".tescmd-sleep-status" in style
+
+
+def test_dashboard_location_display_defaults_to_approximate_coordinates() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+
+    assert "function displayLocation" in asset
+    assert 'useState("approximate")' in asset
+    assert "Location display" in asset
+    assert "Approximate area" in asset
+    assert "Precise coordinates" in asset
+    assert "Approximate mode rounds visible map text and marker position" in asset
+    assert '{ value: "us" }, "US"' in asset
+    assert "Number(lat.toFixed(2))" in asset
+    assert "Number(lon.toFixed(2))" in asset
+    assert "precise coordinates hidden" in asset
+    assert "precise coordinates visible" in asset
+    assert "Approximate vehicle area" in asset
+    assert 'precise ? "Vehicle map" : "Approximate area"' in asset
+    assert "visibleLocation.label" in asset
+    assert "visibleLocation.zoom || 10" in asset
+    assert 'visibleLocation.popup || "Approximate vehicle area"' in asset
+    assert "h(LeafletMap, { visibleLocation })" in asset
+    assert "`${location.lat.toFixed(4)}, ${location.lon.toFixed(4)}`" not in asset
+    assert 'h("span", null, label)' in asset
 
 
 def test_dashboard_vehicle_picker_uses_safe_model_hints_not_visible_ids() -> None:
