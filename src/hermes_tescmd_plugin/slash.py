@@ -688,6 +688,76 @@ def _climate_action_summary(name: str, payload: dict[str, Any]) -> str | None:
     return None
 
 
+def _software_detail_parts(software: dict[str, Any]) -> list[str]:
+    parts: list[str] = []
+    version = software.get("car_version") or software.get("version")
+    if version:
+        parts.append(f"version {_redact_slash_text(version)}")
+
+    update = software.get("software_update")
+    update_parts: list[str] = []
+    if isinstance(update, dict):
+        status = update.get("status") or update.get("state")
+        if status:
+            update_parts.append(_redact_slash_text(status))
+        version_available = update.get("version")
+        if version_available:
+            update_parts.append(f"to {_redact_slash_text(version_available)}")
+        download = update.get("download_perc")
+        if download is None:
+            download = update.get("download_percent")
+        if download is not None:
+            update_parts.append(f"download {download}%")
+        install = update.get("install_perc")
+        if install is None:
+            install = update.get("install_percent")
+        if install is not None:
+            update_parts.append(f"install {install}%")
+        expected = update.get("expected_duration_sec")
+        if expected is not None:
+            update_parts.append(f"expected {expected}s")
+    elif update:
+        update_parts.append(_redact_slash_text(update))
+
+    if update_parts:
+        parts.append("update " + ", ".join(update_parts))
+    return parts
+
+
+def _alert_label(alert: Any) -> str:
+    if not isinstance(alert, dict):
+        return _redact_slash_text(alert)
+    severity = (
+        alert.get("severity")
+        or alert.get("audience")
+        or alert.get("level")
+        or alert.get("alert_type")
+        or alert.get("type")
+    )
+    message = (
+        alert.get("message")
+        or alert.get("description")
+        or alert.get("name")
+        or alert.get("title")
+        or alert.get("event")
+        or "unnamed alert"
+    )
+    if severity:
+        return f"{_redact_slash_text(severity)}: {_redact_slash_text(message)}"
+    return _redact_slash_text(message)
+
+
+def _summarize_alerts(payload: dict[str, Any]) -> list[str]:
+    alerts = _collection_from_payload(payload, "alerts", "recent_alerts")
+    if not alerts:
+        return ["Alerts: no recent vehicle alerts returned."]
+    lines = [f"Alerts: {len(alerts)} recent alert(s)"]
+    lines.append(
+        "Top alerts: " + "; ".join(_alert_label(alert) for alert in alerts[:3])
+    )
+    return lines
+
+
 def _state_flag(value: Any, *, true_text: str, false_text: str) -> str | None:
     if value is None:
         return None
@@ -792,6 +862,12 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     if climate_action:
         lines.append(f"Climate action: {climate_action}")
 
+    software = _payload_section(payload, "software", "vehicle_state")
+    if name == "tescmd-software" and software:
+        software_parts = _software_detail_parts(software)
+        if software_parts:
+            lines.append("Software: " + ", ".join(software_parts))
+
     security = _payload_section(payload, "security_state", "vehicle_state")
     if name in {"tescmd-security-status", "tescmd-closures"} and security:
         security_parts = _security_detail_parts(security)
@@ -812,6 +888,9 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
 
     if name == "tescmd-nearby-chargers":
         lines.extend(_summarize_nearby_chargers(payload))
+
+    if name == "tescmd-alerts":
+        lines.extend(_summarize_alerts(payload))
 
     response = _first_dict(
         payload.get("response"), payload.get("result"), payload.get("payload")
@@ -838,6 +917,8 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
                 "Closures:",
                 "Location:",
                 "Nearby chargers:",
+                "Software:",
+                "Alerts:",
             )
         )
         for line in lines

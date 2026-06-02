@@ -967,6 +967,72 @@ def test_closures_slash_summary_reports_open_items_privately() -> None:
     assert "{" not in output
 
 
+def test_software_slash_summary_reports_version_and_update_privately() -> None:
+    output = slash._format_command(
+        "tescmd-software",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "vehicle": {"display_name": "seaQuest"},
+            "software": {
+                "car_version": "2026.20.1 5YJ3E1EA7JF000001",
+                "software_update": {
+                    "status": "downloading",
+                    "version": "2026.24.1",
+                    "download_perc": 42,
+                    "install_perc": 0,
+                    "expected_duration_sec": 1800,
+                },
+            },
+            "data": {
+                "vehicle_state": {
+                    "latitude": 37.7749295,
+                    "longitude": -122.4194155,
+                }
+            },
+        },
+    )
+
+    assert output.startswith("/tescmd-software: success")
+    assert (
+        "Software: version 2026.20.1 …0001, update downloading, "
+        "to 2026.24.1, download 42%, install 0%, expected 1800s"
+    ) in output
+    assert "Result: command accepted" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "37.7749295" not in output
+    assert "-122.4194155" not in output
+    assert "{" not in output
+
+
+def test_alerts_slash_summary_reports_top_alerts_without_ids_or_raw_json() -> None:
+    output = slash._format_command(
+        "tescmd-alerts",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "alerts": [
+                {
+                    "severity": "critical",
+                    "message": "Tire pressure low on 5YJ3E1EA7JF000001",
+                    "latitude": 37.7749295,
+                },
+                {"level": "info", "description": "Software update ready"},
+            ],
+        },
+    )
+
+    assert output.startswith("/tescmd-alerts: success")
+    assert "Alerts: 2 recent alert(s)" in output
+    assert (
+        "Top alerts: critical: Tire pressure low on …0001; info: Software update ready"
+    ) in output
+    assert "Result: command accepted" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "37.7749295" not in output
+    assert "{" not in output
+
+
 def test_success_result_redacts_sensitive_identifiers() -> None:
     output = slash._format_command(
         "tescmd-nav",
