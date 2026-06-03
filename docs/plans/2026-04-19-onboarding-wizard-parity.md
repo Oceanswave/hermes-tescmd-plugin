@@ -70,8 +70,7 @@ Files:
 Steps:
 1. Return bootstrap guidance from `tescmd_setup`, `tescmd_setup_wizard`, and `tescmd_status` instead of adding a standalone guide tool.
 2. Return:
-   - redirect_uri derived from configured/default redirect_port
-   - redirect_port
+   - redirect_uri derived from the configured public OAuth callback
    - scopes
    - whether client_id/client_secret/domain/default_vin are still missing
    - expected public key URL when domain + key exist

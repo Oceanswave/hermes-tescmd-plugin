@@ -182,7 +182,6 @@ def test_config_store_values_override_legacy_non_secrets_without_exposing_secret
             "domain": "legacy.example.com",
             "default_vin": "LEGACYVIN12345678",
             "scopes": list(config.DEFAULT_SCOPES),
-            "redirect_port": 8765,
             "google_maps_api_key": "legacy-google-secret",
         },
     )
@@ -244,7 +243,6 @@ def test_legacy_config_migrates_non_secret_settings_to_hermes_config_store(
             "oauth_redirect_uri": "https://tesla.example.com/callback",
             "default_vin": "LEGACYVIN12345678",
             "scopes": ["openid", "offline_access", "vehicle_device_data"],
-            "redirect_port": 9999,
             "vehicle_command_key_private_path": "/secret/private.pem",
             "vehicle_command_key_public_path": "/secret/public.pem",
             "google_maps_api_key": "google-secret",

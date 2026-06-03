@@ -246,11 +246,8 @@ def _result_payload(
     return payload
 
 
-def _redirect_uri_for(
-    cfg: config.PluginConfig, *, redirect_port: int | None = None
-) -> tuple[int, str | None]:
-    port = int(redirect_port or cfg.redirect_port or 8765)
-    return port, config.resolve_oauth_redirect_uri(cfg)
+def _redirect_uri_for(cfg: config.PluginConfig) -> str | None:
+    return config.resolve_oauth_redirect_uri(cfg)
 
 
 def _key_presence(profile: str) -> tuple[Path | None, Path | None, bool]:
@@ -513,11 +510,10 @@ def _bootstrap_payload(
     cfg: config.PluginConfig,
     auth_state: config.AuthState | None = None,
     pending: config.PendingAuthState | None = None,
-    redirect_port: int | None = None,
 ) -> dict[str, Any]:
     auth_state = auth_state or config.load_auth_state(profile)
     pending = pending if pending is not None else config.load_pending_auth(profile)
-    port, redirect_uri = _redirect_uri_for(cfg, redirect_port=redirect_port)
+    redirect_uri = _redirect_uri_for(cfg)
     bootstrap = _bootstrap_status(
         profile=profile, cfg=cfg, auth_state=auth_state, pending=pending
     )
@@ -534,7 +530,6 @@ def _bootstrap_payload(
         f"https://tesla.com/_ak/{cfg.domain}" if cfg.domain and key_present else None
     )
     return {
-        "redirect_port": port,
         "redirect_uri": redirect_uri,
         "missing": _bootstrap_missing(cfg),
         "bootstrap": bootstrap,
@@ -772,9 +767,7 @@ def handle_auth_login(args: dict[str, Any]) -> dict[str, Any]:
     profile = _profile(args)
     cfg = config.load_config(profile)
     if not cfg.client_id:
-        _, redirect_uri = _redirect_uri_for(
-            cfg, redirect_port=args.get("redirect_port")
-        )
+        redirect_uri = _redirect_uri_for(cfg)
         raise client.TeslaAPIError(
             "Edit the plugin config file first so the plugin knows your Tesla client ID. "
             f"Expected public callback URL: {redirect_uri or 'https://<your-domain>/callback'}. "
@@ -783,9 +776,7 @@ def handle_auth_login(args: dict[str, Any]) -> dict[str, Any]:
     scopes = args.get("scopes")
     if scopes is not None and not isinstance(scopes, list):
         raise client.TeslaAPIError("scopes must be an array of strings when provided.")
-    return auth.start_login(
-        profile, redirect_port=args.get("redirect_port"), scopes=scopes
-    )
+    return auth.start_login(profile, scopes=scopes)
 
 
 def handle_auth_complete(args: dict[str, Any]) -> dict[str, Any]:

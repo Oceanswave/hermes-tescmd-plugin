@@ -32,16 +32,13 @@ def generate_code_challenge(code_verifier: str) -> str:
     return _urlsafe_b64(hashlib.sha256(code_verifier.encode()).digest())
 
 
-def start_login(
-    profile: str, *, redirect_port: int | None = None, scopes: list[str] | None = None
-) -> dict[str, Any]:
+def start_login(profile: str, *, scopes: list[str] | None = None) -> dict[str, Any]:
     cfg = config.load_config(profile)
     if not cfg.client_id:
         raise client.TeslaAPIError(
             "Edit the plugin config file first so the plugin knows your Tesla client ID. See the README configuration checklist."
         )
 
-    redirect_port = redirect_port or cfg.redirect_port
     requested_scopes = scopes or cfg.scopes or list(config.DEFAULT_SCOPES)
     active_scopes = [
         scope for scope in requested_scopes if scope not in config.PARTNER_ONLY_SCOPES
@@ -61,7 +58,6 @@ def start_login(
         profile=profile,
         state=state,
         code_verifier=code_verifier,
-        redirect_port=redirect_port,
         redirect_uri=redirect_uri,
         scopes=list(active_scopes),
     )

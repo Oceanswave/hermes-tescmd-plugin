@@ -63,7 +63,6 @@ class PluginConfig:
     oauth_redirect_uri: str | None = None
     default_vin: str | None = None
     scopes: list[str] = field(default_factory=lambda: list(DEFAULT_SCOPES))
-    redirect_port: int = 8765
     vehicle_command_key_private_path: str | None = None
     vehicle_command_key_public_path: str | None = None
     google_maps_api_key: str | None = None
@@ -93,7 +92,6 @@ class PendingAuthState:
     profile: str = DEFAULT_PROFILE
     state: str = ""
     code_verifier: str = ""
-    redirect_port: int = 8765
     redirect_uri: str = ""
     scopes: list[str] = field(default_factory=list)
     created_at: int = field(default_factory=lambda: int(time.time()))
@@ -483,12 +481,6 @@ def _normalize_config(cfg: PluginConfig) -> PluginConfig:
     if cfg.default_vin == "":
         cfg.default_vin = None
     cfg.scopes = _coerce_scopes(cfg.scopes)
-    try:
-        cfg.redirect_port = int(cfg.redirect_port)
-    except (TypeError, ValueError) as exc:
-        raise PluginStateError("redirect_port must be an integer.") from exc
-    if cfg.redirect_port <= 0 or cfg.redirect_port > 65535:
-        raise PluginStateError("redirect_port must be between 1 and 65535.")
     return cfg
 
 
@@ -497,7 +489,8 @@ def load_config(profile: str = DEFAULT_PROFILE) -> PluginConfig:
     payload = _load_profile_map("config.json")
     profile_payload = payload.get(profile)
     if profile_payload:
-        cfg = PluginConfig(**profile_payload)
+        allowed = set(PluginConfig.__dataclass_fields__)
+        cfg = PluginConfig(**{k: v for k, v in profile_payload.items() if k in allowed})
     else:
         cfg = PluginConfig(profile=profile)
 
