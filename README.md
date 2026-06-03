@@ -81,7 +81,7 @@ Do not put the `.well-known` public-key URL in those fields. Tesla discovers the
 plugins.entries.hermes-tescmd-plugin.config.profiles.default
 ```
 
-These fields are safe to edit through Hermes' dashboard config editor when your Hermes runtime exposes plugin-provided config sections: `client_id`, `region`, `domain`, `oauth_redirect_uri`, `default_vin`, `scopes`, and `redirect_port`. Existing plugin-local config is migrated into that Hermes config section on first read when the store is available and no dashboard value exists yet. Hermes config-store values then take precedence over plugin-local values for those non-secret fields.
+These fields are safe to edit through Hermes' dashboard config editor when your Hermes runtime exposes plugin-provided config sections: `client_id`, `region`, `domain`, `oauth_redirect_uri`, `default_vin`, and `scopes`. Existing plugin-local config is migrated into that Hermes config section on first read when the store is available and no dashboard value exists yet. Hermes config-store values then take precedence over plugin-local values for those non-secret fields.
 
 Secret or sensitive values stay out of the dashboard/config-store schema: `client_secret`, vehicle-command private/public key paths, Google Maps API keys, OAuth tokens, PINs, and refresh/access tokens. Keep those in plugin-owned state/auth flows.
 

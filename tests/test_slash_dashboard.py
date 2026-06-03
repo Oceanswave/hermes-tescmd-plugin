@@ -10,6 +10,7 @@ from hermes_tescmd_plugin.dashboard import ensure_dashboard_installed
 from hermes_tescmd_plugin.dashboard.plugin_api import (
     QuickActionBody,
     _dashboard_display_payload,
+    commands,
     overview,
     quick_action,
     read,
@@ -1110,6 +1111,43 @@ def test_dashboard_catalog_includes_expanded_reads_and_actions() -> None:
     assert catalog["quick_actions"]["charge-limit"] == "tescmd_charge_limit"
     assert catalog["quick_actions"]["window-vent"] == "tescmd_vehicle_window_control"
     assert catalog["quick_actions"]["nav"] == "tescmd_navigation_send"
+
+
+def test_dashboard_command_catalog_is_generated_from_runtime_specs() -> None:
+    catalog = commands()
+    by_name = {command["name"]: command for command in catalog["commands"]}
+
+    assert catalog["ok"] is True
+    assert catalog["source"] == "runtime.list_tool_specs"
+    assert catalog["count"] == len(catalog["commands"])
+    assert "tescmd_charge_limit" in by_name
+    assert by_name["tescmd_charge_limit"]["category"] == "charge"
+    assert by_name["tescmd_charge_limit"]["confirm_required"] is True
+    assert by_name["tescmd_charge_limit"]["parameters"]["percent"]["type"] == "integer"
+    assert (
+        by_name["tescmd_charge_limit"]["parameters"]["confirm"][
+            "x-confirmation-required"
+        ]
+        is True
+    )
+    assert "tescmd_auth_status" in by_name
+    assert catalog["categories"]["charge"] >= 1
+
+
+def test_dashboard_commands_tab_uses_dynamic_catalog_endpoint() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+
+    assert 'api("/commands")' in asset
+    assert "CommandCatalog" in asset
+    assert "activeTab" in asset
+    assert "Tesla dashboard tabs" in asset
+    assert "Live catalog pulled from the plugin runtime tool specs" in asset
+    assert "not maintained by dashboard copy" in asset
+    assert "runtime.list_tool_specs" not in asset
+    assert "tescmd_command_catalog_static" not in asset
+    assert ".tescmd-command-grid" in style
+    assert ".tescmd-tabs" in style
 
 
 def test_dashboard_overview_collects_visual_read_sections_without_wake(

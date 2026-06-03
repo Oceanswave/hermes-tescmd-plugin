@@ -136,9 +136,12 @@ def test_register_adds_full_native_tools_and_skill_by_default(
     assert ctx.config_registrations
     config_schema = ctx.config_registrations[0]["schema"]
     assert config_schema["path"] == "plugins.entries.hermes-tescmd-plugin.config"
+    assert config_schema["category"] == "tesla"
+    assert config_schema["category_label"] == "Tesla"
     schema_text = json.dumps(config_schema)
     assert "client_id" in schema_text
     assert "default_vin" in schema_text
+    assert "redirect_port" not in schema_text
     assert all(not field.get("secret") for field in config_schema["fields"])
     assert not any("client_secret" in field["key"] for field in config_schema["fields"])
     assert not any(
@@ -261,7 +264,6 @@ def test_legacy_config_migrates_non_secret_settings_to_hermes_config_store(
         "oauth_redirect_uri": "https://tesla.example.com/callback",
         "default_vin": "LEGACYVIN12345678",
         "scopes": ["openid", "offline_access", "vehicle_device_data"],
-        "redirect_port": 9999,
     }
     assert "client_secret" not in json.dumps(migrated)
     assert "google-secret" not in json.dumps(migrated)

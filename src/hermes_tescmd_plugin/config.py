@@ -27,7 +27,6 @@ EDITABLE_CONFIG_FIELDS = (
     "oauth_redirect_uri",
     "default_vin",
     "scopes",
-    "redirect_port",
 )
 SECRET_CONFIG_FIELDS = (
     "client_secret",
@@ -246,6 +245,8 @@ def get_editable_config_schema() -> dict[str, Any]:
     return {
         "plugin": PLUGIN_DIRNAME,
         "title": "Tesla Fleet (tescmd)",
+        "category": "tesla",
+        "category_label": "Tesla",
         "description": (
             "Dashboard-editable non-secret Tesla Fleet defaults. Secrets stay "
             "in Hermes auth/plugin state and are not exposed here."
@@ -294,13 +295,6 @@ def get_editable_config_schema() -> dict[str, Any]:
                 "type": "list",
                 "label": "OAuth scopes",
                 "description": "Requested Tesla OAuth scopes. Token grants remain in auth state.",
-                "secret": False,
-            },
-            {
-                "key": f"{base}.redirect_port",
-                "type": "number",
-                "label": "Local redirect helper port",
-                "description": "Compatibility port for older/operator-managed helper flows.",
                 "secret": False,
             },
         ],

@@ -105,7 +105,7 @@ Hermes config path: plugins.entries.hermes-tescmd-plugin.config.profiles.default
 Legacy config file: $HERMES_HOME/plugins/hermes-tescmd-plugin/config.json
 ```
 
-Dashboard/config-store fields are intentionally limited to `client_id`, `region`, `domain`, `oauth_redirect_uri`, `default_vin`, `scopes`, and `redirect_port`. Put `client_secret` and `google_maps_api_key` only in plugin-owned secret-safe state/config, not in the dashboard-editable config store.
+Dashboard/config-store fields are intentionally limited to `client_id`, `region`, `domain`, `oauth_redirect_uri`, `default_vin`, and `scopes`. Put `client_secret` and `google_maps_api_key` only in plugin-owned secret-safe state/config, not in the dashboard-editable config store.
 
 Legacy config example:
 
