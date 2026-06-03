@@ -1,6 +1,6 @@
 # Tesla Fleet onboarding: OAuth + virtual key enrollment
 
-This plugin intentionally keeps setup/configuration docs-driven: users edit the plugin-owned config file themselves, then use narrow operational tools to validate each stage. There is no setup wizard and no generic config-mutation tool.
+This plugin intentionally keeps setup docs-driven and validates each stage with narrow operational tools. There is no setup wizard and no generic config-mutation tool. When Hermes' plugin config store/dashboard surfaces are available, only non-secret Tesla app defaults are editable there; secrets remain in plugin-owned state/auth flows.
 
 The best user experience is a guided checklist with explicit stop/go checkpoints:
 
@@ -23,13 +23,21 @@ Plugin-owned mutable state lives under:
 $HERMES_HOME/plugins/hermes-tescmd-plugin/
 ```
 
-For the default profile, the config file is:
+For the default profile, legacy/backcompat config lives at:
 
 ```text
 $HERMES_HOME/plugins/hermes-tescmd-plugin/config.json
 ```
 
-Keep this file mode `0600`. It may contain Tesla OAuth client credentials, Google Places API key, default vehicle identifier, and local operational settings.
+Non-secret settings may also be stored in Hermes' plugin config section when available:
+
+```text
+plugins.entries.hermes-tescmd-plugin.config.profiles.default
+```
+
+The plugin registers those non-secret fields with Hermes' plugin config support when the host runtime exposes a dashboard config editor. Existing `config.json` values are migrated into the Hermes config store on first read when no Hermes value exists yet, and Hermes config-store values take precedence over legacy config for non-secret fields.
+
+Keep plugin-owned state files mode `0600`. `config.json` may still contain Tesla OAuth client credentials, Google Places API key, default vehicle identifier, and local operational settings. The Hermes dashboard/config-store surface must not contain `client_secret`, vehicle-command key paths, Google Maps API keys, OAuth tokens, PINs, or auth state.
 
 Never check in:
 
@@ -89,13 +97,17 @@ Those may be configured for partner/client-credential flows when Tesla grants th
 
 ## Phase 2: edit plugin config
 
-Create/edit:
+Edit non-secret app defaults in one of these places:
 
 ```text
-$HERMES_HOME/plugins/hermes-tescmd-plugin/config.json
+Hermes dashboard config editor (when plugin-provided config is available)
+Hermes config path: plugins.entries.hermes-tescmd-plugin.config.profiles.default
+Legacy config file: $HERMES_HOME/plugins/hermes-tescmd-plugin/config.json
 ```
 
-Example:
+Dashboard/config-store fields are intentionally limited to `client_id`, `region`, `domain`, `oauth_redirect_uri`, `default_vin`, `scopes`, and `redirect_port`. Put `client_secret` and `google_maps_api_key` only in plugin-owned secret-safe state/config, not in the dashboard-editable config store.
+
+Legacy config example:
 
 ```json
 {

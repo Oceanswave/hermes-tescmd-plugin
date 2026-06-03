@@ -54,6 +54,7 @@ class FakeContext:
         self.tools: list[dict] = []
         self.skills: list[tuple[str, Path]] = []
         self.commands: list[dict] = []
+        self.config_registrations: list[dict] = []
 
     def register_tool(self, **kwargs) -> None:
         self.tools.append(kwargs)
@@ -66,6 +67,9 @@ class FakeContext:
     def register_command(self, **kwargs) -> None:
         self.commands.append(kwargs)
 
+    def register_plugin_config(self, **kwargs) -> None:
+        self.config_registrations.append(kwargs)
+
 
 def make_response(
     method: str,
@@ -76,6 +80,35 @@ def make_response(
 ) -> httpx.Response:
     request = httpx.Request(method, url)
     return httpx.Response(status_code, json=json_body, request=request)
+
+
+def install_fake_hermes_config(
+    monkeypatch, initial: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    store = initial if initial is not None else {}
+    parent = types.ModuleType("hermes_cli")
+    module = types.ModuleType("hermes_cli.config")
+
+    def load_config() -> dict[str, Any]:
+        return store
+
+    def save_config(next_config: dict[str, Any]) -> None:
+        snapshot = dict(next_config)
+        store.clear()
+        store.update(snapshot)
+
+    module.load_config = load_config  # type: ignore[attr-defined]
+    module.save_config = save_config  # type: ignore[attr-defined]
+    parent.config = module  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "hermes_cli", parent)
+    monkeypatch.setitem(sys.modules, "hermes_cli.config", module)
+    return store
+
+
+def write_legacy_config(tmp_path: Path, profile: str, payload: dict[str, Any]) -> None:
+    plugin_home = tmp_path / "plugins" / "hermes-tescmd-plugin"
+    plugin_home.mkdir(parents=True, exist_ok=True)
+    (plugin_home / "config.json").write_text(json.dumps({profile: payload}))
 
 
 def test_register_adds_full_native_tools_and_skill_by_default(
@@ -100,6 +133,17 @@ def test_register_adds_full_native_tools_and_skill_by_default(
     assert ctx.skills
     assert ctx.skills[0][0] == "tescmd-operator"
     assert ctx.skills[0][1].name == "SKILL.md"
+    assert ctx.config_registrations
+    config_schema = ctx.config_registrations[0]["schema"]
+    assert config_schema["path"] == "plugins.entries.hermes-tescmd-plugin.config"
+    schema_text = json.dumps(config_schema)
+    assert "client_id" in schema_text
+    assert "default_vin" in schema_text
+    assert all(not field.get("secret") for field in config_schema["fields"])
+    assert not any("client_secret" in field["key"] for field in config_schema["fields"])
+    assert not any(
+        "google_maps_api_key" in field["key"] for field in config_schema["fields"]
+    )
     registered_commands = {command["name"] for command in ctx.commands}
     assert {
         "tescmd-status",
@@ -118,6 +162,178 @@ def test_register_adds_full_native_tools_and_skill_by_default(
     )
     assert dashboard_manifest.exists()
     assert json.loads(dashboard_manifest.read_text())["tab"]["path"] == "/tescmd"
+
+
+def test_config_store_values_override_legacy_non_secrets_without_exposing_secrets(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    write_legacy_config(
+        tmp_path,
+        "default",
+        {
+            "profile": "default",
+            "client_id": "legacy-client",
+            "client_secret": "legacy-secret",
+            "region": "na",
+            "domain": "legacy.example.com",
+            "default_vin": "LEGACYVIN12345678",
+            "scopes": list(config.DEFAULT_SCOPES),
+            "redirect_port": 8765,
+            "google_maps_api_key": "legacy-google-secret",
+        },
+    )
+    store = install_fake_hermes_config(
+        monkeypatch,
+        {
+            "plugins": {
+                "entries": {
+                    "hermes-tescmd-plugin": {
+                        "config": {
+                            "profiles": {
+                                "default": {
+                                    "client_id": "dashboard-client",
+                                    "client_secret": "must-not-load",
+                                    "region": "eu",
+                                    "domain": "dashboard.example.com",
+                                    "default_vin": "DASHBOARDVIN12345",
+                                    "google_maps_api_key": "must-not-load-google",
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    )
+
+    loaded = config.load_config("default")
+
+    assert loaded.client_id == "dashboard-client"
+    assert loaded.region == "eu"
+    assert loaded.domain == "dashboard.example.com"
+    assert loaded.default_vin == "DASHBOARDVIN12345"
+    assert loaded.client_secret == "legacy-secret"
+    assert loaded.google_maps_api_key == "legacy-google-secret"
+    dashboard_payload = store["plugins"]["entries"]["hermes-tescmd-plugin"]["config"][
+        "profiles"
+    ]["default"]
+    assert "client_secret" not in dashboard_payload
+    assert "google_maps_api_key" not in dashboard_payload
+    assert "must-not-load" not in json.dumps(dashboard_payload)
+    assert "must-not-load-google" not in json.dumps(dashboard_payload)
+
+
+def test_legacy_config_migrates_non_secret_settings_to_hermes_config_store(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    store = install_fake_hermes_config(monkeypatch, {})
+    write_legacy_config(
+        tmp_path,
+        "default",
+        {
+            "profile": "default",
+            "client_id": "legacy-client",
+            "client_secret": "legacy-secret",
+            "region": "cn",
+            "domain": "tesla.example.com",
+            "oauth_redirect_uri": "https://tesla.example.com/callback",
+            "default_vin": "LEGACYVIN12345678",
+            "scopes": ["openid", "offline_access", "vehicle_device_data"],
+            "redirect_port": 9999,
+            "vehicle_command_key_private_path": "/secret/private.pem",
+            "vehicle_command_key_public_path": "/secret/public.pem",
+            "google_maps_api_key": "google-secret",
+        },
+    )
+
+    loaded = config.load_config("default")
+
+    assert loaded.client_secret == "legacy-secret"
+    migrated = store["plugins"]["entries"]["hermes-tescmd-plugin"]["config"][
+        "profiles"
+    ]["default"]
+    assert migrated == {
+        "client_id": "legacy-client",
+        "region": "cn",
+        "domain": "tesla.example.com",
+        "oauth_redirect_uri": "https://tesla.example.com/callback",
+        "default_vin": "LEGACYVIN12345678",
+        "scopes": ["openid", "offline_access", "vehicle_device_data"],
+        "redirect_port": 9999,
+    }
+    assert "client_secret" not in json.dumps(migrated)
+    assert "google-secret" not in json.dumps(migrated)
+    assert "private.pem" not in json.dumps(migrated)
+
+
+def test_save_config_writes_dashboard_editable_values_but_not_secrets(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    store = install_fake_hermes_config(monkeypatch, {})
+
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="public-client",
+            client_secret="secret-value",
+            region="eu",
+            domain="tesla.example.com",
+            default_vin="VIN12345678901234",
+            google_maps_api_key="google-secret",
+        )
+    )
+
+    dashboard_payload = store["plugins"]["entries"]["hermes-tescmd-plugin"]["config"][
+        "profiles"
+    ]["default"]
+    assert dashboard_payload["client_id"] == "public-client"
+    assert dashboard_payload["region"] == "eu"
+    assert "secret-value" not in json.dumps(dashboard_payload)
+    assert "google-secret" not in json.dumps(dashboard_payload)
+    assert "client_secret" not in dashboard_payload
+    assert "google_maps_api_key" not in dashboard_payload
+
+
+def test_status_reports_hermes_config_store_without_secret_values(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    install_fake_hermes_config(
+        monkeypatch,
+        {
+            "plugins": {
+                "entries": {
+                    "hermes-tescmd-plugin": {
+                        "config": {
+                            "profiles": {
+                                "default": {
+                                    "client_id": "dashboard-client",
+                                    "region": "na",
+                                    "default_vin": "VIN12345678901234",
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    )
+    config.save_auth_state(config.AuthState(profile="default"))
+
+    payload = tools.handle_status({"profile": "default"})
+
+    assert payload["config_store"] == "hermes"
+    assert payload["bootstrap"]["config_store"] == "hermes"
+    assert payload["config_path"] == (
+        "plugins.entries.hermes-tescmd-plugin.config.profiles.default"
+    )
+    serialized = json.dumps(payload)
+    assert "dashboard-client" not in serialized
+    assert "VIN12345678901234" not in serialized
+    assert payload["configured"] is True
 
 
 def test_runtime_keeps_parity_critical_native_tools() -> None:

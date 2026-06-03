@@ -2,6 +2,10 @@
 
 ## 0.5.0a22
 
+- Registered non-secret Tesla app/profile defaults with Hermes' plugin config support so dashboard config editors can surface `client_id`, `region`, `domain`, `oauth_redirect_uri`, `default_vin`, `scopes`, and `redirect_port` without exposing secrets.
+- Added config-store precedence and one-time migration/backcompat from plugin-local `config.json`; legacy installs continue to work, while Hermes config-store values override only the editable non-secret fields.
+- Kept `client_secret`, vehicle-command key paths, Google Maps API keys, OAuth tokens, PINs, and refresh/access tokens out of plugin config metadata and scrubbed accidental secret keys from the Hermes config-store profile block.
+
 - Made setup/status JSON consistent with dashboard readiness: once vehicle reads, vehicle commands, and signed commands are operational, status/onboarding reports `operational` instead of continuing to ask for public-key validation.
 - Added an asleep/offline status callout to the `/tescmd` vehicle overview with a wake button, so sleeping vehicles clearly explain why live status is unavailable and offer the confirm-gated wake action.
 - Added user-friendly `/tescmd` dashboard loading/updating cues: first page load says the dashboard is loading, later refreshes say Tesla data is updating, and the copy avoids implementation details about duplicate command prevention.

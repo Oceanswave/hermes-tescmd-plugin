@@ -38,8 +38,11 @@ class Ctx:
     def __init__(self):
         self.tools = []
         self.skills = []
+        self.config_registrations = []
     def register_tool(self, **kwargs):
         self.tools.append(kwargs)
+    def register_plugin_config(self, **kwargs):
+        self.config_registrations.append(kwargs)
     def register_skill(self, name, path, description=None):
         self.skills.append((name, path))
 
@@ -61,14 +64,15 @@ required = {
     'tescmd_cache_clear',
 }
 forbidden = {'tescmd_setup', 'tescmd_setup_wizard', 'tescmd_mcp_serve'}
-print({'tool_count': len(ctx.tools), 'skill_count': len(ctx.skills), 'missing': sorted(required - names), 'forbidden_present': sorted(forbidden & names), 'module_file': hermes_tescmd_plugin.__file__})
+print({'tool_count': len(ctx.tools), 'skill_count': len(ctx.skills), 'config_registration_count': len(ctx.config_registrations), 'missing': sorted(required - names), 'forbidden_present': sorted(forbidden & names), 'module_file': hermes_tescmd_plugin.__file__})
 PY
 ```
 
 Expected for the current prerelease line:
 
-- tool count: 173
+- tool count: 175
 - one bundled `tescmd-operator` skill
+- one non-secret plugin config metadata registration when the host context exposes `register_plugin_config`
 - no `tescmd_setup`
 - no `tescmd_setup_wizard`
 - no `tescmd_mcp_serve`
