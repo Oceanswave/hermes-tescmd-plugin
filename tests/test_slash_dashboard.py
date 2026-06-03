@@ -482,7 +482,6 @@ def test_dashboard_visible_vehicle_identity_helpers_redact_identifiers() -> None
     assert "visibleVehicleText(vehicle.state" in identity_body
 
 
-
 def test_vehicle_list_redacts_identifiers() -> None:
     output = slash._format_vehicles(
         {
