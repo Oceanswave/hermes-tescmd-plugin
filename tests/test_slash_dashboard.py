@@ -833,16 +833,56 @@ def test_drive_slash_summary_redacts_precise_coordinates() -> None:
             "vin": "5YJ3E1EA7JF000001",
             "data": {
                 "drive_state": {
+                    "shift_state": "D",
+                    "speed": 0,
+                    "heading": 271,
+                    "power": -2,
                     "latitude": 37.7749295,
                     "longitude": -122.4194155,
+                    "native_latitude": 37.7749,
+                    "native_longitude": -122.4194,
                 }
             },
         },
     )
 
+    assert (
+        "Drive: shift drive, speed 0 mph, heading 271°, power -2 kW, "
+        "native location available (coordinates redacted)"
+    ) in output
     assert "Location: available (coordinates redacted)" in output
+    assert "Result: command accepted" not in output
     assert "37.7749295" not in output
     assert "-122.4194155" not in output
+    assert "37.7749" not in output
+    assert "-122.4194" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "{" not in output
+
+
+def test_location_slash_summary_includes_safe_drive_context_only() -> None:
+    output = slash._format_command(
+        "tescmd-location",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "data": {
+                "location_data": {
+                    "shift_state": "P",
+                    "speed": 0,
+                    "heading": 0,
+                    "latitude": 34.052235,
+                    "longitude": -118.243683,
+                }
+            },
+        },
+    )
+
+    assert "Drive: shift parked, speed 0 mph, heading 0°" in output
+    assert "Location: available (coordinates redacted)" in output
+    assert "Result: command accepted" not in output
+    assert "34.052235" not in output
+    assert "-118.243683" not in output
     assert "5YJ3E1EA7JF000001" not in output
     assert "{" not in output
 
