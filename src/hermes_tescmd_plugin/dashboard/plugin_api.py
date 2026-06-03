@@ -14,11 +14,11 @@ router = APIRouter()
 
 _QUICK_ACTION_TO_TOOL = {
     "wake": "tescmd_vehicle_wake",
-    "flash": "tescmd_security_flash_lights",
-    "honk": "tescmd_security_honk_horn",
-    "lock": "tescmd_security_lock",
-    "unlock": "tescmd_security_unlock",
-    "sentry": "tescmd_security_sentry_mode",
+    "flash": "tescmd_flash",
+    "honk": "tescmd_honk",
+    "lock": "tescmd_lock",
+    "unlock": "tescmd_unlock",
+    "sentry": "tescmd_sentry",
     "charge-start": "tescmd_charge_start",
     "charge-stop": "tescmd_charge_stop",
     "charge-limit": "tescmd_charge_limit",

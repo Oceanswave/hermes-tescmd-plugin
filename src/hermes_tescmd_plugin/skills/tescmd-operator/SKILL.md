@@ -31,7 +31,7 @@ It does not shell out to or depend on the upstream `tescmd` CLI at runtime.
 9. Use `tescmd_audit_log` to inspect recent redacted side-effect command and wake-attempt audit events; the backing JSONL file lives under `HERMES_HOME/plugins/hermes-tescmd-plugin/audit/commands.jsonl`.
 10. Pass `vin` only when you want to override the configured default vehicle identifier.
 11. Set `wake: true` only on status-style read tools that expose it, and only when the user really wants to wake a sleeping vehicle.
-12. Treat `tescmd_serve`, `tescmd_openclaw_bridge`, and `tescmd_vehicle_telemetry_stream` as compatibility/info tools rather than long-running daemons started inside Hermes. There is no MCP server mode; Hermes loads this as a native plugin.
+12. Treat `tescmd_serve` and `tescmd_vehicle_telemetry_stream` as compatibility/info tools rather than long-running daemons started inside Hermes. There is no MCP server mode; Hermes loads this as a native plugin.
 
 ## Parity notes
 
@@ -42,7 +42,7 @@ It does not shell out to or depend on the upstream `tescmd` CLI at runtime.
   - upstream `charge precondition-*` → native `tescmd_precondition_*`
   - upstream `vehicle telemetry *` → `tescmd_vehicle_telemetry_*`
 - The plugin adds Hermes-native auth/status/help helpers such as `tescmd_auth_complete`, `tescmd_onboarding_status`, `tescmd_status`, and `tescmd_help`; configuration is docs/dashboard/config-store driven, not exposed as a generic mutation tool.
-- `tescmd_serve`, `tescmd_openclaw_bridge`, and `tescmd_vehicle_telemetry_stream` are compatibility/guidance tools, not terminal dashboards or daemon launchers. MCP server mode is intentionally absent because Hermes loads the package natively.
+- `tescmd_serve` and `tescmd_vehicle_telemetry_stream` are compatibility/guidance tools, not terminal dashboards or daemon launchers. MCP server mode is intentionally absent because Hermes loads the package natively.
 
 ## Admin vs operational usage
 

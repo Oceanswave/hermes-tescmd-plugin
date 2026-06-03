@@ -2111,7 +2111,6 @@ def handle_plugin_mode_info(args: dict[str, Any], *, mode: str) -> dict[str, Any
         "plugin_native": True,
         "message": {
             "serve": "The Hermes plugin already exposes Tesla capabilities directly as tools, so there is no separate plugin-side HTTP/MCP daemon to start.",
-            "openclaw_bridge": "OpenClaw bridge mode is a standalone CLI/server workflow and is not run inside the native Hermes plugin. Use Hermes tools directly or wire telemetry externally.",
             "vehicle_telemetry_stream": "CLI telemetry streaming is a long-running TUI/server workflow. In plugin mode, use telemetry config/error tools and an external telemetry receiver instead of launching a dashboard process from a tool call.",
         }[mode],
     }
@@ -2207,9 +2206,6 @@ OPERATIONS = {
     "cache_clear": handle_cache_clear,
     "audit_log": handle_audit_log,
     "serve": lambda args: handle_plugin_mode_info(args, mode="serve"),
-    "openclaw_bridge": lambda args: handle_plugin_mode_info(
-        args, mode="openclaw_bridge"
-    ),
     "vehicle_telemetry_stream": lambda args: handle_plugin_mode_info(
         args, mode="vehicle_telemetry_stream"
     ),

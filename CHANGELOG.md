@@ -2,6 +2,8 @@
 
 ## 0.5.0a22
 
+- Removed the OpenClaw bridge compatibility command from the native Hermes tool surface.
+- Added shorter native vehicle-command aliases such as `tescmd_honk`, `tescmd_security_honk`, `tescmd_flash`, `tescmd_lock`, and `tescmd_sentry` so common controls do not require fallback routing through verbose names.
 - Registered non-secret Tesla app/profile defaults with Hermes' plugin config support so dashboard config editors can surface `client_id`, `region`, `domain`, `oauth_redirect_uri`, `default_vin`, and `scopes` without exposing secrets.
 - Added config-store precedence and one-time migration/backcompat from plugin-local `config.json`; legacy installs continue to work, while Hermes config-store values override only the editable non-secret fields.
 - Kept `client_secret`, vehicle-command key paths, Google Maps API keys, OAuth tokens, PINs, and refresh/access tokens out of plugin config metadata and scrubbed accidental secret keys from the Hermes config-store profile block.

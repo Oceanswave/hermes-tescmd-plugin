@@ -122,7 +122,7 @@ def test_register_adds_full_native_tools_and_skill_by_default(
     registered_names = [tool["name"] for tool in ctx.tools]
     assert registered_names == [spec.name for spec in runtime.list_tool_specs()]
     assert registered_names == [spec.name for spec in registered_tool_specs()]
-    assert len(ctx.tools) == 175
+    assert len(ctx.tools) == 187
     assert "tescmd_auth_status" in registered_names
     assert "tescmd_onboarding_status" in registered_names
     assert "tescmd_vehicle_status" in registered_names
@@ -350,8 +350,14 @@ def test_runtime_keeps_parity_critical_native_tools() -> None:
     assert "tescmd_setup" not in names
     assert "tescmd_setup_wizard" not in names
     assert "tescmd_mcp_serve" not in names
+    assert "tescmd_openclaw_bridge" not in names
     assert "tescmd_auth_complete" in names
     assert "tescmd_onboarding_status" in names
+    assert "tescmd_security_honk" in names
+    assert "tescmd_honk" in names
+    assert "tescmd_flash" in names
+    assert "tescmd_lock" in names
+    assert "tescmd_sentry" in names
     assert "tescmd_precondition_schedule_add" in names
     assert "tescmd_precondition_schedule_remove" in names
     assert "tescmd_precondition_schedules_clear" in names
@@ -366,6 +372,46 @@ def test_runtime_keeps_parity_critical_native_tools() -> None:
         "tescmd_vehicle_preconditioning_schedule_status",
     }:
         assert name in names
+
+
+def test_short_vehicle_command_aliases_are_native_handlers(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            region="na",
+            default_vin="5YJ3E1EA7JF000001",
+        )
+    )
+    config.save_auth_state(
+        config.AuthState(profile="default", access_token="token", region="na")
+    )
+    specs = {spec.name: spec for spec in runtime.list_tool_specs()}
+    calls = []
+
+    def fake_command(self, vin, command_name, body=None):
+        calls.append((vin, command_name, body))
+        return {"result": True}
+
+    monkeypatch.setattr(client.TeslaFleetClient, "vehicle_command", fake_command)
+
+    for tool_name in ("tescmd_security_honk", "tescmd_honk"):
+        payload = json.loads(runtime.make_handler(specs[tool_name])({"confirm": True}))
+        assert payload["ok"] is True
+
+    sentry_payload = json.loads(
+        runtime.make_handler(specs["tescmd_sentry"])({"confirm": True, "enabled": True})
+    )
+
+    assert sentry_payload["ok"] is True
+    assert calls == [
+        ("5YJ3E1EA7JF000001", "honk_horn", None),
+        ("5YJ3E1EA7JF000001", "honk_horn", None),
+        ("5YJ3E1EA7JF000001", "set_sentry_mode", {"on": True}),
+    ]
 
 
 def test_runtime_redacts_vin_dictionary_keys() -> None:

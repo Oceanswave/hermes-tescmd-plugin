@@ -827,6 +827,88 @@ _TOOL_SPECS: tuple[ToolSpec, ...] = (
         payload_fields=(("sound", "sound"),),
     ),
     _vehicle_command_tool(
+        name="tescmd_lock",
+        description="Short alias: lock Tesla vehicle doors.",
+        command_name="door_lock",
+    ),
+    _vehicle_command_tool(
+        name="tescmd_unlock",
+        description="Short alias: unlock Tesla vehicle doors.",
+        command_name="door_unlock",
+    ),
+    _vehicle_command_tool(
+        name="tescmd_security_honk",
+        description="Short alias: honk the vehicle horn.",
+        command_name="honk_horn",
+    ),
+    _vehicle_command_tool(
+        name="tescmd_honk",
+        description="Short alias: honk the vehicle horn.",
+        command_name="honk_horn",
+    ),
+    _vehicle_command_tool(
+        name="tescmd_security_flash",
+        description="Short alias: flash the vehicle lights.",
+        command_name="flash_lights",
+    ),
+    _vehicle_command_tool(
+        name="tescmd_flash",
+        description="Short alias: flash the vehicle lights.",
+        command_name="flash_lights",
+    ),
+    _vehicle_command_tool(
+        name="tescmd_sentry",
+        description="Short alias: enable or disable Sentry Mode.",
+        command_name="set_sentry_mode",
+        params=(_ENABLED_REQUIRED,),
+        payload_fields=(("enabled", "on"),),
+    ),
+    _vehicle_command_tool(
+        name="tescmd_remote_start",
+        description="Short alias: remote-start the vehicle for driving.",
+        command_name="remote_start_drive",
+    ),
+    _vehicle_command_tool(
+        name="tescmd_auto_secure",
+        description="Short alias: request the vehicle to auto-secure itself.",
+        command_name="auto_secure_vehicle",
+    ),
+    _vehicle_command_tool(
+        name="tescmd_valet",
+        description="Short alias: enable or disable valet mode.",
+        command_name="set_valet_mode",
+        params=(_ENABLED_REQUIRED, _PASSWORD),
+        payload_fields=(("enabled", "on"), ("password", "password")),
+    ),
+    _vehicle_command_tool(
+        name="tescmd_pin_to_drive",
+        description="Short alias: enable or disable PIN to Drive.",
+        command_name="set_pin_to_drive",
+        params=(_ENABLED_REQUIRED, _PASSWORD),
+        payload_fields=(("enabled", "on"), ("password", "password")),
+    ),
+    _vehicle_command_tool(
+        name="tescmd_guest",
+        description="Short alias: enable or disable guest mode.",
+        command_name="guest_mode",
+        params=(_ENABLED_REQUIRED,),
+        payload_fields=(("enabled", "enable"),),
+    ),
+    _vehicle_command_tool(
+        name="tescmd_boombox",
+        description="Short alias: trigger a remote boombox sound/action.",
+        command_name="remote_boombox",
+        params=(
+            ParamSpec(
+                "sound",
+                "Boombox sound/action identifier.",
+                value_type="integer",
+                required=True,
+            ),
+        ),
+        payload_fields=(("sound", "sound"),),
+    ),
+    _vehicle_command_tool(
         name="tescmd_vehicle_actuate_trunk",
         description="Actuate the front or rear trunk.",
         command_name="actuate_trunk",
@@ -1726,11 +1808,6 @@ _TOOL_SPECS: tuple[ToolSpec, ...] = (
         name="tescmd_serve",
         description="Plugin-native compatibility tool explaining why no standalone tescmd server is needed inside Hermes.",
         operation="serve",
-    ),
-    _profile_tool(
-        name="tescmd_openclaw_bridge",
-        description="Plugin-native compatibility tool for OpenClaw bridge workflows.",
-        operation="openclaw_bridge",
     ),
     _operational_tool(
         name="tescmd_vehicle_telemetry_stream",
