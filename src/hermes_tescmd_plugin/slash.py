@@ -582,6 +582,46 @@ def _summarize_nearby_chargers(payload: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _drive_detail_parts(drive: dict[str, Any]) -> list[str]:
+    """Return safe, operator-useful drive/location details.
+
+    Drive state often carries precise coordinates next to simple status fields.
+    Keep the status fields visible for slash-command usefulness while leaving
+    latitude/longitude redaction to the dedicated location marker below.
+    """
+
+    parts: list[str] = []
+    shift = drive.get("shift_state")
+    if shift:
+        shift_labels = {
+            "p": "parked",
+            "r": "reverse",
+            "n": "neutral",
+            "d": "drive",
+        }
+        label = shift_labels.get(str(shift).strip().lower(), str(shift))
+        parts.append(f"shift {_redact_slash_text(label)}")
+
+    speed = drive.get("speed")
+    if speed is not None:
+        parts.append(f"speed {speed} mph")
+
+    heading = drive.get("heading")
+    if heading is not None:
+        parts.append(f"heading {heading}°")
+
+    power = drive.get("power")
+    if power is not None:
+        parts.append(f"power {power} kW")
+
+    native_lat = drive.get("native_latitude")
+    native_lon = drive.get("native_longitude")
+    if native_lat is not None and native_lon is not None:
+        parts.append("native location available (coordinates redacted)")
+
+    return parts
+
+
 def _charge_detail_parts(charge: dict[str, Any]) -> list[str]:
     parts: list[str] = []
     if charge.get("battery_level") is not None:
@@ -880,6 +920,12 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
         if closure_parts:
             lines.append("Closures: " + ", ".join(closure_parts))
 
+    drive = _payload_section(payload, "drive_state", "location", "location_data")
+    if name in {"tescmd-drive", "tescmd-location"} and drive:
+        drive_parts = _drive_detail_parts(drive)
+        if drive_parts:
+            lines.append("Drive: " + ", ".join(drive_parts))
+
     location = _payload_section(payload, "location", "location_data", "drive_state")
     lat = location.get("latitude") or location.get("lat")
     lon = location.get("longitude") or location.get("lon") or location.get("lng")
@@ -915,6 +961,7 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
                 "Climate:",
                 "Security:",
                 "Closures:",
+                "Drive:",
                 "Location:",
                 "Nearby chargers:",
                 "Software:",
