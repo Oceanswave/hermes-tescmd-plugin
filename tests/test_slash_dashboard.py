@@ -1318,6 +1318,28 @@ def test_dashboard_shows_busy_banner_during_refresh() -> None:
     assert ".tescmd-busy-banner" in style
 
 
+def test_dashboard_quick_actions_explain_locked_and_armed_states() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+
+    assert "function ActionSafetyPanel" in asset
+    assert "Physical actions are locked" in asset
+    assert "Physical actions are armed" in asset
+    assert "Read panels stay available" in asset
+    assert "require the confirmation checkbox" in asset
+    assert "Buttons below can wake or change the vehicle" in asset
+    assert "Confirmation automatically turns off after one quick action" in asset
+    assert "physical actions are locked again" in asset
+    assert "confirmation is still locked off after the request" in asset
+    assert "setConfirm(false)" in asset
+    assert "h(ActionSafetyPanel, { confirm, loading, lastActionStatus })" in asset
+    assert 'role: "status", "aria-live": "polite"' in asset
+    assert ".tescmd-action-safety" in style
+    assert ".tescmd-action-safety-armed" in style
+    assert "duplicate command prevention" not in asset
+    assert "controls disabled" not in asset
+
+
 def test_dashboard_empty_states_give_actionable_safe_guidance() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
