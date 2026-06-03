@@ -728,6 +728,27 @@ def _climate_action_summary(name: str, payload: dict[str, Any]) -> str | None:
     return None
 
 
+def _media_action_summary(name: str, payload: dict[str, Any]) -> str | None:
+    raw_request = payload.get("request")
+    request: dict[str, Any] = raw_request if isinstance(raw_request, dict) else {}
+    if name == "tescmd-media-play":
+        return "toggle media playback."
+    if name == "tescmd-media-next":
+        return "skip to the next media track."
+    if name == "tescmd-media-prev":
+        return "go to the previous media track."
+    if name == "tescmd-media-volume-up":
+        return "increase media volume."
+    if name == "tescmd-media-volume-down":
+        return "decrease media volume."
+    if name == "tescmd-media-volume-set":
+        volume = request.get("volume")
+        if volume is not None:
+            return f"set media volume to {volume}."
+        return "set media volume."
+    return None
+
+
 def _software_detail_parts(software: dict[str, Any]) -> list[str]:
     parts: list[str] = []
     version = software.get("car_version") or software.get("version")
@@ -902,6 +923,10 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     if climate_action:
         lines.append(f"Climate action: {climate_action}")
 
+    media_action = _media_action_summary(name, payload)
+    if media_action:
+        lines.append(f"Media action: {media_action}")
+
     software = _payload_section(payload, "software", "vehicle_state")
     if name == "tescmd-software" and software:
         software_parts = _software_detail_parts(software)
@@ -952,6 +977,8 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
             lines.append("Result: Tesla accepted the charging command.")
         elif result is True and climate_action:
             lines.append("Result: Tesla accepted the climate command.")
+        elif result is True and media_action:
+            lines.append("Result: Tesla accepted the media command.")
         else:
             lines.append(f"Result: {_redact_slash_text(_stringify(result))}")
     elif not any(
@@ -1361,7 +1388,9 @@ _COMMANDS: dict[str, tuple[str, str, Callable[[dict[str, Any]], str]]] = {
         "[vin] volume=3 confirm=true",
         lambda ctx: _format_command(
             "tescmd-media-volume-set",
-            _run_tool("tescmd_media_volume_set", ctx["raw_args"]),
+            _run_tool(
+                "tescmd_media_volume_set", ctx["raw_args"], expose_args=("volume",)
+            ),
         ),
     ),
     "tescmd-nav": (

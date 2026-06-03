@@ -752,6 +752,55 @@ def test_charge_action_slash_handler_exposes_only_safe_request_details(
     assert "{" not in output
 
 
+def test_media_action_summary_is_human_readable() -> None:
+    output = slash._format_command(
+        "tescmd-media-next",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "request": {"confirm": True, "vin": "5YJ3E1EA7JF000001"},
+            "response": {"result": True},
+        },
+    )
+
+    assert output.startswith("/tescmd-media-next: success")
+    assert "Media action: skip to the next media track." in output
+    assert "Result: Tesla accepted the media command." in output
+    assert "Result: yes" not in output
+    assert "confirm" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "{" not in output
+
+
+def test_media_volume_set_slash_handler_exposes_only_safe_request_details(
+    monkeypatch,
+) -> None:
+    def fake_run_tool(
+        tool_name, raw_args="", defaults=None, *, positional_name="vin", expose_args=()
+    ):
+        assert tool_name == "tescmd_media_volume_set"
+        assert raw_args == "5YJ3E1EA7JF000001 volume=4 confirm=true"
+        assert expose_args == ("volume",)
+        return {
+            "ok": True,
+            "vin": "…0001",
+            "request": {"volume": 4},
+            "response": {"result": True},
+        }
+
+    monkeypatch.setattr(slash, "_run_tool", fake_run_tool)
+
+    output = slash.command_definitions()["tescmd-media-volume-set"]["handler"](
+        {"raw_args": "5YJ3E1EA7JF000001 volume=4 confirm=true"}
+    )
+
+    assert "Media action: set media volume to 4." in output
+    assert "Result: Tesla accepted the media command." in output
+    assert "confirm" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "{" not in output
+
+
 def test_climate_slash_summary_is_human_readable_and_privacy_safe() -> None:
     output = slash._format_command(
         "tescmd-climate",
