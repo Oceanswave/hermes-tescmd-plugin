@@ -136,6 +136,8 @@ def test_register_adds_full_native_tools_and_skill_by_default(
     assert ctx.config_registrations
     config_schema = ctx.config_registrations[0]["schema"]
     assert config_schema["path"] == "plugins.entries.hermes-tescmd-plugin.config"
+    assert config_schema["category"] == "tesla"
+    assert config_schema["category_label"] == "Tesla"
     schema_text = json.dumps(config_schema)
     assert "client_id" in schema_text
     assert "default_vin" in schema_text

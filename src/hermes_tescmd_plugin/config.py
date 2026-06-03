@@ -246,6 +246,8 @@ def get_editable_config_schema() -> dict[str, Any]:
     return {
         "plugin": PLUGIN_DIRNAME,
         "title": "Tesla Fleet (tescmd)",
+        "category": "tesla",
+        "category_label": "Tesla",
         "description": (
             "Dashboard-editable non-secret Tesla Fleet defaults. Secrets stay "
             "in Hermes auth/plugin state and are not exposed here."
