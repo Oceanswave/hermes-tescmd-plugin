@@ -113,7 +113,11 @@ def _command_kind(spec: runtime.ToolSpec) -> str:
         "vehicle_status",
     }:
         return "read"
-    return "admin" if _command_category(spec) in {"auth", "key", "cache", "onboarding", "partner"} else "read"
+    return (
+        "admin"
+        if _command_category(spec) in {"auth", "key", "cache", "onboarding", "partner"}
+        else "read"
+    )
 
 
 def _serialize_command(spec: runtime.ToolSpec) -> dict[str, Any]:

@@ -1124,7 +1124,12 @@ def test_dashboard_command_catalog_is_generated_from_runtime_specs() -> None:
     assert by_name["tescmd_charge_limit"]["category"] == "charge"
     assert by_name["tescmd_charge_limit"]["confirm_required"] is True
     assert by_name["tescmd_charge_limit"]["parameters"]["percent"]["type"] == "integer"
-    assert by_name["tescmd_charge_limit"]["parameters"]["confirm"]["x-confirmation-required"] is True
+    assert (
+        by_name["tescmd_charge_limit"]["parameters"]["confirm"][
+            "x-confirmation-required"
+        ]
+        is True
+    )
     assert "tescmd_auth_status" in by_name
     assert catalog["categories"]["charge"] >= 1
 
