@@ -252,7 +252,6 @@ def get_editable_config_schema() -> dict[str, Any]:
         ),
         "path": ".".join(HERMES_CONFIG_SECTION),
         "profiles_path": ".".join([*HERMES_CONFIG_SECTION, HERMES_CONFIG_PROFILES_KEY]),
-        "secret_fields_excluded": list(SECRET_CONFIG_FIELDS),
         "fields": [
             {
                 "key": f"{base}.client_id",
