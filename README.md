@@ -75,13 +75,23 @@ Allowed Returned URL(s): leave blank unless Tesla requires it
 
 Do not put the `.well-known` public-key URL in those fields. Tesla discovers the vehicle-command public key from your app domain.
 
-3. Create plugin config at:
+3. Configure the non-secret Tesla app defaults. When Hermes' plugin config store is available, the plugin registers a dashboard-editable config section at:
+
+```text
+plugins.entries.hermes-tescmd-plugin.config.profiles.default
+```
+
+These fields are safe to edit through Hermes' dashboard config editor when your Hermes runtime exposes plugin-provided config sections: `client_id`, `region`, `domain`, `oauth_redirect_uri`, `default_vin`, `scopes`, and `redirect_port`. Existing plugin-local config is migrated into that Hermes config section on first read when the store is available and no dashboard value exists yet. Hermes config-store values then take precedence over plugin-local values for those non-secret fields.
+
+Secret or sensitive values stay out of the dashboard/config-store schema: `client_secret`, vehicle-command private/public key paths, Google Maps API keys, OAuth tokens, PINs, and refresh/access tokens. Keep those in plugin-owned state/auth flows.
+
+Legacy/backcompat config still works at:
 
 ```text
 $HERMES_HOME/plugins/hermes-tescmd-plugin/config.json
 ```
 
-Minimal single-profile shape:
+Minimal single-profile legacy shape:
 
 ```json
 {
@@ -186,7 +196,7 @@ Side-effecting slash commands require `confirm=true`. Read commands that wake a 
 
 Arguments use terse shell-style tokens: `key=value`, `key:value`, booleans like `confirm=true`, comma-separated lists like `endpoints=charge_state,drive_state`, and one bare positional vehicle identifier.
 
-The Hermes web dashboard gets a native Tesla tab at `/tescmd`. It uses the same existing native tool handlers as Hermes tools, so confirm-gated actions still fail closed when `confirm=true` is missing. The dashboard now includes grouped read panels, wake/no-cache/unit read options, status/auth/key/cache panels, and guarded control groups for security, climate, charging, body, media, and navigation. Higher-risk flows such as remote start, speed-limit PINs, valet/PIN-to-drive, erase-user-data, and raw Fleet API calls remain tool-only.
+The Hermes web dashboard gets a native Tesla tab at `/tescmd`. It uses the same existing native tool handlers as Hermes tools, so confirm-gated actions still fail closed when `confirm=true` is missing. The dashboard now includes grouped read panels, wake/no-cache/unit read options, status/auth/key/cache panels, and guarded control groups for security, climate, charging, body, media, and navigation. Non-secret plugin settings are registered for Hermes' normal dashboard config editor when supported. Higher-risk flows such as remote start, speed-limit PINs, valet/PIN-to-drive, erase-user-data, and raw Fleet API calls remain tool-only.
 
 ## Tool surface
 

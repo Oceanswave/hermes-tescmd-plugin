@@ -343,6 +343,10 @@ def _bootstrap_status(
     )
     return {
         "auth_store": "hermes" if config.hermes_auth_available() else "plugin",
+        "config_store": "hermes"
+        if config.hermes_plugin_config_available()
+        else "plugin",
+        "legacy_config_compatible": True,
         "auth_mirrored_to_plugin_state": True,
         "app_configured": bool(cfg.client_id),
         "login_ready": bool(cfg.client_id),
@@ -428,7 +432,7 @@ def _bootstrap_next_steps(
             [
                 f"Create or open your Tesla Developer application and add this public OAuth callback URL: {redirect_uri or 'https://<your-domain>/callback'}",
                 f"Use these Tesla OAuth scopes during app setup/login: {', '.join(cfg.scopes)}",
-                "Follow the README configuration checklist and edit the plugin config file with your Tesla app values.",
+                "Follow the README configuration checklist and edit the Hermes dashboard config fields under plugins.entries.hermes-tescmd-plugin.config.profiles.default with your Tesla app values when plugin-provided config is available.",
             ],
         )
     if not bootstrap["authenticated"]:
@@ -483,7 +487,7 @@ def _bootstrap_next_steps(
             "setup",
             [
                 "The hosted public key matches the local key, but client_secret is still missing for partner registration.",
-                "Edit the plugin config file to add client_secret if you want partner registration and Tesla virtual-key enrollment.",
+                "Store client_secret through the secret-safe plugin state/auth workflow, not the dashboard-editable config fields.",
             ],
         )
     if bootstrap["enrollment_ready"]:
@@ -556,6 +560,12 @@ def handle_status(args: dict[str, Any]) -> dict[str, Any]:
         "configured": bool(cfg.client_id),
         "authenticated": auth_state.is_authenticated(),
         "pending_login": pending is not None,
+        "config_store": "hermes"
+        if config.hermes_plugin_config_available()
+        else "plugin",
+        "config_path": f"plugins.entries.hermes-tescmd-plugin.config.profiles.{profile}"
+        if config.hermes_plugin_config_available()
+        else str(config.get_plugin_home() / "config.json"),
         "domain": cfg.domain,
         "default_vin": _public_vin(cfg.default_vin),
         "google_maps_places_ready": bool(cfg.google_maps_api_key),

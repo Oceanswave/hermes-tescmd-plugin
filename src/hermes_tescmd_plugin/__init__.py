@@ -21,6 +21,8 @@ def registered_tool_specs() -> tuple[runtime.ToolSpec, ...]:
 
 
 def register(ctx) -> None:
+    config.register_editable_config(ctx)
+
     for spec in registered_tool_specs():
         ctx.register_tool(
             name=spec.name,

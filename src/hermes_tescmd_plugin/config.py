@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib
+import inspect
 import ipaddress
 import json
 import os
@@ -17,6 +18,23 @@ from urllib.parse import urlparse
 PLUGIN_DIRNAME = "hermes-tescmd-plugin"
 DEFAULT_REGION = "na"
 DEFAULT_PROFILE = "default"
+HERMES_CONFIG_SECTION = ["plugins", "entries", PLUGIN_DIRNAME, "config"]
+HERMES_CONFIG_PROFILES_KEY = "profiles"
+EDITABLE_CONFIG_FIELDS = (
+    "client_id",
+    "region",
+    "domain",
+    "oauth_redirect_uri",
+    "default_vin",
+    "scopes",
+    "redirect_port",
+)
+SECRET_CONFIG_FIELDS = (
+    "client_secret",
+    "vehicle_command_key_private_path",
+    "vehicle_command_key_public_path",
+    "google_maps_api_key",
+)
 DEFAULT_SCOPES = [
     "openid",
     "offline_access",
@@ -201,6 +219,226 @@ def _coerce_scopes(value: Any) -> list[str]:
     return value
 
 
+def _editable_config_payload(cfg: PluginConfig) -> dict[str, Any]:
+    payload: dict[str, Any] = {}
+    for field_name in EDITABLE_CONFIG_FIELDS:
+        value = getattr(cfg, field_name)
+        if value is not None:
+            payload[field_name] = value
+    return payload
+
+
+def _non_default_editable_values(cfg: PluginConfig) -> dict[str, Any]:
+    default = PluginConfig(profile=cfg.profile)
+    return {
+        key: value
+        for key, value in _editable_config_payload(cfg).items()
+        if value != getattr(default, key)
+    }
+
+
+def get_editable_config_schema() -> dict[str, Any]:
+    """Return dashboard-editable, non-secret config metadata for Hermes."""
+
+    base = ".".join(
+        [*HERMES_CONFIG_SECTION, HERMES_CONFIG_PROFILES_KEY, DEFAULT_PROFILE]
+    )
+    return {
+        "plugin": PLUGIN_DIRNAME,
+        "title": "Tesla Fleet (tescmd)",
+        "description": (
+            "Dashboard-editable non-secret Tesla Fleet defaults. Secrets stay "
+            "in Hermes auth/plugin state and are not exposed here."
+        ),
+        "path": ".".join(HERMES_CONFIG_SECTION),
+        "profiles_path": ".".join([*HERMES_CONFIG_SECTION, HERMES_CONFIG_PROFILES_KEY]),
+        "secret_fields_excluded": list(SECRET_CONFIG_FIELDS),
+        "fields": [
+            {
+                "key": f"{base}.client_id",
+                "type": "string",
+                "label": "Tesla app client ID",
+                "description": "Public OAuth client identifier from the Tesla Developer app. Not a secret.",
+                "secret": False,
+            },
+            {
+                "key": f"{base}.region",
+                "type": "select",
+                "label": "Fleet API region",
+                "options": ["na", "eu", "cn"],
+                "description": "Default Tesla Fleet API region.",
+                "secret": False,
+            },
+            {
+                "key": f"{base}.domain",
+                "type": "string",
+                "label": "Public domain",
+                "description": "HTTPS hostname for Tesla virtual-key hosting and default callback derivation.",
+                "secret": False,
+            },
+            {
+                "key": f"{base}.oauth_redirect_uri",
+                "type": "string",
+                "label": "OAuth redirect URI",
+                "description": "Optional public HTTPS callback URL. Defaults to https://<domain>/callback.",
+                "secret": False,
+            },
+            {
+                "key": f"{base}.default_vin",
+                "type": "string",
+                "label": "Default vehicle identifier",
+                "description": "Default VIN or Fleet vehicle id_s. Status payloads continue to redact VINs.",
+                "secret": False,
+            },
+            {
+                "key": f"{base}.scopes",
+                "type": "list",
+                "label": "OAuth scopes",
+                "description": "Requested Tesla OAuth scopes. Token grants remain in auth state.",
+                "secret": False,
+            },
+            {
+                "key": f"{base}.redirect_port",
+                "type": "number",
+                "label": "Local redirect helper port",
+                "description": "Compatibility port for older/operator-managed helper flows.",
+                "secret": False,
+            },
+        ],
+    }
+
+
+def _hermes_config_module() -> Any | None:
+    try:
+        module = importlib.import_module("hermes_cli.config")
+    except Exception:
+        return None
+    if not all(hasattr(module, name) for name in ("load_config", "save_config")):
+        return None
+    return module
+
+
+def hermes_plugin_config_available() -> bool:
+    return _hermes_config_module() is not None
+
+
+def _nested_dict(
+    root: dict[str, Any], path: list[str], *, create: bool = False
+) -> dict[str, Any] | None:
+    node: Any = root
+    for part in path:
+        if not isinstance(node, dict):
+            return None
+        child = node.get(part)
+        if child is None and create:
+            child = {}
+            node[part] = child
+        node = child
+    return node if isinstance(node, dict) else None
+
+
+def _load_hermes_config_profiles() -> dict[str, Any]:
+    module = _hermes_config_module()
+    if module is None:
+        return {}
+    try:
+        root = module.load_config()
+    except Exception:
+        return {}
+    section = _nested_dict(root, HERMES_CONFIG_SECTION)
+    profiles = (
+        section.get(HERMES_CONFIG_PROFILES_KEY) if isinstance(section, dict) else None
+    )
+    return dict(profiles) if isinstance(profiles, dict) else {}
+
+
+def _load_hermes_config_profile(profile: str) -> dict[str, Any]:
+    profiles = _load_hermes_config_profiles()
+    payload = profiles.get(profile)
+    if not isinstance(payload, dict):
+        return {}
+    return {key: payload[key] for key in EDITABLE_CONFIG_FIELDS if key in payload}
+
+
+def _hermes_config_profile_contains_secrets(profile: str) -> bool:
+    profiles = _load_hermes_config_profiles()
+    payload = profiles.get(profile)
+    if not isinstance(payload, dict):
+        return False
+    return any(key in payload for key in SECRET_CONFIG_FIELDS)
+
+
+def _save_hermes_config_profile(cfg: PluginConfig) -> bool:
+    module = _hermes_config_module()
+    if module is None:
+        return False
+    try:
+        root = module.load_config()
+        if not isinstance(root, dict):
+            root = {}
+        section = _nested_dict(root, HERMES_CONFIG_SECTION, create=True)
+        if section is None:
+            return False
+        profiles = section.setdefault(HERMES_CONFIG_PROFILES_KEY, {})
+        if not isinstance(profiles, dict):
+            profiles = {}
+            section[HERMES_CONFIG_PROFILES_KEY] = profiles
+        existing = profiles.get(cfg.profile)
+        profile_payload = dict(existing) if isinstance(existing, dict) else {}
+        profile_payload.update(_editable_config_payload(cfg))
+        for secret_name in SECRET_CONFIG_FIELDS:
+            profile_payload.pop(secret_name, None)
+        profiles[cfg.profile] = profile_payload
+        module.save_config(root)
+        return True
+    except Exception:
+        return False
+
+
+def _migrate_legacy_config_to_hermes(cfg: PluginConfig) -> bool:
+    if _load_hermes_config_profile(cfg.profile):
+        return False
+    if not _non_default_editable_values(cfg):
+        return False
+    return _save_hermes_config_profile(cfg)
+
+
+def _apply_editable_payload(cfg: PluginConfig, payload: dict[str, Any]) -> PluginConfig:
+    for key in EDITABLE_CONFIG_FIELDS:
+        if key in payload:
+            setattr(cfg, key, payload[key])
+    return cfg
+
+
+def register_editable_config(ctx: Any) -> bool:
+    """Register tescmd's non-secret config metadata with Hermes when supported."""
+
+    schema = get_editable_config_schema()
+    candidates = (
+        "register_plugin_config",
+        "register_config_section",
+        "register_config_schema",
+        "register_config",
+    )
+    call_shapes: tuple[tuple[tuple[Any, ...], dict[str, Any]], ...] = (
+        ((), {"plugin": PLUGIN_DIRNAME, "schema": schema}),
+        ((PLUGIN_DIRNAME, schema), {}),
+        ((schema,), {}),
+    )
+    for name in candidates:
+        method = getattr(ctx, name, None)
+        if not callable(method):
+            continue
+        for args, kwargs in call_shapes:
+            try:
+                inspect.signature(method).bind(*args, **kwargs)
+            except (TypeError, ValueError):
+                continue
+            method(*args, **kwargs)
+            return True
+    return False
+
+
 def get_hermes_home() -> Path:
     env_home = os.environ.get("HERMES_HOME")
     if env_home:
@@ -244,16 +482,7 @@ def _save_profile_map(name: str, payload: dict[str, Any]) -> None:
         pass
 
 
-def load_config(profile: str = DEFAULT_PROFILE) -> PluginConfig:
-    profile = validate_profile(profile)
-    payload = _load_profile_map("config.json")
-    profile_payload = payload.get(profile)
-    if not profile_payload:
-        return PluginConfig(profile=profile)
-    return PluginConfig(**profile_payload)
-
-
-def save_config(cfg: PluginConfig) -> PluginConfig:
+def _normalize_config(cfg: PluginConfig) -> PluginConfig:
     cfg.profile = validate_profile(cfg.profile)
     cfg.region = _validate_region(cfg.region)
     cfg.domain = validate_public_domain(cfg.domain)
@@ -261,9 +490,44 @@ def save_config(cfg: PluginConfig) -> PluginConfig:
     if cfg.default_vin == "":
         cfg.default_vin = None
     cfg.scopes = _coerce_scopes(cfg.scopes)
+    try:
+        cfg.redirect_port = int(cfg.redirect_port)
+    except (TypeError, ValueError) as exc:
+        raise PluginStateError("redirect_port must be an integer.") from exc
+    if cfg.redirect_port <= 0 or cfg.redirect_port > 65535:
+        raise PluginStateError("redirect_port must be between 1 and 65535.")
+    return cfg
+
+
+def load_config(profile: str = DEFAULT_PROFILE) -> PluginConfig:
+    profile = validate_profile(profile)
+    payload = _load_profile_map("config.json")
+    profile_payload = payload.get(profile)
+    if profile_payload:
+        cfg = PluginConfig(**profile_payload)
+    else:
+        cfg = PluginConfig(profile=profile)
+
+    hermes_payload = _load_hermes_config_profile(profile)
+    if hermes_payload:
+        _apply_editable_payload(cfg, hermes_payload)
+        cfg = _normalize_config(cfg)
+        if _hermes_config_profile_contains_secrets(profile):
+            _save_hermes_config_profile(cfg)
+    else:
+        cfg = _normalize_config(cfg)
+        # First read after upgrade/backcompat: copy existing non-secret settings
+        # into Hermes' plugin config section when the host config store exists.
+        _migrate_legacy_config_to_hermes(cfg)
+    return cfg
+
+
+def save_config(cfg: PluginConfig) -> PluginConfig:
+    cfg = _normalize_config(cfg)
     payload = _load_profile_map("config.json")
     payload[cfg.profile] = asdict(cfg)
     _save_profile_map("config.json", payload)
+    _save_hermes_config_profile(cfg)
     return cfg
 
 
