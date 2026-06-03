@@ -193,6 +193,40 @@
   overflow: visible;
 }
 
+.tescmd-identity-card {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1fr) minmax(16rem, auto);
+  gap: 0.7rem;
+  align-items: center;
+  margin-bottom: 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--tescmd-green) 34%, var(--color-border));
+  border-radius: var(--radius);
+  padding: 0.65rem 0.75rem;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tescmd-green) 9%, transparent), transparent 44%),
+    color-mix(in srgb, var(--color-card) 94%, transparent);
+}
+
+.tescmd-identity-card strong {
+  display: block;
+  margin-top: 0.12rem;
+  font-size: 1rem;
+  letter-spacing: -0.025em;
+}
+
+.tescmd-identity-card small {
+  color: var(--color-muted-foreground);
+}
+
+.tescmd-identity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  justify-content: flex-end;
+  text-align: right;
+}
+
 .tescmd-sleep-status {
   display: grid;
   grid-template-columns: minmax(12rem, 1fr) auto minmax(10rem, auto);
@@ -766,13 +800,29 @@
 }
 
 @media (max-width: 900px) {
+  .tescmd-identity-card,
   .tescmd-visual-grid {
     grid-template-columns: 1fr;
+  }
+
+  .tescmd-identity-meta {
+    align-items: flex-start;
+    justify-content: flex-start;
+    text-align: left;
   }
 
   .tescmd-hero {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .tescmd-identity-card {
+    grid-template-columns: 1fr;
+  }
+
+  .tescmd-identity-meta {
+    justify-content: flex-start;
+    text-align: left;
   }
 
   .tescmd-onboarding-card {

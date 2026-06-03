@@ -133,6 +133,18 @@
     );
   }
 
+  function redactVisibleIdentifierText(value) {
+    return String(value ?? "")
+      .replace(/Bearer\s+[^\s,;]+/gi, "Bearer [REDACTED]")
+      .replace(/\b[A-HJ-NPR-Z0-9]{17}\b/g, (match) => `…${match.slice(-4)}`)
+      .replace(/\b\d{12,20}\b/g, (match) => `…${match.slice(-4)}`);
+  }
+
+  function visibleVehicleText(value, fallback) {
+    const text = redactVisibleIdentifierText(value).trim();
+    return text || fallback;
+  }
+
   function vehicleModelHint(vehicle) {
     const config = (vehicle && vehicle.vehicle_config) || {};
     const hints = [
@@ -142,16 +154,43 @@
       vehicle && vehicle.model,
       vehicle && vehicle.car_type,
     ].filter((value) => value !== undefined && value !== null && String(value).trim() !== "")
-      .map((value) => String(value).replace(/_/g, " "));
+      .map((value) => redactVisibleIdentifierText(String(value).replace(/_/g, " ")));
     const unique = [...new Set(hints)];
     return unique.slice(0, 2).join(" · ");
   }
 
   function vehiclePickerLabel(vehicle, index) {
-    const name = vehicle.display_name || vehicle.vehicle_name || vehicle.name || `Vehicle ${index + 1}`;
-    const state = vehicle.state || "unknown";
+    const name = visibleVehicleText(vehicle.display_name || vehicle.vehicle_name || vehicle.name, `Vehicle ${index + 1}`);
+    const state = visibleVehicleText(vehicle.state || "unknown", "unknown");
     const hint = vehicleModelHint(vehicle);
     return hint ? `${name} — ${hint} — ${state}` : `${name} — ${state}`;
+  }
+
+  function vehicleIdentitySummary(overview) {
+    const vehicle = selectedVehicle(overview) || {};
+    const vehiclesPayload = (overview && overview.vehicles) || {};
+    const vehicles = Array.isArray(vehiclesPayload.vehicles) ? vehiclesPayload.vehicles : [];
+    const index = vehicles.indexOf(vehicle);
+    const name = visibleVehicleText(vehicle.display_name || vehicle.vehicle_name || vehicle.name, index >= 0 ? `Vehicle ${index + 1}` : "Configured vehicle");
+    const state = visibleVehicleText(vehicle.state || "unknown", "unknown");
+    const hint = vehicleModelHint(vehicle) || "model hint unavailable";
+    const source = overview && overview.vin ? "Vehicle override active" : "Configured default target";
+    return { name, state, hint, source };
+  }
+
+  function VehicleIdentityCard({ identity }) {
+    return h("div", { className: "tescmd-identity-card", "aria-label": "Selected Tesla target" },
+      h("div", null,
+        h("span", { className: "tescmd-widget-label" }, "Selected target"),
+        h("strong", null, identity.name),
+        h("small", null, identity.hint)
+      ),
+      h("div", { className: "tescmd-identity-meta" },
+        h(Badge, { className: identity.state === "online" ? "tescmd-ok" : "tescmd-warn" }, identity.state),
+        h("small", null, identity.source),
+        h("small", null, "Visible target summary omits VIN and Fleet IDs; use the vehicle menu to change target safely.")
+      )
+    );
   }
 
   function VehiclePicker({ vehicles, vin, setVin }) {
@@ -345,8 +384,10 @@
     const visibleLocation = displayLocation(location, locationPrecision);
     const chargeStyle = { "--tescmd-charge": `${Math.max(0, Math.min(100, charge.level ?? 0))}%` };
     const availability = vehicleAvailability(overview);
+    const identity = vehicleIdentitySummary(overview);
     return h("div", null,
       h(VehicleSleepStatus, { availability, runAction, loading, confirm }),
+      h(VehicleIdentityCard, { identity }),
       h("div", { className: "tescmd-visual-grid" },
         h("div", { className: "tescmd-charge-widget" },
           h("div", { className: "tescmd-widget-label" }, "Charge"),

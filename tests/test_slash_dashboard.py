@@ -460,6 +460,29 @@ def test_slash_command_success_redacts_named_vehicle_identifier() -> None:
     assert "{" not in output
 
 
+def test_dashboard_visible_vehicle_identity_helpers_redact_identifiers() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+
+    assert "function redactVisibleIdentifierText(value)" in asset
+    assert "Bearer [REDACTED]" in asset
+    assert "[A-HJ-NPR-Z0-9]{17}" in asset
+    assert "\\d{12,20}" in asset
+
+    picker_body = asset.split("function vehiclePickerLabel", 1)[1].split(
+        "function vehicleIdentitySummary", 1
+    )[0]
+    identity_body = asset.split("function vehicleIdentitySummary", 1)[1].split(
+        "function VehicleIdentityCard", 1
+    )[0]
+
+    assert "visibleVehicleText(vehicle.display_name" in picker_body
+    assert "visibleVehicleText(vehicle.state" in picker_body
+    assert "vehicleModelHint(vehicle)" in picker_body
+    assert "visibleVehicleText(vehicle.display_name" in identity_body
+    assert "visibleVehicleText(vehicle.state" in identity_body
+
+
+
 def test_vehicle_list_redacts_identifiers() -> None:
     output = slash._format_vehicles(
         {
@@ -1348,6 +1371,26 @@ def test_dashboard_vehicle_picker_uses_safe_model_hints_not_visible_ids() -> Non
     assert "`${name} — ${id} — ${state}`" not in asset
     assert "`${name} — ${vehicle.vin}" not in asset
     assert "`${name} — ${vehicle.id_s}" not in asset
+
+
+def test_dashboard_overview_shows_safe_selected_target_summary() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+
+    assert "function vehicleIdentitySummary" in asset
+    assert "function VehicleIdentityCard" in asset
+    assert "Selected target" in asset
+    assert "Vehicle override active" in asset
+    assert "Configured default target" in asset
+    assert "model hint unavailable" in asset
+    assert "Visible target summary omits VIN and Fleet IDs" in asset
+    assert "use the vehicle menu to change target safely" in asset
+    assert "h(VehicleIdentityCard, { identity })" in asset
+    assert 'identity.state === "online"' in asset
+    assert ".tescmd-identity-card" in style
+    assert ".tescmd-identity-meta" in style
+    assert "identity.vin" not in asset
+    assert "identity.id_s" not in asset
 
 
 def test_dashboard_shows_busy_banner_during_refresh() -> None:
