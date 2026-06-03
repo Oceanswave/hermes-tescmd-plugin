@@ -443,6 +443,72 @@
     );
   }
 
+  function commandParamSummary(command) {
+    const params = command && command.parameters && typeof command.parameters === "object" ? command.parameters : {};
+    return Object.entries(params).map(([name, schema]) => {
+      const bits = [name];
+      if (schema && schema.type) bits.push(schema.type);
+      if (Array.isArray(command.required) && command.required.includes(name)) bits.push("required");
+      if (schema && schema.enum) bits.push(`one of ${schema.enum.join("|")}`);
+      if (schema && schema["x-sensitive"]) bits.push("sensitive");
+      return bits.join(" · ");
+    });
+  }
+
+  function CommandCatalog({ catalog, search, setSearch, category, setCategory, loading }) {
+    const commands = Array.isArray(catalog && catalog.commands) ? catalog.commands : [];
+    const categories = ["all", ...Object.keys((catalog && catalog.categories) || {}).sort()];
+    const queryText = String(search || "").trim().toLowerCase();
+    const filtered = commands.filter((command) => {
+      if (category && category !== "all" && command.category !== category) return false;
+      if (!queryText) return true;
+      return [command.name, command.description, command.operation, command.category, command.kind]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(queryText));
+    });
+    return h(Card, { className: "tescmd-command-card" },
+      h(CardHeader, null, h(CardTitle, null, "Commands")),
+      h(CardContent, null,
+        h("p", { className: "tescmd-muted" }, "Live catalog pulled from the plugin runtime tool specs. Change the native plugin surface and this list updates without a hand-maintained dashboard copy."),
+        h("div", { className: "tescmd-command-toolbar" },
+          h(TextInput, { label: "Search commands", value: search, setValue: setSearch, placeholder: "charge, auth, navigation…" }),
+          h(Field, { label: "Category" }, h("select", { className: "tescmd-select", value: category, onChange: (event) => setCategory(event.target.value) },
+            categories.map((item) => h("option", { key: item, value: item }, item === "all" ? "All categories" : `${item} (${(catalog.categories || {})[item] || 0})`))
+          )),
+          h("div", { className: "tescmd-command-stat" }, h("span", null, "Total"), h("strong", null, catalog && catalog.count != null ? catalog.count : "—")),
+          h("div", { className: "tescmd-command-stat" }, h("span", null, "Showing"), h("strong", null, loading ? "…" : filtered.length))
+        ),
+        h("div", { className: "tescmd-command-grid" },
+          filtered.map((command) => {
+            const params = commandParamSummary(command);
+            return h("article", { key: command.name, className: "tescmd-command-item" },
+              h("div", { className: "tescmd-command-head" },
+                h("code", null, command.name),
+                h("div", { className: "tescmd-command-badges" },
+                  h(Badge, { className: command.confirm_required ? "tescmd-warn" : "tescmd-ok" }, command.confirm_required ? "confirm" : command.kind),
+                  h(Badge, null, command.category)
+                )
+              ),
+              h("p", null, command.description || command.operation),
+              h("div", { className: "tescmd-command-meta" },
+                h("span", null, `operation: ${command.operation}`),
+                command.command_name ? h("span", null, `tesla: ${command.command_name}`) : null
+              ),
+              params.length ? h("details", null,
+                h("summary", null, `${params.length} parameter${params.length === 1 ? "" : "s"}`),
+                h("ul", null, params.map((param) => h("li", { key: param }, param)))
+              ) : h("small", { className: "tescmd-muted" }, "No parameters")
+            );
+          })
+        ),
+        !filtered.length ? h(EmptyState, {
+          title: "No commands match",
+          body: "Try a different search term or category. The list is generated from the registered plugin tools, not maintained by dashboard copy.",
+        }) : null
+      )
+    );
+  }
+
   function TeslaDashboard() {
     const [profile, setProfile] = hooks.useState("default");
     const [region, setRegion] = hooks.useState("");
@@ -469,6 +535,10 @@
     const [lat, setLat] = hooks.useState("");
     const [lon, setLon] = hooks.useState("");
     const [placeIds, setPlaceIds] = hooks.useState("");
+    const [activeTab, setActiveTab] = hooks.useState("overview");
+    const [commandCatalog, setCommandCatalog] = hooks.useState({ commands: [], categories: {}, count: 0 });
+    const [commandSearch, setCommandSearch] = hooks.useState("");
+    const [commandCategory, setCommandCategory] = hooks.useState("all");
 
     const query = (includeReadFlags) => {
       const params = new URLSearchParams();
@@ -515,6 +585,14 @@
     }, [profile, region, vin, noCache, units, overview]);
 
     hooks.useEffect(() => { refresh("initial"); }, []);
+
+    hooks.useEffect(() => {
+      let cancelled = false;
+      api("/commands")
+        .then((payload) => { if (!cancelled) setCommandCatalog(payload); })
+        .catch((err) => { if (!cancelled) setError(String((err && err.message) || err)); });
+      return () => { cancelled = true; };
+    }, []);
 
     async function runRead(kind) {
       setLoading(true);
@@ -592,87 +670,101 @@
         )
       ),
       h(BusyBanner, { loading, mode: loadingMode }),
-      overview && overview.onboarding ? h(OnboardingCard, { onboarding: overview.onboarding }) : null,
-      h(Card, { className: "tescmd-overview-card" },
-        h(CardHeader, null, h(CardTitle, null, "Vehicle overview")),
-        h(CardContent, null, overview ? h(VehicleSnapshot, { overview, runAction, loading, confirm, locationPrecision }) : h(EmptyState, {
-          title: "No vehicle overview loaded",
-          body: "Start with a read-only refresh to populate charge, climate, security, and map widgets.",
-          steps: ["Check profile, region, and vehicle override if the configured default is not the target vehicle.", "Use no-cache when you need fresh Fleet API data.", "Only enable wake + confirm when you intentionally want to wake a sleeping vehicle."],
-          note: "Refreshing the overview does not arm quick actions or run physical Tesla side effects.",
-          action: h(Button, { onClick: () => refresh("refresh"), disabled: loading }, loading ? "Loading..." : "Refresh overview"),
-        }))
+      h("nav", { className: "tescmd-tabs", "aria-label": "Tesla dashboard tabs" },
+        [["overview", "Overview"], ["commands", "Commands"]].map(([key, label]) =>
+          h(Button, { key, className: activeTab === key ? "tescmd-tab-active" : "", onClick: () => setActiveTab(key) }, label)
+        )
       ),
-      h(Card, { className: "tescmd-controls-card" },
-        h(CardHeader, null, h(CardTitle, null, "Options")),
-        h(CardContent, null,
-          h("div", { className: "tescmd-controls" },
-            h(TextInput, { label: "Profile", value: profile, setValue: setProfile, placeholder: "default" }),
-            h(Field, { label: "Region" }, h("select", { className: "tescmd-select", value: region, onChange: (event) => setRegion(event.target.value) },
-              h("option", { value: "" }, "Configured"), h("option", { value: "na" }, "NA"), h("option", { value: "eu" }, "EU"), h("option", { value: "cn" }, "CN")
-            )),
-            h(VehiclePicker, { vehicles, vin, setVin }),
-            h(Field, { label: "Read options" },
-              h("label", { className: "tescmd-inline" }, h("input", { type: "checkbox", checked: wakeReads, onChange: (event) => setWakeReads(event.target.checked) }), " wake"),
-              h("label", { className: "tescmd-inline" }, h("input", { type: "checkbox", checked: noCache, onChange: (event) => setNoCache(event.target.checked) }), " no cache")
-            ),
-            h(Field, { label: "Units" }, h("select", { className: "tescmd-select", value: units, onChange: (event) => setUnits(event.target.value) },
-              h("option", { value: "" }, "Configured"), h("option", { value: "metric" }, "Metric"), h("option", { value: "us" }, "US")
-            )),
-            h(Field, { label: "Location display" },
-              h("select", { className: "tescmd-select", value: locationPrecision, onChange: (event) => setLocationPrecision(event.target.value) },
-                h("option", { value: "approximate" }, "Approximate area"), h("option", { value: "precise" }, "Precise coordinates")
+      activeTab === "commands" ? h(CommandCatalog, {
+        catalog: commandCatalog,
+        search: commandSearch,
+        setSearch: setCommandSearch,
+        category: commandCategory,
+        setCategory: setCommandCategory,
+        loading,
+      }) : [
+        overview && overview.onboarding ? h(OnboardingCard, { key: "onboarding", onboarding: overview.onboarding }) : null,
+        h(Card, { key: "overview", className: "tescmd-overview-card" },
+          h(CardHeader, null, h(CardTitle, null, "Vehicle overview")),
+          h(CardContent, null, overview ? h(VehicleSnapshot, { overview, runAction, loading, confirm, locationPrecision }) : h(EmptyState, {
+            title: "No vehicle overview loaded",
+            body: "Start with a read-only refresh to populate charge, climate, security, and map widgets.",
+            steps: ["Check profile, region, and vehicle override if the configured default is not the target vehicle.", "Use no-cache when you need fresh Fleet API data.", "Only enable wake + confirm when you intentionally want to wake a sleeping vehicle."],
+            note: "Refreshing the overview does not arm quick actions or run physical Tesla side effects.",
+            action: h(Button, { onClick: () => refresh("refresh"), disabled: loading }, loading ? "Loading..." : "Refresh overview"),
+          }))
+        ),
+        h(Card, { key: "options", className: "tescmd-controls-card" },
+          h(CardHeader, null, h(CardTitle, null, "Options")),
+          h(CardContent, null,
+            h("div", { className: "tescmd-controls" },
+              h(TextInput, { label: "Profile", value: profile, setValue: setProfile, placeholder: "default" }),
+              h(Field, { label: "Region" }, h("select", { className: "tescmd-select", value: region, onChange: (event) => setRegion(event.target.value) },
+                h("option", { value: "" }, "Configured"), h("option", { value: "na" }, "NA"), h("option", { value: "eu" }, "EU"), h("option", { value: "cn" }, "CN")
+              )),
+              h(VehiclePicker, { vehicles, vin, setVin }),
+              h(Field, { label: "Read options" },
+                h("label", { className: "tescmd-inline" }, h("input", { type: "checkbox", checked: wakeReads, onChange: (event) => setWakeReads(event.target.checked) }), " wake"),
+                h("label", { className: "tescmd-inline" }, h("input", { type: "checkbox", checked: noCache, onChange: (event) => setNoCache(event.target.checked) }), " no cache")
               ),
-              h("small", { className: "tescmd-muted" }, "Approximate mode rounds visible map text and marker position; raw payload stays redacted below.")
+              h(Field, { label: "Units" }, h("select", { className: "tescmd-select", value: units, onChange: (event) => setUnits(event.target.value) },
+                h("option", { value: "" }, "Configured"), h("option", { value: "metric" }, "Metric"), h("option", { value: "us" }, "US")
+              )),
+              h(Field, { label: "Location display" },
+                h("select", { className: "tescmd-select", value: locationPrecision, onChange: (event) => setLocationPrecision(event.target.value) },
+                  h("option", { value: "approximate" }, "Approximate area"), h("option", { value: "precise" }, "Precise coordinates")
+                ),
+                h("small", { className: "tescmd-muted" }, "Approximate mode rounds visible map text and marker position; raw payload stays redacted below.")
+              )
+            ),
+            status ? h(Readiness, { status }) : null
+          )
+        ),
+        h("div", { key: "workbench", className: "tescmd-workbench" },
+          h(Card, null,
+            h(CardHeader, null, h(CardTitle, null, "Reads")),
+            h(CardContent, null,
+              h("p", { className: "tescmd-muted" }, "Wake-enabled reads require both the wake checkbox and confirm below; otherwise they fail closed."),
+              READ_GROUPS.map(([title, reads]) => h(ReadGroup, { key: title, title, reads, runRead, loading }))
             )
           ),
-          status ? h(Readiness, { status }) : null
-        )
-      ),
-      h("div", { className: "tescmd-workbench" },
-      h(Card, null,
-        h(CardHeader, null, h(CardTitle, null, "Reads")),
-        h(CardContent, null,
-          h("p", { className: "tescmd-muted" }, "Wake-enabled reads require both the wake checkbox and confirm below; otherwise they fail closed."),
-          READ_GROUPS.map(([title, reads]) => h(ReadGroup, { key: title, title, reads, runRead, loading }))
-        )
-      ),
-      h(Card, null,
-        h(CardHeader, null, h(CardTitle, null, "Guarded quick actions")),
-        h(CardContent, null,
-          h("label", { className: "tescmd-confirm" }, h("input", { type: "checkbox", checked: confirm, onChange: (event) => setConfirm(event.target.checked) }), h("span", null, "I confirm this physical Tesla side effect")),
-          h("div", { className: "tescmd-controls" },
-            h(Field, { label: "Sentry" }, h("select", { className: "tescmd-select", value: enabled ? "true" : "false", onChange: (event) => setEnabled(event.target.value === "true") }, h("option", { value: "true" }, "Enable"), h("option", { value: "false" }, "Disable"))),
-            h(TextInput, { label: "Charge limit %", value: percent, setValue: setPercent, type: "number" }),
-            h(TextInput, { label: "Charge amps", value: amps, setValue: setAmps, type: "number" }),
-            h(TextInput, { label: "Driver temp", value: driverTemp, setValue: setDriverTemp, type: "number" }),
-            h(TextInput, { label: "Passenger temp", value: passengerTemp, setValue: setPassengerTemp, type: "number" }),
-            h(TextInput, { label: "Volume", value: volume, setValue: setVolume, type: "number" })
+          h(Card, null,
+            h(CardHeader, null, h(CardTitle, null, "Guarded quick actions")),
+            h(CardContent, null,
+              h("label", { className: "tescmd-confirm" }, h("input", { type: "checkbox", checked: confirm, onChange: (event) => setConfirm(event.target.checked) }), h("span", null, "I confirm this physical Tesla side effect")),
+              h("div", { className: "tescmd-controls" },
+                h(Field, { label: "Sentry" }, h("select", { className: "tescmd-select", value: enabled ? "true" : "false", onChange: (event) => setEnabled(event.target.value === "true") }, h("option", { value: "true" }, "Enable"), h("option", { value: "false" }, "Disable"))),
+                h(TextInput, { label: "Charge limit %", value: percent, setValue: setPercent, type: "number" }),
+                h(TextInput, { label: "Charge amps", value: amps, setValue: setAmps, type: "number" }),
+                h(TextInput, { label: "Driver temp", value: driverTemp, setValue: setDriverTemp, type: "number" }),
+                h(TextInput, { label: "Passenger temp", value: passengerTemp, setValue: setPassengerTemp, type: "number" }),
+                h(TextInput, { label: "Volume", value: volume, setValue: setVolume, type: "number" })
+              ),
+              h("div", { className: "tescmd-controls" },
+                h(TextInput, { label: "Destination", value: destination, setValue: setDestination, placeholder: "address or place" }),
+                h(TextInput, { label: "Latitude", value: lat, setValue: setLat, type: "number" }),
+                h(TextInput, { label: "Longitude", value: lon, setValue: setLon, type: "number" }),
+                h(TextInput, { label: "Place IDs", value: placeIds, setValue: setPlaceIds, placeholder: "id1,id2" })
+              ),
+              ACTION_GROUPS.map(([title, actions]) => h(ActionGroup, { key: title, title, actions, runAction, loading, confirm })),
+              h("p", { className: "tescmd-muted" }, "Higher-risk flows like remote-start-drive, speed limit PINs, valet/PIN-to-drive, erase-user-data, and raw API calls remain tool-only with explicit confirm=true.")
+            )
           ),
-          h("div", { className: "tescmd-controls" },
-            h(TextInput, { label: "Destination", value: destination, setValue: setDestination, placeholder: "address or place" }),
-            h(TextInput, { label: "Latitude", value: lat, setValue: setLat, type: "number" }),
-            h(TextInput, { label: "Longitude", value: lon, setValue: setLon, type: "number" }),
-            h(TextInput, { label: "Place IDs", value: placeIds, setValue: setPlaceIds, placeholder: "id1,id2" })
-          ),
-          ACTION_GROUPS.map(([title, actions]) => h(ActionGroup, { key: title, title, actions, runAction, loading, confirm })),
-          h("p", { className: "tescmd-muted" }, "Higher-risk flows like remote-start-drive, speed limit PINs, valet/PIN-to-drive, erase-user-data, and raw API calls remain tool-only with explicit confirm=true.")
+          error ? h(Card, { className: "tescmd-error-card" }, h(CardContent, null, h("p", { className: "tescmd-error" }, error))) : null,
+          h(Card, { className: "tescmd-payload-card" },
+            h(CardHeader, null, h(CardTitle, null, "Redacted last payload")),
+            h(CardContent, null,
+              h("p", { className: "tescmd-muted" }, "Debug view hides full vehicle identifiers, tokens, navigation destinations, and precise coordinates."),
+              detail ? h(JsonBlock, { data: detail }) : h(EmptyState, {
+                title: "No payload selected",
+                body: "Run a read or a confirm-gated quick action to inspect the latest redacted plugin response here.",
+                steps: ["Reads are safe by default and only wake the vehicle when wake + confirm are both enabled.", "Quick actions stay disabled until you check the physical side-effect confirmation."],
+                note: "Sensitive IDs and raw coordinates should stay out of human-facing slash summaries.",
+              })
+            )
+          )
         )
-      ),
-      error ? h(Card, { className: "tescmd-error-card" }, h(CardContent, null, h("p", { className: "tescmd-error" }, error))) : null,
-      h(Card, { className: "tescmd-payload-card" },
-        h(CardHeader, null, h(CardTitle, null, "Redacted last payload")),
-        h(CardContent, null,
-          h("p", { className: "tescmd-muted" }, "Debug view hides full vehicle identifiers, tokens, navigation destinations, and precise coordinates."),
-          detail ? h(JsonBlock, { data: detail }) : h(EmptyState, {
-            title: "No payload selected",
-            body: "Run a read or a confirm-gated quick action to inspect the latest redacted plugin response here.",
-            steps: ["Reads are safe by default and only wake the vehicle when wake + confirm are both enabled.", "Quick actions stay disabled until you check the physical side-effect confirmation."],
-            note: "Sensitive IDs and raw coordinates should stay out of human-facing slash summaries.",
-          })
-        )
-      )
-      )
+      ]
     );
   }
 

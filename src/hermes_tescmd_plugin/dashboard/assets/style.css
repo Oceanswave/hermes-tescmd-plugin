@@ -579,6 +579,111 @@
   font-size: 0.75rem;
 }
 
+.tescmd-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.tescmd-tabs button,
+.tescmd-tab-active {
+  border-color: color-mix(in srgb, var(--tescmd-blue) 38%, var(--color-border));
+}
+
+.tescmd-tab-active {
+  color: var(--tescmd-blue);
+  background: color-mix(in srgb, var(--tescmd-blue) 12%, var(--color-card));
+}
+
+.tescmd-command-card {
+  overflow: hidden;
+}
+
+.tescmd-command-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: end;
+  margin: 0.65rem 0;
+}
+
+.tescmd-command-stat {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 5.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.45rem 0.55rem;
+  background: color-mix(in srgb, var(--color-card) 82%, transparent);
+}
+
+.tescmd-command-stat span,
+.tescmd-command-meta,
+.tescmd-command-item details,
+.tescmd-command-item small {
+  color: var(--color-muted-foreground);
+  font-size: 0.74rem;
+}
+
+.tescmd-command-stat strong {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.tescmd-command-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+  gap: 0.65rem;
+}
+
+.tescmd-command-item {
+  display: grid;
+  gap: 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+  border-radius: var(--radius);
+  padding: 0.7rem;
+  background:
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--tescmd-blue) 8%, transparent), transparent 32%),
+    color-mix(in srgb, var(--color-card) 92%, transparent);
+}
+
+.tescmd-command-head,
+.tescmd-command-badges,
+.tescmd-command-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.tescmd-command-head {
+  justify-content: space-between;
+}
+
+.tescmd-command-head code {
+  color: var(--tescmd-blue);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.tescmd-command-item p {
+  margin: 0;
+  color: var(--color-muted-foreground);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.tescmd-command-item summary {
+  cursor: pointer;
+  color: var(--color-foreground);
+}
+
+.tescmd-command-item ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1rem;
+}
+
 .tescmd-error {
   color: var(--color-destructive);
 }

@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 
-from hermes_tescmd_plugin import runtime
+from hermes_tescmd_plugin import runtime, schemas
 from hermes_tescmd_plugin.dashboard import ensure_dashboard_installed
 from hermes_tescmd_plugin.slash import _redact_slash_text, _redact_vehicle_identifier
 
@@ -93,6 +93,46 @@ _READ_TOOLS = {
 
 def _specs() -> dict[str, runtime.ToolSpec]:
     return {spec.name: spec for spec in runtime.list_tool_specs()}
+
+
+def _command_category(spec: runtime.ToolSpec) -> str:
+    if spec.name.startswith("tescmd_"):
+        remainder = spec.name.removeprefix("tescmd_")
+        return remainder.split("_", 1)[0] or spec.operation
+    return spec.operation.split("_", 1)[0] or "other"
+
+
+def _command_kind(spec: runtime.ToolSpec) -> str:
+    if any(param.name == "confirm" and param.required for param in spec.params):
+        return "action"
+    if spec.operation.endswith("status") or spec.operation in {
+        "status",
+        "auth_status",
+        "vehicle_list",
+        "vehicle_get",
+        "vehicle_status",
+    }:
+        return "read"
+    return "admin" if _command_category(spec) in {"auth", "key", "cache", "onboarding", "partner"} else "read"
+
+
+def _serialize_command(spec: runtime.ToolSpec) -> dict[str, Any]:
+    schema = schemas.build_schema(spec)
+    parameters = schema["parameters"]
+    return {
+        "name": spec.name,
+        "description": spec.description,
+        "operation": spec.operation,
+        "category": _command_category(spec),
+        "kind": _command_kind(spec),
+        "command_name": spec.command_name,
+        "payload_mode": spec.payload_mode,
+        "required": parameters.get("required", []),
+        "parameters": parameters.get("properties", {}),
+        "confirm_required": any(
+            param.name == "confirm" and param.required for param in spec.params
+        ),
+    }
 
 
 def _run(tool_name: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -212,6 +252,26 @@ def tools() -> dict[str, Any]:
         "action_defaults": _ACTION_DEFAULTS,
         "action_extra_fields": _ACTION_EXTRA_FIELDS,
         "safety": "Quick actions are physical side effects and require confirm=true.",
+    }
+
+
+@router.get("/commands")
+def commands() -> dict[str, Any]:
+    """Return the live Hermes tool catalog generated from the plugin runtime specs."""
+
+    command_list = [_serialize_command(spec) for spec in runtime.list_tool_specs()]
+    categories: dict[str, int] = {}
+    kinds: dict[str, int] = {}
+    for command in command_list:
+        categories[command["category"]] = categories.get(command["category"], 0) + 1
+        kinds[command["kind"]] = kinds.get(command["kind"], 0) + 1
+    return {
+        "ok": True,
+        "source": "runtime.list_tool_specs",
+        "count": len(command_list),
+        "categories": categories,
+        "kinds": kinds,
+        "commands": command_list,
     }
 
 
