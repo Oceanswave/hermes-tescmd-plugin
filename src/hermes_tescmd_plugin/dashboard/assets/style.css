@@ -135,7 +135,58 @@
 }
 
 .tescmd-confirm {
+  margin: 0 0 0.65rem;
+}
+
+.tescmd-action-safety {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.62rem;
+  align-items: start;
   margin-bottom: 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--tescmd-blue) 34%, var(--color-border));
+  border-radius: var(--radius);
+  padding: 0.62rem 0.72rem;
+  background:
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--tescmd-blue) 12%, transparent), transparent 30%),
+    color-mix(in srgb, var(--color-card) 93%, transparent);
+}
+
+.tescmd-action-safety-armed {
+  border-color: color-mix(in srgb, var(--tescmd-amber) 54%, var(--color-border));
+  background:
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--tescmd-amber) 15%, transparent), transparent 30%),
+    color-mix(in srgb, var(--color-card) 94%, transparent);
+}
+
+.tescmd-action-safety-icon {
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, currentColor 42%, var(--color-border));
+  border-radius: 999px;
+  color: var(--tescmd-blue);
+  font-weight: 850;
+}
+
+.tescmd-action-safety-armed .tescmd-action-safety-icon,
+.tescmd-action-safety-armed strong {
+  color: var(--tescmd-amber);
+}
+
+.tescmd-action-safety strong {
+  display: block;
+  margin-bottom: 0.12rem;
+  letter-spacing: -0.02em;
+}
+
+.tescmd-action-safety p,
+.tescmd-action-safety small {
+  margin: 0;
+  color: var(--color-muted-foreground);
+  font-size: 0.78rem;
+  line-height: 1.32;
 }
 
 .tescmd-overview-card {

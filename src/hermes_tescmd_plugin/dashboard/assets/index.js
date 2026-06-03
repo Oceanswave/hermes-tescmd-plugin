@@ -195,6 +195,21 @@
     );
   }
 
+  function ActionSafetyPanel({ confirm, loading, lastActionStatus }) {
+    const armed = Boolean(confirm);
+    return h("div", { className: armed ? "tescmd-action-safety tescmd-action-safety-armed" : "tescmd-action-safety", role: "status", "aria-live": "polite" },
+      h("div", { className: "tescmd-action-safety-icon", "aria-hidden": "true" }, armed ? "↯" : "○"),
+      h("div", null,
+        h("strong", null, armed ? "Physical actions are armed" : "Physical actions are locked"),
+        h("p", null, armed
+          ? "Buttons below can wake or change the vehicle. Confirmation automatically turns off after one quick action."
+          : "Read panels stay available, but wake, security, charging, climate, body, media, and navigation actions require the confirmation checkbox."),
+        loading ? h("small", null, "Tesla is processing the current dashboard request.") : null,
+        lastActionStatus ? h("small", { className: "tescmd-muted" }, lastActionStatus) : null
+      )
+    );
+  }
+
   function objectAt(payload, keys) {
     for (const key of keys) {
       if (payload && typeof payload === "object" && payload[key] && typeof payload[key] === "object") return payload[key];
@@ -521,6 +536,7 @@
     const [loadingMode, setLoadingMode] = hooks.useState("");
     const [error, setError] = hooks.useState("");
     const [confirm, setConfirm] = hooks.useState(false);
+    const [lastActionStatus, setLastActionStatus] = hooks.useState("");
     const [wakeReads, setWakeReads] = hooks.useState(false);
     const [noCache, setNoCache] = hooks.useState(false);
     const [units, setUnits] = hooks.useState("");
@@ -641,6 +657,7 @@
       setLoading(true);
       setLoadingMode("refresh");
       setError("");
+      setLastActionStatus("");
       try {
         const payload = await api("/quick-action", {
           method: "POST",
@@ -648,9 +665,13 @@
           body: JSON.stringify(actionBody(action)),
         });
         setDetail(payload);
+        setConfirm(false);
+        setLastActionStatus(`Ran ${action}; physical actions are locked again.`);
         await refresh();
       } catch (err) {
         setError(String((err && err.message) || err));
+        setLastActionStatus(`Attempted ${action}; confirmation is still locked off after the request.`);
+        setConfirm(false);
       } finally {
         setLoading(false);
         setLoadingMode("");
@@ -731,6 +752,7 @@
           h(Card, null,
             h(CardHeader, null, h(CardTitle, null, "Guarded quick actions")),
             h(CardContent, null,
+              h(ActionSafetyPanel, { confirm, loading, lastActionStatus }),
               h("label", { className: "tescmd-confirm" }, h("input", { type: "checkbox", checked: confirm, onChange: (event) => setConfirm(event.target.checked) }), h("span", null, "I confirm this physical Tesla side effect")),
               h("div", { className: "tescmd-controls" },
                 h(Field, { label: "Sentry" }, h("select", { className: "tescmd-select", value: enabled ? "true" : "false", onChange: (event) => setEnabled(event.target.value === "true") }, h("option", { value: "true" }, "Enable"), h("option", { value: "false" }, "Disable"))),
