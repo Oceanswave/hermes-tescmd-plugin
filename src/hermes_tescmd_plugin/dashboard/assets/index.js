@@ -193,7 +193,7 @@
     );
   }
 
-  function VehiclePicker({ vehicles, vin, setVin }) {
+  function VehiclePicker({ vehicles, vin, setVin, setDefaultVehicle, loading }) {
     const list = Array.isArray(vehicles) ? vehicles : [];
     return h(Field, { label: "Vehicle" },
       h("select", {
@@ -212,7 +212,11 @@
         value: vin || "",
         onChange: (event) => setVin(event.target.value),
       }),
-      h("small", { className: "tescmd-muted" }, "Vehicle menu labels show safe model hints only; full VIN/Fleet IDs stay out of visible option text.")
+      h("div", { className: "tescmd-inline-actions" },
+        h(Button, { onClick: () => setDefaultVehicle(vin), disabled: loading || !vin }, "Make selected default"),
+        h(Button, { onClick: () => setDefaultVehicle(""), disabled: loading }, "Clear dashboard default")
+      ),
+      h("small", { className: "tescmd-muted" }, "Vehicle menu labels show safe model hints only; full VIN/Fleet IDs stay out of visible option text. Saving a default stores the selected identifier in plugin config while visible text stays redacted.")
     );
   }
 
@@ -611,22 +615,23 @@
       return params.toString();
     };
 
-    const overviewQuery = () => {
+    const overviewQuery = (overrideVin) => {
       const params = new URLSearchParams();
+      const queryVin = overrideVin === undefined ? vin : overrideVin;
       if (profile) params.set("profile", profile);
       if (region) params.set("region", region);
-      if (vin) params.set("vin", vin);
+      if (queryVin) params.set("vin", queryVin);
       if (noCache) params.set("no_cache", "true");
       if (units) params.set("units", units);
       return params.toString();
     };
 
-    const refresh = hooks.useCallback(async (mode) => {
+    const refresh = hooks.useCallback(async (mode, overrideVin) => {
       setLoading(true);
       setLoadingMode(mode || (overview ? "refresh" : "initial"));
       setError("");
       try {
-        const overviewPayload = await api(`/overview?${overviewQuery()}`);
+        const overviewPayload = await api(`/overview?${overviewQuery(overrideVin)}`);
         const statusPayload = overviewPayload.status || null;
         const vehiclePayload = overviewPayload.vehicles || {};
         setOverview(overviewPayload);
@@ -692,6 +697,29 @@
       }
       if (action === "nav-waypoints") body.place_ids = placeIds.split(",").map((x) => x.trim()).filter(Boolean);
       return body;
+    }
+
+    async function setDefaultVehicle(nextVin) {
+      setLoading(true);
+      setLoadingMode("refresh");
+      setError("");
+      setLastActionStatus("");
+      try {
+        const payload = await api("/default-vehicle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ profile: profile || "default", vin: nextVin || null }),
+        });
+        setDetail(payload);
+        setLastActionStatus(payload.message || "Default Tesla vehicle updated.");
+        setVin("");
+        await refresh("refresh", "");
+      } catch (err) {
+        setError(String((err && err.message) || err));
+      } finally {
+        setLoading(false);
+        setLoadingMode("");
+      }
     }
 
     async function runAction(action) {
@@ -764,7 +792,7 @@
               h(Field, { label: "Region" }, h("select", { className: "tescmd-select", value: region, onChange: (event) => setRegion(event.target.value) },
                 h("option", { value: "" }, "Configured"), h("option", { value: "na" }, "NA"), h("option", { value: "eu" }, "EU"), h("option", { value: "cn" }, "CN")
               )),
-              h(VehiclePicker, { vehicles, vin, setVin }),
+              h(VehiclePicker, { vehicles, vin, setVin, setDefaultVehicle, loading }),
               h(Field, { label: "Read options" },
                 h("label", { className: "tescmd-inline" }, h("input", { type: "checkbox", checked: wakeReads, onChange: (event) => setWakeReads(event.target.checked) }), " wake"),
                 h("label", { className: "tescmd-inline" }, h("input", { type: "checkbox", checked: noCache, onChange: (event) => setNoCache(event.target.checked) }), " no cache")

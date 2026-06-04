@@ -128,10 +128,15 @@
 }
 
 .tescmd-confirm,
-.tescmd-inline {
+.tescmd-inline,
+.tescmd-inline-actions {
   display: inline-flex;
   gap: 0.45rem;
   align-items: center;
+}
+
+.tescmd-inline-actions {
+  flex-wrap: wrap;
 }
 
 .tescmd-confirm {
