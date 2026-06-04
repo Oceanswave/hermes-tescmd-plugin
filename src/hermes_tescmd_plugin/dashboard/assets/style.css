@@ -187,11 +187,39 @@
 }
 
 .tescmd-action-safety p,
-.tescmd-action-safety small {
+.tescmd-action-safety small,
+.tescmd-nav-guard small {
   margin: 0;
   color: var(--color-muted-foreground);
   font-size: 0.78rem;
   line-height: 1.32;
+}
+
+.tescmd-nav-guard {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+  margin: 0.55rem 0 0.75rem;
+  border: 1px dashed color-mix(in srgb, var(--tescmd-blue) 45%, var(--color-border));
+  border-radius: var(--radius);
+  padding: 0.62rem 0.72rem;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tescmd-blue) 9%, transparent), transparent 48%),
+    color-mix(in srgb, var(--color-card) 94%, transparent);
+}
+
+.tescmd-nav-guard strong {
+  display: block;
+  margin: 0.1rem 0;
+  letter-spacing: -0.02em;
+}
+
+.tescmd-nav-guard-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
 }
 
 .tescmd-overview-card {
@@ -812,6 +840,7 @@
 
 @media (max-width: 900px) {
   .tescmd-identity-card,
+  .tescmd-nav-guard,
   .tescmd-visual-grid {
     grid-template-columns: 1fr;
   }

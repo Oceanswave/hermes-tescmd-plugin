@@ -484,6 +484,35 @@ def test_dashboard_visible_vehicle_identity_helpers_redact_identifiers() -> None
     assert "visibleVehicleText(vehicle.state" in identity_body
 
 
+def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+
+    assert "function NavigationGuardPanel" in asset
+    assert (
+        "Navigation buttons stay unavailable until their required destination fields are present"
+        in asset
+    )
+    assert "After a navigation action is sent, route fields are cleared" in asset
+    assert "actionDisabledReason(action)" in asset
+    assert "const disabledReason = actionDisabledReason(action);" in asset
+    assert "Enter a destination before sending navigation." in asset
+    assert "Enter both latitude and longitude before sending GPS navigation." in asset
+    assert "Enter at least one place ID before sending waypoints." in asset
+    assert "Physical actions are locked again." in asset
+    assert "body.destination = destination.trim()" in asset
+    assert "function clearNavigationFields(action)" in asset
+    assert 'setDestination("")' in asset
+    assert 'setLat("")' in asset
+    assert 'setLon("")' in asset
+    assert 'setPlaceIds("")' in asset
+    assert "if (navigationAction) clearNavigationFields(action);" in asset
+    assert "route fields were cleared and physical actions are locked again" in asset
+    assert (
+        "route fields were cleared and confirmation is locked off after the request"
+        in asset
+    )
+
+
 def test_vehicle_list_redacts_identifiers() -> None:
     output = slash._format_vehicles(
         {
