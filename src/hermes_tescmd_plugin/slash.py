@@ -483,6 +483,20 @@ def _payload_section(payload: dict[str, Any], *keys: str) -> dict[str, Any]:
     return {}
 
 
+def _first_present(mapping: dict[str, Any], *keys: str) -> Any:
+    """Return the first key whose value is present, preserving falsey values.
+
+    Tesla payloads can legitimately contain ``0`` for coordinates, headings,
+    speeds, and percentages. Slash summaries should treat those as meaningful
+    data instead of falling through an ``or`` chain.
+    """
+
+    for key in keys:
+        if key in mapping and mapping.get(key) is not None:
+            return mapping.get(key)
+    return None
+
+
 def _collection_from_payload(payload: dict[str, Any], *keys: str) -> list[Any]:
     for container in (
         payload,
@@ -872,9 +886,10 @@ def _closure_detail_parts(state: dict[str, Any]) -> list[str]:
         value = state.get(key)
         if value is None:
             continue
-        if bool(value):
+        is_open = _closure_is_open(value)
+        if is_open is True:
             open_items.append(label)
-        else:
+        elif is_open is False:
             closed_count += 1
 
     parts: list[str] = []
@@ -885,6 +900,25 @@ def _closure_detail_parts(state: dict[str, Any]) -> list[str]:
     elif closed_count:
         parts.append(f"{closed_count} reported closed")
     return parts
+
+
+def _closure_is_open(value: Any) -> bool | None:
+    """Interpret Tesla closure flags without treating strings as truthy.
+
+    Some Fleet payloads use booleans/0/1 while others surface state labels such
+    as ``"open"`` or ``"closed"``. A plain ``bool("closed")`` would mark a
+    safely closed closure as open, which is noisy and misleading in operator
+    slash-command output.
+    """
+
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in _TRUE_VALUES or normalized in {"open", "opened", "on"}:
+            return True
+        if normalized in _FALSE_VALUES or normalized in {"closed", "close", "off"}:
+            return False
+        return None
+    return bool(value)
 
 
 def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
@@ -952,8 +986,8 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
             lines.append("Drive: " + ", ".join(drive_parts))
 
     location = _payload_section(payload, "location", "location_data", "drive_state")
-    lat = location.get("latitude") or location.get("lat")
-    lon = location.get("longitude") or location.get("lon") or location.get("lng")
+    lat = _first_present(location, "latitude", "lat")
+    lon = _first_present(location, "longitude", "lon", "lng")
     if lat is not None and lon is not None:
         lines.append("Location: available (coordinates redacted)")
 
