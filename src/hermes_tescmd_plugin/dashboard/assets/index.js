@@ -220,11 +220,20 @@
     );
   }
 
-  function ActionGroup({ title, actions, runAction, loading, confirm }) {
+  function ActionGroup({ title, actions, runAction, loading, confirm, actionDisabledReason }) {
     return h("div", { className: "tescmd-group" },
       h("h3", null, title),
       h("div", { className: "tescmd-actions" },
-        actions.map(([action, label]) => h(Button, { key: action, onClick: () => runAction(action), disabled: loading || !confirm }, label))
+        actions.map(([action, label]) => {
+          const reason = actionDisabledReason ? actionDisabledReason(action) : "";
+          const disabled = loading || !confirm || Boolean(reason);
+          return h(Button, {
+            key: action,
+            onClick: () => runAction(action),
+            disabled,
+            title: reason || (!confirm ? "Turn on confirmation before physical Tesla actions." : undefined),
+          }, label);
+        })
       )
     );
   }
@@ -249,6 +258,28 @@
           : "Read panels stay available, but wake, security, charging, climate, body, media, and navigation actions require the confirmation checkbox."),
         loading ? h("small", null, "Tesla is processing the current dashboard request.") : null,
         lastActionStatus ? h("small", { className: "tescmd-muted" }, lastActionStatus) : null
+      )
+    );
+  }
+
+  function NavigationGuardPanel({ destination, lat, lon, placeIds }) {
+    const hasDestination = String(destination || "").trim() !== "";
+    const hasLat = String(lat || "").trim() !== "";
+    const hasLon = String(lon || "").trim() !== "";
+    const waypointCount = String(placeIds || "").split(",").map((value) => value.trim()).filter(Boolean).length;
+    const navReady = hasDestination;
+    const gpsReady = hasLat && hasLon;
+    const waypointReady = waypointCount > 0;
+    return h("div", { className: "tescmd-nav-guard", role: "note", "aria-label": "Navigation action guardrails" },
+      h("div", null,
+        h("span", { className: "tescmd-widget-label" }, "Navigation guardrail"),
+        h("strong", null, navReady || gpsReady || waypointReady ? "Route fields ready" : "No route target entered"),
+        h("small", null, "Navigation buttons stay unavailable until their required destination fields are present. After a navigation action is sent, route fields are cleared from dashboard state.")
+      ),
+      h("div", { className: "tescmd-nav-guard-badges" },
+        h(Badge, { className: navReady ? "tescmd-ok" : "tescmd-warn" }, navReady ? "destination set" : "destination needed"),
+        h(Badge, { className: gpsReady ? "tescmd-ok" : "tescmd-warn" }, gpsReady ? "GPS pair set" : "lat/lon needed"),
+        h(Badge, { className: waypointReady ? "tescmd-ok" : "tescmd-warn" }, waypointReady ? `${waypointCount} waypoint${waypointCount === 1 ? "" : "s"}` : "place IDs needed")
       )
     );
   }
@@ -711,13 +742,29 @@
         body.passenger_temp = numeric(passengerTemp);
       }
       if (action === "media-volume-set") body.volume = numeric(volume);
-      if (action === "nav") body.destination = destination;
+      if (action === "nav") body.destination = destination.trim();
       if (action === "nav-gps") {
         body.lat = numeric(lat);
         body.lon = numeric(lon);
       }
       if (action === "nav-waypoints") body.place_ids = placeIds.split(",").map((x) => x.trim()).filter(Boolean);
       return body;
+    }
+
+    function actionDisabledReason(action) {
+      if (action === "nav" && !destination.trim()) return "Enter a destination before sending navigation.";
+      if (action === "nav-gps" && (numeric(lat) === null || numeric(lon) === null)) return "Enter both latitude and longitude before sending GPS navigation.";
+      if (action === "nav-waypoints" && !placeIds.split(",").map((x) => x.trim()).filter(Boolean).length) return "Enter at least one place ID before sending waypoints.";
+      return "";
+    }
+
+    function clearNavigationFields(action) {
+      if (action === "nav") setDestination("");
+      if (action === "nav-gps") {
+        setLat("");
+        setLon("");
+      }
+      if (action === "nav-waypoints") setPlaceIds("");
     }
 
     async function setDefaultVehicle(nextVin) {
@@ -744,6 +791,14 @@
     }
 
     async function runAction(action) {
+      const navigationAction = action === "nav" || action === "nav-gps" || action === "nav-waypoints";
+      const disabledReason = actionDisabledReason(action);
+      if (disabledReason) {
+        setConfirm(false);
+        setLastActionStatus(`${disabledReason} Physical actions are locked again.`);
+        return;
+      }
+
       setLoading(true);
       setLoadingMode("refresh");
       setError("");
@@ -756,11 +811,17 @@
         });
         setDetail(payload);
         setConfirm(false);
-        setLastActionStatus(`Ran ${action}; physical actions are locked again.`);
+        if (navigationAction) clearNavigationFields(action);
+        setLastActionStatus(navigationAction
+          ? `Ran ${action}; route fields were cleared and physical actions are locked again.`
+          : `Ran ${action}; physical actions are locked again.`);
         await refresh();
       } catch (err) {
         setError(String((err && err.message) || err));
-        setLastActionStatus(`Attempted ${action}; confirmation is still locked off after the request.`);
+        if (navigationAction) clearNavigationFields(action);
+        setLastActionStatus(navigationAction
+          ? `Attempted ${action}; route fields were cleared and confirmation is locked off after the request.`
+          : `Attempted ${action}; confirmation is still locked off after the request.`);
         setConfirm(false);
       } finally {
         setLoading(false);
@@ -858,7 +919,8 @@
                 h(TextInput, { label: "Longitude", value: lon, setValue: setLon, type: "number" }),
                 h(TextInput, { label: "Place IDs", value: placeIds, setValue: setPlaceIds, placeholder: "id1,id2" })
               ),
-              ACTION_GROUPS.map(([title, actions]) => h(ActionGroup, { key: title, title, actions, runAction, loading, confirm })),
+              h(NavigationGuardPanel, { destination, lat, lon, placeIds }),
+              ACTION_GROUPS.map(([title, actions]) => h(ActionGroup, { key: title, title, actions, runAction, loading, confirm, actionDisabledReason })),
               h("p", { className: "tescmd-muted" }, "Higher-risk flows like remote-start-drive, speed limit PINs, valet/PIN-to-drive, erase-user-data, and raw API calls remain tool-only with explicit confirm=true.")
             )
           ),
