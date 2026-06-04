@@ -960,6 +960,29 @@ def test_location_slash_summary_includes_safe_drive_context_only() -> None:
     assert "{" not in output
 
 
+def test_location_slash_summary_treats_zero_coordinates_as_present() -> None:
+    output = slash._format_command(
+        "tescmd-location",
+        {
+            "ok": True,
+            "data": {
+                "location_data": {
+                    "shift_state": "P",
+                    "speed": 0,
+                    "heading": 0,
+                    "latitude": 0,
+                    "longitude": 0,
+                }
+            },
+        },
+    )
+
+    assert "Drive: shift parked, speed 0 mph, heading 0°" in output
+    assert "Location: available (coordinates redacted)" in output
+    assert "Result: command accepted" not in output
+    assert "{" not in output
+
+
 def test_nearby_chargers_slash_summary_is_human_readable_and_location_safe() -> None:
     output = slash._format_command(
         "tescmd-nearby-chargers",
@@ -1078,6 +1101,42 @@ def test_closures_slash_summary_reports_open_items_privately() -> None:
     assert "Result: command accepted" not in output
     assert "5YJ3E1EA7JF000001" not in output
     assert "12345678901234567" not in output
+    assert "{" not in output
+
+
+def test_closures_slash_summary_reports_string_states_without_truthiness_noise() -> (
+    None
+):
+    output = slash._format_command(
+        "tescmd-closures",
+        {
+            "ok": True,
+            "data": {
+                "vehicle_state": {
+                    "locked": "unlocked",
+                    "sentry_mode": "off",
+                    "df": "closed",
+                    "pf": "open",
+                    "dr": "closed",
+                    "pr": "closed",
+                    "fd_window": "closed",
+                    "fp_window": "closed",
+                    "rd_window": "opened",
+                    "rp_window": "closed",
+                    "ft": "closed",
+                    "rt": "closed",
+                    "charge_port_door_open": "closed",
+                }
+            },
+        },
+    )
+
+    assert "Security: unlocked, Sentry off" in output
+    assert (
+        "Closures: open: passenger door, rear-left window, 9 reported closed" in output
+    )
+    assert "driver door" not in output
+    assert "charge port" not in output
     assert "{" not in output
 
 
