@@ -376,7 +376,12 @@ def _save_hermes_config_profile(cfg: PluginConfig) -> bool:
             section[HERMES_CONFIG_PROFILES_KEY] = profiles
         existing = profiles.get(cfg.profile)
         profile_payload = dict(existing) if isinstance(existing, dict) else {}
-        profile_payload.update(_editable_config_payload(cfg))
+        for editable_name in EDITABLE_CONFIG_FIELDS:
+            value = getattr(cfg, editable_name)
+            if value is None:
+                profile_payload.pop(editable_name, None)
+            else:
+                profile_payload[editable_name] = value
         for secret_name in SECRET_CONFIG_FIELDS:
             profile_payload.pop(secret_name, None)
         profiles[cfg.profile] = profile_payload

@@ -8,12 +8,14 @@ import pytest
 from hermes_tescmd_plugin import config, slash
 from hermes_tescmd_plugin.dashboard import ensure_dashboard_installed
 from hermes_tescmd_plugin.dashboard.plugin_api import (
+    DefaultVehicleBody,
     QuickActionBody,
     _dashboard_display_payload,
     commands,
     overview,
     quick_action,
     read,
+    set_default_vehicle,
     tools,
 )
 
@@ -1562,6 +1564,50 @@ def test_dashboard_quick_action_requires_confirm_before_network(
     assert payload["ok"] is False
     assert "confirm=true is required" in payload["error"]
     assert calls == []
+
+
+def test_dashboard_default_vehicle_endpoint_persists_redacted_default(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    config.save_config(config.PluginConfig(profile="daily", client_id="client-123"))
+
+    payload = set_default_vehicle(
+        DefaultVehicleBody(profile="daily", vin="5YJ3E1EA7JF000001")
+    )
+
+    assert payload["ok"] is True
+    assert payload["profile"] == "daily"
+    assert payload["default_vehicle"] == "…0001"
+    assert payload["display_payload"]["default_vehicle"] == "…0001"
+    assert config.load_config("daily").default_vin == "5YJ3E1EA7JF000001"
+    assert "5YJ3E1EA7JF000001" not in json.dumps(payload)
+
+
+def test_dashboard_default_vehicle_endpoint_can_clear_default(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    config.save_config(
+        config.PluginConfig(profile="daily", default_vin="5YJ3E1EA7JF000001")
+    )
+
+    payload = set_default_vehicle(DefaultVehicleBody(profile="daily", vin=""))
+
+    assert payload["ok"] is True
+    assert payload["default_vehicle"] is None
+    assert "cleared" in payload["message"]
+    assert config.load_config("daily").default_vin is None
+
+
+def test_dashboard_assets_include_default_vehicle_controls() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+
+    assert 'api("/default-vehicle"' in asset
+    assert "Make selected default" in asset
+    assert "Clear dashboard default" in asset
+    assert "tescmd-inline-actions" in style
 
 
 def test_dashboard_assets_install_to_hermes_plugin_tree(tmp_path, monkeypatch) -> None:

@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 
-from hermes_tescmd_plugin import runtime, schemas
+from hermes_tescmd_plugin import config, runtime, schemas
 from hermes_tescmd_plugin.dashboard import ensure_dashboard_installed
 from hermes_tescmd_plugin.slash import _redact_slash_text, _redact_vehicle_identifier
 
@@ -157,6 +157,16 @@ def _run(tool_name: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
     return data
 
 
+class DefaultVehicleBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    profile: str = "default"
+    vin: str | None = Field(
+        None,
+        description="VIN or Fleet vehicle id_s to save as the profile default. Empty clears the dashboard default.",
+    )
+
+
 class QuickActionBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -290,6 +300,30 @@ def vehicles(profile: str = "default", region: str | None = None) -> dict[str, A
     if region:
         args["region"] = region
     return _with_display_payload(_run("tescmd_vehicle_list", args))
+
+
+@router.post("/default-vehicle")
+def set_default_vehicle(body: DefaultVehicleBody) -> dict[str, Any]:
+    """Persist the dashboard-selected VIN/Fleet id_s as the profile default target."""
+
+    profile = config.validate_profile(body.profile)
+    vehicle_id = body.vin.strip() if isinstance(body.vin, str) else None
+    cfg = config.load_config(profile)
+    cfg.default_vin = vehicle_id or None
+    saved = config.save_config(cfg)
+    payload = {
+        "ok": True,
+        "profile": saved.profile,
+        "default_vehicle": _redact_vehicle_identifier(saved.default_vin)
+        if saved.default_vin
+        else None,
+        "message": (
+            "Default Tesla vehicle updated."
+            if saved.default_vin
+            else "Default Tesla vehicle cleared."
+        ),
+    }
+    return _with_display_payload(payload)
 
 
 def _safe_run(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
