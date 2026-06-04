@@ -1296,6 +1296,16 @@ def test_dashboard_command_catalog_is_generated_from_runtime_specs() -> None:
     assert "tescmd_charge_limit" in by_name
     assert by_name["tescmd_charge_limit"]["category"] == "charge"
     assert by_name["tescmd_charge_limit"]["confirm_required"] is True
+    assert by_name["tescmd_charge_limit"]["wake_capable"] is False
+    assert by_name["tescmd_charge_limit"]["sensitive_parameters"]["vin"] == [
+        "vehicle_identifier",
+        "schema_sensitive",
+    ]
+    assert "Requires confirm=true" in by_name["tescmd_charge_limit"]["safety_notes"][0]
+    assert (
+        "Vehicle identifiers should stay redacted"
+        in by_name["tescmd_charge_limit"]["safety_notes"][1]
+    )
     assert by_name["tescmd_charge_limit"]["parameters"]["percent"]["type"] == "integer"
     assert (
         by_name["tescmd_charge_limit"]["parameters"]["confirm"][
@@ -1304,6 +1314,16 @@ def test_dashboard_command_catalog_is_generated_from_runtime_specs() -> None:
         is True
     )
     assert "tescmd_auth_status" in by_name
+    auth_complete = by_name["tescmd_auth_complete"]
+    assert "secret_or_oauth_value" in auth_complete["sensitive_parameters"]["code"]
+    assert "secret_or_oauth_value" in auth_complete["sensitive_parameters"]["state"]
+    assert any(
+        "OAuth/secrets/PIN-like" in note for note in auth_complete["safety_notes"]
+    )
+    nav = by_name["tescmd_navigation_gps"]
+    assert nav["sensitive_parameters"]["lat"] == ["location_or_destination"]
+    assert nav["sensitive_parameters"]["lon"] == ["location_or_destination"]
+    assert any("Locations, destinations" in note for note in nav["safety_notes"])
     assert catalog["categories"]["charge"] >= 1
 
 
@@ -1317,6 +1337,12 @@ def test_dashboard_commands_tab_uses_dynamic_catalog_endpoint() -> None:
     assert "Tesla dashboard tabs" in asset
     assert "Live catalog pulled from the plugin runtime tool specs" in asset
     assert "not maintained by dashboard copy" in asset
+    assert "commandSafetyBadges" in asset
+    assert "privacy:" in asset
+    assert "redact ID" in asset
+    assert "location" in asset
+    assert "secret-safe" in asset
+    assert ".tescmd-command-safety" in style
     assert "runtime.list_tool_specs" not in asset
     assert "tescmd_command_catalog_static" not in asset
     assert ".tescmd-command-grid" in style

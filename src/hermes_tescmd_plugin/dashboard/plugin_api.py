@@ -120,9 +120,83 @@ def _command_kind(spec: runtime.ToolSpec) -> str:
     )
 
 
+_IDENTIFIER_PARAM_NAMES = {"vin", "id_s", "vehicle_id", "vins"}
+_LOCATION_PARAM_NAMES = {
+    "destination",
+    "lat",
+    "latitude",
+    "lon",
+    "lng",
+    "longitude",
+    "native_latitude",
+    "native_longitude",
+    "order",
+    "place_id",
+    "place_ids",
+    "query",
+}
+_SECRET_PARAM_PARTS = (
+    "token",
+    "secret",
+    "authorization",
+    "bearer",
+    "pin",
+    "password",
+    "code",
+    "state",
+)
+
+
+def _parameter_safety_flags(spec: runtime.ToolSpec) -> dict[str, list[str]]:
+    flags: dict[str, list[str]] = {}
+    schema = schemas.build_schema(spec)
+    properties = schema.get("parameters", {}).get("properties", {})
+    for name, param_schema in properties.items():
+        lowered = name.lower()
+        param_flags: list[str] = []
+        if lowered in _IDENTIFIER_PARAM_NAMES:
+            param_flags.append("vehicle_identifier")
+        if lowered in _LOCATION_PARAM_NAMES:
+            param_flags.append("location_or_destination")
+        if any(part in lowered for part in _SECRET_PARAM_PARTS):
+            param_flags.append("secret_or_oauth_value")
+        if isinstance(param_schema, dict) and param_schema.get("x-sensitive"):
+            param_flags.append("schema_sensitive")
+        if param_flags:
+            flags[name] = param_flags
+    return flags
+
+
+def _command_safety_notes(
+    spec: runtime.ToolSpec, param_flags: dict[str, list[str]]
+) -> list[str]:
+    notes: list[str] = []
+    if any(param.name == "confirm" and param.required for param in spec.params):
+        notes.append("Requires confirm=true before physical or account side effects.")
+    elif any(param.name == "confirm" for param in spec.params):
+        notes.append("May accept confirm=true for intentional wake/read behavior.")
+    if any(param.name == "wake" for param in spec.params):
+        notes.append("Wake is available but is a vehicle side effect when enabled.")
+    flattened_flags = {flag for flags in param_flags.values() for flag in flags}
+    if "vehicle_identifier" in flattened_flags:
+        notes.append("Vehicle identifiers should stay redacted in visible output.")
+    if "location_or_destination" in flattened_flags:
+        notes.append("Locations, destinations, and coordinates are privacy-sensitive.")
+    if (
+        "secret_or_oauth_value" in flattened_flags
+        or "schema_sensitive" in flattened_flags
+    ):
+        notes.append(
+            "OAuth/secrets/PIN-like values must not be displayed or logged raw."
+        )
+    return notes
+
+
 def _serialize_command(spec: runtime.ToolSpec) -> dict[str, Any]:
     schema = schemas.build_schema(spec)
     parameters = schema["parameters"]
+    param_flags = _parameter_safety_flags(spec)
+    safety_notes = _command_safety_notes(spec, param_flags)
     return {
         "name": spec.name,
         "description": spec.description,
@@ -136,6 +210,9 @@ def _serialize_command(spec: runtime.ToolSpec) -> dict[str, Any]:
         "confirm_required": any(
             param.name == "confirm" and param.required for param in spec.params
         ),
+        "wake_capable": any(param.name == "wake" for param in spec.params),
+        "sensitive_parameters": param_flags,
+        "safety_notes": safety_notes,
     }
 
 

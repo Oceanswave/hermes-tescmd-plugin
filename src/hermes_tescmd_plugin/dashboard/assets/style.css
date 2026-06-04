@@ -774,6 +774,12 @@
   padding-left: 1rem;
 }
 
+.tescmd-command-safety {
+  color: var(--tescmd-amber);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
 .tescmd-error {
   color: var(--color-destructive);
 }

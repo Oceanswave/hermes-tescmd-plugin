@@ -506,14 +506,29 @@
 
   function commandParamSummary(command) {
     const params = command && command.parameters && typeof command.parameters === "object" ? command.parameters : {};
+    const flags = command && command.sensitive_parameters && typeof command.sensitive_parameters === "object" ? command.sensitive_parameters : {};
     return Object.entries(params).map(([name, schema]) => {
       const bits = [name];
       if (schema && schema.type) bits.push(schema.type);
       if (Array.isArray(command.required) && command.required.includes(name)) bits.push("required");
       if (schema && schema.enum) bits.push(`one of ${schema.enum.join("|")}`);
       if (schema && schema["x-sensitive"]) bits.push("sensitive");
+      if (Array.isArray(flags[name]) && flags[name].length) bits.push(`privacy: ${flags[name].join(", ")}`);
       return bits.join(" · ");
     });
+  }
+
+  function commandSafetyBadges(command) {
+    const flags = command && command.sensitive_parameters && typeof command.sensitive_parameters === "object" ? command.sensitive_parameters : {};
+    const flatFlags = new Set(Object.values(flags).flatMap((value) => Array.isArray(value) ? value : []));
+    const badges = [];
+    if (command && command.confirm_required) badges.push(["confirm", "tescmd-warn"]);
+    else if (command && command.wake_capable) badges.push(["wake-aware", "tescmd-warn"]);
+    else badges.push([command && command.kind ? command.kind : "read", "tescmd-ok"]);
+    if (flatFlags.has("vehicle_identifier")) badges.push(["redact ID", "tescmd-warn"]);
+    if (flatFlags.has("location_or_destination")) badges.push(["location", "tescmd-warn"]);
+    if (flatFlags.has("secret_or_oauth_value") || flatFlags.has("schema_sensitive")) badges.push(["secret-safe", "tescmd-warn"]);
+    return badges;
   }
 
   function CommandCatalog({ catalog, search, setSearch, category, setCategory, loading }) {
@@ -542,15 +557,20 @@
         h("div", { className: "tescmd-command-grid" },
           filtered.map((command) => {
             const params = commandParamSummary(command);
+            const safetyBadges = commandSafetyBadges(command);
+            const safetyNotes = Array.isArray(command.safety_notes) ? command.safety_notes : [];
             return h("article", { key: command.name, className: "tescmd-command-item" },
               h("div", { className: "tescmd-command-head" },
                 h("code", null, command.name),
                 h("div", { className: "tescmd-command-badges" },
-                  h(Badge, { className: command.confirm_required ? "tescmd-warn" : "tescmd-ok" }, command.confirm_required ? "confirm" : command.kind),
+                  safetyBadges.map(([label, className]) => h(Badge, { key: label, className }, label)),
                   h(Badge, null, command.category)
                 )
               ),
               h("p", null, command.description || command.operation),
+              safetyNotes.length ? h("ul", { className: "tescmd-command-safety" },
+                safetyNotes.slice(0, 3).map((note) => h("li", { key: note }, note))
+              ) : null,
               h("div", { className: "tescmd-command-meta" },
                 h("span", null, `operation: ${command.operation}`),
                 command.command_name ? h("span", null, `tesla: ${command.command_name}`) : null
