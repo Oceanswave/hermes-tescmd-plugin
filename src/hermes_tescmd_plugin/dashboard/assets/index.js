@@ -362,7 +362,8 @@
     const unavailable = errors.includes("vehicle unavailable") || errors.includes("offline") || errors.includes("asleep");
     const asleep = state === "asleep" || (unavailable && errors.includes("asleep"));
     const offline = state === "offline" || (unavailable && errors.includes("offline"));
-    const name = (vehicle && (vehicle.display_name || vehicle.vehicle_name || vehicle.name)) || "Vehicle";
+    const rawName = vehicle && (vehicle.display_name || vehicle.vehicle_name || vehicle.name);
+    const name = visibleVehicleText(rawName, "Vehicle");
     if (asleep) return { sleeping: true, label: `${name} is asleep`, detail: "Wake it to fetch live vehicle status." };
     if (offline) return { sleeping: true, label: `${name} is offline or asleep`, detail: "Wake it to check for live status." };
     return { sleeping: false, label: state ? `${name} is ${state}` : "Vehicle status unknown", detail: "" };
