@@ -1386,10 +1386,20 @@ def test_dashboard_shows_sleep_status_with_wake_button() -> None:
     assert 'runAction("wake")' in asset
     assert "Turn on action confirmation to wake the vehicle." in asset
     assert (
+        "const rawName = vehicle && (vehicle.display_name || vehicle.vehicle_name || vehicle.name);"
+        in asset
+    )
+    assert 'const name = visibleVehicleText(rawName, "Vehicle");' in asset
+    assert "`${name} is asleep`" in asset
+    assert (
         "h(VehicleSnapshot, { overview, runAction, loading, confirm, locationPrecision })"
         in asset
     )
     assert ".tescmd-sleep-status" in style
+    assert (
+        'const name = (vehicle && (vehicle.display_name || vehicle.vehicle_name || vehicle.name)) || "Vehicle";'
+        not in asset
+    )
 
 
 def test_dashboard_location_display_defaults_to_approximate_coordinates() -> None:
