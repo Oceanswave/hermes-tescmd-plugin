@@ -405,6 +405,15 @@
   }
 
   function sectionHealthItems(overview) {
+    const serverIssues = overview && overview.section_health && Array.isArray(overview.section_health.issues)
+      ? overview.section_health.issues
+      : null;
+    if (serverIssues) {
+      return serverIssues.map((item) => ({
+        name: visibleVehicleText(item && item.name, "section"),
+        reason: visibleVehicleText(item && item.reason, "read failed"),
+      }));
+    }
     const sections = (overview && overview.sections) || {};
     return Object.entries(sections).filter(([, payload]) => {
       if (!payload || typeof payload !== "object") return false;
@@ -415,15 +424,20 @@
 
   function SectionHealthPanel({ overview }) {
     const issues = sectionHealthItems(overview);
+    const shownIssues = issues.slice(0, 6);
+    const hiddenCount = Math.max(0, issues.length - shownIssues.length);
     return h("div", { className: issues.length ? "tescmd-section-health tescmd-section-health-warn" : "tescmd-section-health", role: "status", "aria-live": "polite" },
       h("div", null,
         h("span", { className: "tescmd-widget-label" }, "Read health"),
         h("strong", null, issues.length ? `${issues.length} overview read issue${issues.length === 1 ? "" : "s"}` : "Overview reads look clean"),
         h("small", null, issues.length
-          ? "Section errors are summarized without VINs, tokens, destinations, or precise location data. Use the redacted payload panel for detail."
+          ? ((overview && overview.section_health && overview.section_health.privacy_note) || "Section errors are summarized without VINs, tokens, destinations, or precise location data. Use the redacted payload panel for detail.")
           : "No failed overview read sections were reported in the latest dashboard payload.")
       ),
-      issues.length ? h("ul", null, issues.slice(0, 6).map((item) => h("li", { key: item.name }, h("span", null, item.name), h(Badge, { className: "tescmd-warn" }, item.reason)))) : h(Badge, { className: "tescmd-ok" }, "all sections ok")
+      issues.length ? h("ul", null,
+        shownIssues.map((item) => h("li", { key: item.name }, h("span", null, item.name), h(Badge, { className: "tescmd-warn" }, item.reason))),
+        hiddenCount ? h("li", { key: "more" }, h(Badge, { className: "tescmd-warn" }, `+${hiddenCount} more`)) : null
+      ) : h(Badge, { className: "tescmd-ok" }, "all sections ok")
     );
   }
 

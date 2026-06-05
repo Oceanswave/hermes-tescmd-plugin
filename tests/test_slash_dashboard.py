@@ -11,6 +11,7 @@ from hermes_tescmd_plugin.dashboard.plugin_api import (
     DefaultVehicleBody,
     QuickActionBody,
     _dashboard_display_payload,
+    _overview_section_health,
     commands,
     overview,
     quick_action,
@@ -1478,6 +1479,12 @@ def test_dashboard_overview_collects_visual_read_sections_without_wake(
     assert payload["sections"]["charge"]["tool"] == "tescmd_charge_status"
     assert payload["sections"]["location"]["tool"] == "tescmd_vehicle_location"
     assert payload["sections"]["climate"]["tool"] == "tescmd_climate_status"
+    assert payload["section_health"] == {
+        "ok": True,
+        "issue_count": 0,
+        "issues": [],
+        "privacy_note": "Section errors are summarized without VINs, tokens, destinations, or precise location data.",
+    }
     assert payload["onboarding"]["tool"] == "tescmd_onboarding_status"
     assert (
         "tescmd_charge_status",
@@ -1595,15 +1602,46 @@ def test_dashboard_overview_shows_safe_selected_target_summary() -> None:
 
 
 def test_dashboard_overview_summarizes_section_read_health_privately() -> None:
+    health = _overview_section_health(
+        {
+            "charge": {"ok": True},
+            "location": {
+                "ok": False,
+                "error": "Vehicle unavailable for 5YJ3E1EA7JF000001 near 1 Infinite Loop",
+                "status_code": 408,
+            },
+            "security": {
+                "ok": False,
+                "payload": {"error": "Auth token expired for Bearer secret-token"},
+                "response": {"status_code": 401},
+            },
+        }
+    )
+    rendered_health = json.dumps(health)
+
+    assert health["ok"] is False
+    assert health["issue_count"] == 2
+    assert health["issues"] == [
+        {"name": "location", "reason": "vehicle unavailable · status 408"},
+        {"name": "security", "reason": "auth/login required · status 401"},
+    ]
+    assert "VINs, tokens, destinations, or precise location data" in health["privacy_note"]
+    assert "5YJ3E1EA7JF000001" not in rendered_health
+    assert "1 Infinite Loop" not in rendered_health
+    assert "secret-token" not in rendered_health
+
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
 
     assert "function sectionIssueLabel" in asset
     assert "function sectionHealthItems" in asset
+    assert "overview.section_health.issues" in asset
+    assert "overview.section_health.privacy_note" in asset
     assert "function SectionHealthPanel" in asset
     assert "Read health" in asset
     assert "overview read issue" in asset
     assert "Overview reads look clean" in asset
+    assert "+${hiddenCount} more" in asset
     assert (
         "Section errors are summarized without VINs, tokens, destinations, or precise location data"
         in asset

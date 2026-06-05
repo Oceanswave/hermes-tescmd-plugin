@@ -417,6 +417,64 @@ def _safe_run(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def _section_issue_label(payload: dict[str, Any]) -> str:
+    """Return a compact, privacy-safe reason for a failed overview section."""
+
+    raw_parts: list[str] = []
+    for value in (payload.get("error"), payload.get("message")):
+        if value:
+            raw_parts.append(str(value))
+    nested_payload = payload.get("payload")
+    if isinstance(nested_payload, dict) and nested_payload.get("error"):
+        raw_parts.append(str(nested_payload["error"]))
+    response = payload.get("response")
+    if isinstance(response, dict) and response.get("error"):
+        raw_parts.append(str(response["error"]))
+    raw = " ".join(raw_parts).lower()
+
+    status_code = payload.get("status_code")
+    if status_code is None and isinstance(response, dict):
+        status_code = response.get("status_code")
+
+    reason = "read failed"
+    if any(term in raw for term in ("login", "auth", "token")):
+        reason = "auth/login required"
+    elif "asleep" in raw:
+        reason = "vehicle asleep"
+    elif any(term in raw for term in ("offline", "unavailable")):
+        reason = "vehicle unavailable"
+    elif "scope" in raw:
+        reason = "missing scope"
+    elif "rate" in raw or status_code == 429:
+        reason = "rate limited"
+    elif any(term in raw for term in ("config", "setup")):
+        reason = "setup/config needed"
+    return f"{reason} · status {status_code}" if status_code else reason
+
+
+def _overview_section_health(sections: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Summarize per-section read failures without exposing raw telemetry."""
+
+    issues: list[dict[str, str]] = []
+    for name, payload in sections.items():
+        nested_payload = payload.get("payload")
+        nested_error = (
+            nested_payload.get("error") if isinstance(nested_payload, dict) else None
+        )
+        if payload.get("ok") is False or payload.get("error") or nested_error:
+            issues.append(
+                {"name": name.replace("-", " "), "reason": _section_issue_label(payload)}
+            )
+    return {
+        "ok": not issues,
+        "issue_count": len(issues),
+        "issues": issues,
+        "privacy_note": (
+            "Section errors are summarized without VINs, tokens, destinations, or precise location data."
+        ),
+    }
+
+
 @router.get("/overview")
 def overview(
     vin: str | None = None,
@@ -451,6 +509,7 @@ def overview(
             {k: v for k, v in {"profile": profile, "region": region}.items() if v},
         ),
         "sections": sections,
+        "section_health": _overview_section_health(sections),
     }
     return _with_display_payload(payload)
 
