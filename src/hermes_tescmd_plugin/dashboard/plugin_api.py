@@ -278,7 +278,19 @@ def _base_vehicle_args(
     return args
 
 
-_IDENTIFIER_KEYS = {"vin", "id_s", "vehicle_id"}
+_IDENTIFIER_KEYS = {
+    "vin",
+    "vins",
+    "id",
+    "ids",
+    "id_s",
+    "vehicle_id",
+    "vehicle_ids",
+    "default_vin",
+    "target_vin",
+    "target_vehicle",
+    "vehicle_identifier",
+}
 _LOCATION_KEYS = {
     "destination",
     "lat",
@@ -292,6 +304,18 @@ _LOCATION_KEYS = {
     "place_ids",
 }
 _SECRET_KEY_PARTS = ("token", "secret", "authorization", "bearer", "pin", "password")
+
+
+def _dashboard_identifier_hint(value: Any) -> Any:
+    """Redact identifier-key values while preserving useful JSON shape."""
+
+    if isinstance(value, list):
+        return [_dashboard_identifier_hint(item) for item in value]
+    if isinstance(value, tuple):
+        return [_dashboard_identifier_hint(item) for item in value]
+    if value is None:
+        return None
+    return _redact_vehicle_identifier(value) or "[REDACTED]"
 
 
 def _dashboard_display_payload(value: Any) -> Any:
@@ -308,7 +332,7 @@ def _dashboard_display_payload(value: Any) -> Any:
             key_text = str(key)
             lowered = key_text.lower()
             if lowered in _IDENTIFIER_KEYS:
-                safe[key_text] = _redact_vehicle_identifier(item) or "[REDACTED]"
+                safe[key_text] = _dashboard_identifier_hint(item)
             elif lowered in _LOCATION_KEYS:
                 safe[key_text] = "[REDACTED_LOCATION]"
             elif any(part in lowered for part in _SECRET_KEY_PARTS):

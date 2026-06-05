@@ -467,9 +467,14 @@ def test_dashboard_visible_vehicle_identity_helpers_redact_identifiers() -> None
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
 
     assert "function redactVisibleIdentifierText(value)" in asset
+    assert "function sanitizeDashboardText(value, fallback)" in asset
+    assert "function dashboardErrorMessage(err)" in asset
     assert "Bearer [REDACTED]" in asset
     assert "[A-HJ-NPR-Z0-9]{17}" in asset
     assert "\\d{12,20}" in asset
+    assert "access_token|refresh_token|id_token|client_secret|token" in asset
+    assert "[coordinates redacted]" in asset
+    assert "destination|address|query|place_id|place_ids" in asset
 
     picker_body = asset.split("function vehiclePickerLabel", 1)[1].split(
         "function vehicleIdentitySummary", 1
@@ -512,6 +517,20 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
         "route fields were cleared and confirmation is locked off after the request"
         in asset
     )
+
+
+def test_dashboard_user_visible_errors_are_sanitized_before_rendering() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+
+    assert "setError(dashboardErrorMessage(err));" in asset
+    assert "setError(String((err && err.message) || err));" not in asset
+    assert "setLastActionStatus(sanitizeDashboardText(payload.message" in asset
+    assert "Tesla dashboard request failed." in asset
+    assert "code|state|access_token|refresh_token|id_token|client_secret|token" in asset
+    assert "lat(?:itude)?|lon(?:gitude)?|lng" in asset
+    assert "destination|address|query|place_id|place_ids" in asset
+    error_card_body = asset.split('className: "tescmd-error-card"', 1)[0]
+    assert "dashboardErrorMessage(err)" in error_card_body
 
 
 def test_vehicle_list_redacts_identifiers() -> None:
@@ -1336,7 +1355,15 @@ def test_success_result_redacts_sensitive_identifiers() -> None:
 def test_dashboard_redacts_visible_debug_payload_privacy_fields() -> None:
     payload = {
         "vin": "5YJ3E1EA7JF000001",
-        "vehicle": {"id_s": "12345678901234567", "display_name": "seaQuest"},
+        "vins": ["5YJ3E1EA7JF000002"],
+        "default_vin": "5YJ3E1EA7JF000003",
+        "target_vehicle": "12345678901234568",
+        "vehicle": {
+            "id": 12345678901234567,
+            "id_s": "12345678901234567",
+            "vehicle_id": 98765432109876543,
+            "display_name": "seaQuest",
+        },
         "drive_state": {"latitude": 37.33182, "longitude": -122.03118},
         "navigation": {
             "destination": "1 Infinite Loop, Cupertino",
@@ -1352,7 +1379,12 @@ def test_dashboard_redacts_visible_debug_payload_privacy_fields() -> None:
     rendered = json.dumps(redacted)
 
     assert redacted["vin"] == "…0001"
+    assert redacted["vins"] == "…0002"
+    assert redacted["default_vin"] == "…0003"
+    assert redacted["target_vehicle"] == "…4568"
+    assert redacted["vehicle"]["id"] == "…4567"
     assert redacted["vehicle"]["id_s"] == "…4567"
+    assert redacted["vehicle"]["vehicle_id"] == "…6543"
     assert redacted["vehicle"]["display_name"] == "seaQuest"
     assert redacted["drive_state"]["latitude"] == "[REDACTED_LOCATION]"
     assert redacted["drive_state"]["longitude"] == "[REDACTED_LOCATION]"
@@ -1360,7 +1392,11 @@ def test_dashboard_redacts_visible_debug_payload_privacy_fields() -> None:
     assert redacted["navigation"]["place_ids"] == "[REDACTED_LOCATION]"
     assert redacted["auth"]["access_token"] == "[REDACTED]"
     assert "5YJ3E1EA7JF000001" not in rendered
+    assert "5YJ3E1EA7JF000002" not in rendered
+    assert "5YJ3E1EA7JF000003" not in rendered
     assert "12345678901234567" not in rendered
+    assert "12345678901234568" not in rendered
+    assert "98765432109876543" not in rendered
     assert "secret...3456" not in rendered
     assert "nav-token-123456789" not in rendered
     assert "37.33182" not in rendered
