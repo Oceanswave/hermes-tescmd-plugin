@@ -1455,6 +1455,17 @@ def test_dashboard_commands_tab_uses_dynamic_catalog_endpoint() -> None:
     assert ".tescmd-tabs" in style
 
 
+def test_dashboard_command_search_includes_safety_and_parameter_terms() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+
+    assert "function commandSearchCorpus(command)" in asset
+    assert "Object.keys(command.parameters)" in asset
+    assert "command.sensitive_parameters" in asset
+    assert "command.safety_notes" in asset
+    assert "commandSearchCorpus(command).includes(queryText)" in asset
+    assert "value).toLowerCase().includes(queryText)" not in asset
+
+
 def test_dashboard_overview_collects_visual_read_sections_without_wake(
     monkeypatch,
 ) -> None:
