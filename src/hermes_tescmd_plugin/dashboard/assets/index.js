@@ -618,6 +618,23 @@
     return badges;
   }
 
+  function commandSearchCorpus(command) {
+    const params = command && command.parameters && typeof command.parameters === "object" ? Object.keys(command.parameters) : [];
+    const flags = command && command.sensitive_parameters && typeof command.sensitive_parameters === "object" ? command.sensitive_parameters : {};
+    const flatFlags = Object.values(flags).flatMap((value) => Array.isArray(value) ? value : []);
+    const safetyNotes = Array.isArray(command && command.safety_notes) ? command.safety_notes : [];
+    return [
+      command && command.name,
+      command && command.description,
+      command && command.operation,
+      command && command.category,
+      command && command.kind,
+      ...params,
+      ...flatFlags,
+      ...safetyNotes,
+    ].filter(Boolean).join(" ").toLowerCase();
+  }
+
   function CommandCatalog({ catalog, search, setSearch, category, setCategory, loading }) {
     const commands = Array.isArray(catalog && catalog.commands) ? catalog.commands : [];
     const categories = ["all", ...Object.keys((catalog && catalog.categories) || {}).sort()];
@@ -625,9 +642,7 @@
     const filtered = commands.filter((command) => {
       if (category && category !== "all" && command.category !== category) return false;
       if (!queryText) return true;
-      return [command.name, command.description, command.operation, command.category, command.kind]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(queryText));
+      return commandSearchCorpus(command).includes(queryText);
     });
     return h(Card, { className: "tescmd-command-card" },
       h(CardHeader, null, h(CardTitle, null, "Commands")),
