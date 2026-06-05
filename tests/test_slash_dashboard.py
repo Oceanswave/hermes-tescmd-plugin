@@ -1625,7 +1625,9 @@ def test_dashboard_overview_summarizes_section_read_health_privately() -> None:
         {"name": "location", "reason": "vehicle unavailable · status 408"},
         {"name": "security", "reason": "auth/login required · status 401"},
     ]
-    assert "VINs, tokens, destinations, or precise location data" in health["privacy_note"]
+    assert (
+        "VINs, tokens, destinations, or precise location data" in health["privacy_note"]
+    )
     assert "5YJ3E1EA7JF000001" not in rendered_health
     assert "1 Infinite Loop" not in rendered_health
     assert "secret-token" not in rendered_health

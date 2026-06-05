@@ -463,7 +463,10 @@ def _overview_section_health(sections: dict[str, dict[str, Any]]) -> dict[str, A
         )
         if payload.get("ok") is False or payload.get("error") or nested_error:
             issues.append(
-                {"name": name.replace("-", " "), "reason": _section_issue_label(payload)}
+                {
+                    "name": name.replace("-", " "),
+                    "reason": _section_issue_label(payload),
+                }
             )
     return {
         "ok": not issues,
