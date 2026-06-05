@@ -260,6 +260,55 @@
   text-align: right;
 }
 
+.tescmd-section-health {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1fr) auto;
+  gap: 0.7rem;
+  align-items: center;
+  margin-bottom: 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--tescmd-green) 24%, var(--color-border));
+  border-radius: var(--radius);
+  padding: 0.65rem 0.75rem;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tescmd-green) 7%, transparent), transparent 42%),
+    color-mix(in srgb, var(--color-card) 94%, transparent);
+}
+
+.tescmd-section-health-warn {
+  border-color: color-mix(in srgb, var(--tescmd-amber) 45%, var(--color-border));
+  background:
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--tescmd-amber) 14%, transparent), transparent 28%),
+    color-mix(in srgb, var(--color-card) 94%, transparent);
+}
+
+.tescmd-section-health strong {
+  display: block;
+  margin-top: 0.12rem;
+  letter-spacing: -0.025em;
+}
+
+.tescmd-section-health small {
+  color: var(--color-muted-foreground);
+}
+
+.tescmd-section-health ul {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tescmd-section-health li {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  color: var(--color-muted-foreground);
+  font-size: 0.78rem;
+}
+
 .tescmd-sleep-status {
   display: grid;
   grid-template-columns: minmax(12rem, 1fr) auto minmax(10rem, auto);
