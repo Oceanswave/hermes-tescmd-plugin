@@ -854,6 +854,82 @@ def test_media_volume_set_slash_handler_exposes_only_safe_request_details(
     assert "{" not in output
 
 
+def test_body_action_summary_is_human_readable() -> None:
+    output = slash._format_command(
+        "tescmd-window-close",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "request": {"confirm": True, "vin": "5YJ3E1EA7JF000001"},
+            "response": {"result": True},
+        },
+    )
+
+    assert output.startswith("/tescmd-window-close: success")
+    assert "Body action: close the windows." in output
+    assert "Result: Tesla accepted the body command." in output
+    assert "Result: yes" not in output
+    assert "confirm" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "{" not in output
+
+
+def test_navigation_action_summary_redacts_destination() -> None:
+    output = slash._format_command(
+        "tescmd-nav",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "request": {
+                "destination": "123 Main St, Springfield",
+                "confirm": True,
+            },
+            "response": {"result": True},
+        },
+    )
+
+    assert output.startswith("/tescmd-nav: success")
+    assert (
+        "Navigation action: send a navigation destination (destination redacted)."
+        in output
+    )
+    assert "Result: Tesla accepted the navigation command." in output
+    assert "123 Main St" not in output
+    assert "confirm" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "Result: yes" not in output
+    assert "{" not in output
+
+
+def test_navigation_search_summary_redacts_place_ids_and_coordinates() -> None:
+    output = slash._format_command(
+        "tescmd-nav-search",
+        {
+            "ok": True,
+            "response": {
+                "places": [
+                    {
+                        "display_name": {"text": "Coffee & Charge"},
+                        "place_id": "ChIJsecretPlaceId123",
+                        "latitude": 37.7749295,
+                        "longitude": -122.4194155,
+                    },
+                    {"formatted_address": "456 Example Ave"},
+                ]
+            },
+        },
+    )
+
+    assert output.startswith("/tescmd-nav-search: success")
+    assert "Navigation search: 2 place candidate(s) returned." in output
+    assert "Top places: #1 Coffee & Charge; #2 456 Example Ave" in output
+    assert "place_ids=..." in output
+    assert "ChIJsecretPlaceId123" not in output
+    assert "37.7749295" not in output
+    assert "-122.4194155" not in output
+    assert "{" not in output
+
+
 def test_climate_slash_summary_is_human_readable_and_privacy_safe() -> None:
     output = slash._format_command(
         "tescmd-climate",
