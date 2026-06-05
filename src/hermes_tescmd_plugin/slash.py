@@ -763,6 +763,56 @@ def _media_action_summary(name: str, payload: dict[str, Any]) -> str | None:
     return None
 
 
+def _body_action_summary(name: str, payload: dict[str, Any]) -> str | None:
+    if name == "tescmd-frunk":
+        return "actuate the front trunk."
+    if name == "tescmd-trunk-open":
+        return "open the rear trunk."
+    if name == "tescmd-trunk-close":
+        return "close the rear trunk."
+    if name == "tescmd-window-vent":
+        return "vent the windows."
+    if name == "tescmd-window-close":
+        return "close the windows."
+    return None
+
+
+def _navigation_action_summary(name: str, payload: dict[str, Any]) -> str | None:
+    if name == "tescmd-nav":
+        return "send a navigation destination (destination redacted)."
+    if name == "tescmd-nav-waypoints":
+        return "send navigation waypoints (place IDs redacted)."
+    return None
+
+
+def _navigation_search_summary(name: str, payload: dict[str, Any]) -> list[str]:
+    if name != "tescmd-nav-search":
+        return []
+    places = _collection_from_payload(payload, "places", "results", "candidates")
+    if not places:
+        return ["Navigation search: no places returned."]
+
+    labels: list[str] = []
+    for idx, place in enumerate(places[:3], 1):
+        if isinstance(place, dict):
+            display_name = place.get("display_name")
+            if isinstance(display_name, dict):
+                name = display_name.get("text") or display_name.get("name")
+            else:
+                name = display_name
+            label = str(
+                name or place.get("name") or place.get("formatted_address") or "Unnamed"
+            )
+        else:
+            label = str(place)
+        labels.append(f"#{idx} {_redact_slash_text(label)}")
+    return [
+        f"Navigation search: {len(places)} place candidate(s) returned.",
+        "Top places: " + "; ".join(labels),
+        "Navigation: use tescmd_navigation_waypoints place_ids=... confirm=true; place IDs stay out of slash summaries.",
+    ]
+
+
 def _software_detail_parts(software: dict[str, Any]) -> list[str]:
     parts: list[str] = []
     version = software.get("car_version") or software.get("version")
@@ -961,6 +1011,14 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     if media_action:
         lines.append(f"Media action: {media_action}")
 
+    body_action = _body_action_summary(name, payload)
+    if body_action:
+        lines.append(f"Body action: {body_action}")
+
+    navigation_action = _navigation_action_summary(name, payload)
+    if navigation_action:
+        lines.append(f"Navigation action: {navigation_action}")
+
     software = _payload_section(payload, "software", "vehicle_state")
     if name == "tescmd-software" and software:
         software_parts = _software_detail_parts(software)
@@ -997,6 +1055,8 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     if name == "tescmd-alerts":
         lines.extend(_summarize_alerts(payload))
 
+    lines.extend(_navigation_search_summary(name, payload))
+
     response = _first_dict(
         payload.get("response"), payload.get("result"), payload.get("payload")
     )
@@ -1013,6 +1073,10 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
             lines.append("Result: Tesla accepted the climate command.")
         elif result is True and media_action:
             lines.append("Result: Tesla accepted the media command.")
+        elif result is True and body_action:
+            lines.append("Result: Tesla accepted the body command.")
+        elif result is True and navigation_action:
+            lines.append("Result: Tesla accepted the navigation command.")
         else:
             lines.append(f"Result: {_redact_slash_text(_stringify(result))}")
     elif not any(
@@ -1027,6 +1091,9 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
                 "Nearby chargers:",
                 "Software:",
                 "Alerts:",
+                "Body action:",
+                "Navigation action:",
+                "Navigation search:",
             )
         )
         for line in lines
