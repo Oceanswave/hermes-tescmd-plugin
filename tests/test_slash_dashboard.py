@@ -1367,6 +1367,11 @@ def test_dashboard_redacts_visible_debug_payload_privacy_fields() -> None:
         "drive_state": {"latitude": 37.33182, "longitude": -122.03118},
         "navigation": {
             "destination": "1 Infinite Loop, Cupertino",
+            "address": "123 Main St, Springfield",
+            "formatted_address": "456 Example Ave, Los Angeles",
+            "query": "coffee shop near home",
+            "route": "home to work",
+            "waypoints": ["Home", "Office"],
             "place_ids": ["abc"],
         },
         "auth": {
@@ -1379,7 +1384,7 @@ def test_dashboard_redacts_visible_debug_payload_privacy_fields() -> None:
     rendered = json.dumps(redacted)
 
     assert redacted["vin"] == "…0001"
-    assert redacted["vins"] == "…0002"
+    assert redacted["vins"] == ["…0002"]
     assert redacted["default_vin"] == "…0003"
     assert redacted["target_vehicle"] == "…4568"
     assert redacted["vehicle"]["id"] == "…4567"
@@ -1389,6 +1394,11 @@ def test_dashboard_redacts_visible_debug_payload_privacy_fields() -> None:
     assert redacted["drive_state"]["latitude"] == "[REDACTED_LOCATION]"
     assert redacted["drive_state"]["longitude"] == "[REDACTED_LOCATION]"
     assert redacted["navigation"]["destination"] == "[REDACTED_LOCATION]"
+    assert redacted["navigation"]["address"] == "[REDACTED_LOCATION]"
+    assert redacted["navigation"]["formatted_address"] == "[REDACTED_LOCATION]"
+    assert redacted["navigation"]["query"] == "[REDACTED_LOCATION]"
+    assert redacted["navigation"]["route"] == "[REDACTED_LOCATION]"
+    assert redacted["navigation"]["waypoints"] == "[REDACTED_LOCATION]"
     assert redacted["navigation"]["place_ids"] == "[REDACTED_LOCATION]"
     assert redacted["auth"]["access_token"] == "[REDACTED]"
     assert "5YJ3E1EA7JF000001" not in rendered
@@ -1401,6 +1411,11 @@ def test_dashboard_redacts_visible_debug_payload_privacy_fields() -> None:
     assert "nav-token-123456789" not in rendered
     assert "37.33182" not in rendered
     assert "1 Infinite Loop" not in rendered
+    assert "123 Main St" not in rendered
+    assert "456 Example Ave" not in rendered
+    assert "coffee shop" not in rendered
+    assert "home to work" not in rendered
+    assert "Office" not in rendered
 
 
 def test_dashboard_payload_panel_uses_redacted_display_payload() -> None:

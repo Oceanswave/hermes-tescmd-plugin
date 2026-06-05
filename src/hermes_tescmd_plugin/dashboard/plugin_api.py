@@ -293,6 +293,12 @@ _IDENTIFIER_KEYS = {
 }
 _LOCATION_KEYS = {
     "destination",
+    "address",
+    "formatted_address",
+    "query",
+    "route",
+    "waypoint",
+    "waypoints",
     "lat",
     "latitude",
     "lon",
