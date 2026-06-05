@@ -795,13 +795,17 @@ def _navigation_search_summary(name: str, payload: dict[str, Any]) -> list[str]:
     labels: list[str] = []
     for idx, place in enumerate(places[:3], 1):
         if isinstance(place, dict):
-            display_name = place.get("display_name")
+            display_name: Any = place.get("display_name")
+            place_name: Any
             if isinstance(display_name, dict):
-                name = display_name.get("text") or display_name.get("name")
+                place_name = display_name.get("text") or display_name.get("name")
             else:
-                name = display_name
+                place_name = display_name
             label = str(
-                name or place.get("name") or place.get("formatted_address") or "Unnamed"
+                place_name
+                or place.get("name")
+                or place.get("formatted_address")
+                or "Unnamed"
             )
         else:
             label = str(place)
