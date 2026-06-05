@@ -1594,6 +1594,32 @@ def test_dashboard_overview_shows_safe_selected_target_summary() -> None:
     assert "identity.id_s" not in asset
 
 
+def test_dashboard_overview_summarizes_section_read_health_privately() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+
+    assert "function sectionIssueLabel" in asset
+    assert "function sectionHealthItems" in asset
+    assert "function SectionHealthPanel" in asset
+    assert "Read health" in asset
+    assert "overview read issue" in asset
+    assert "Overview reads look clean" in asset
+    assert (
+        "Section errors are summarized without VINs, tokens, destinations, or precise location data"
+        in asset
+    )
+    assert "auth/login required" in asset
+    assert "vehicle asleep" in asset
+    assert "vehicle unavailable" in asset
+    assert "rate limited" in asset
+    assert "missing scope" in asset
+    assert "h(SectionHealthPanel, { overview })" in asset
+    assert ".tescmd-section-health" in style
+    assert ".tescmd-section-health-warn" in style
+    assert "5YJ3E1EA7JF000001" not in asset
+    assert "1 Infinite Loop" not in asset
+
+
 def test_dashboard_shows_busy_banner_during_refresh() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()

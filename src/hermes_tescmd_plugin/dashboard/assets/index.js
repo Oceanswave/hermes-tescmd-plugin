@@ -386,6 +386,47 @@
     }).join(" ").toLowerCase();
   }
 
+  function sectionIssueLabel(payload) {
+    const raw = [
+      payload && payload.error,
+      payload && payload.message,
+      payload && payload.payload && payload.payload.error,
+      payload && payload.response && payload.response.error,
+    ].filter(Boolean).join(" ").toLowerCase();
+    const status = firstDefined(payload && payload.status_code, payload && payload.response && payload.response.status_code);
+    let reason = "read failed";
+    if (raw.includes("login") || raw.includes("auth") || raw.includes("token")) reason = "auth/login required";
+    else if (raw.includes("asleep")) reason = "vehicle asleep";
+    else if (raw.includes("offline") || raw.includes("unavailable")) reason = "vehicle unavailable";
+    else if (raw.includes("scope")) reason = "missing scope";
+    else if (raw.includes("rate") || status === 429) reason = "rate limited";
+    else if (raw.includes("config") || raw.includes("setup")) reason = "setup/config needed";
+    return status ? `${reason} · status ${status}` : reason;
+  }
+
+  function sectionHealthItems(overview) {
+    const sections = (overview && overview.sections) || {};
+    return Object.entries(sections).filter(([, payload]) => {
+      if (!payload || typeof payload !== "object") return false;
+      const nestedError = payload.payload && typeof payload.payload === "object" && payload.payload.error;
+      return payload.ok === false || Boolean(payload.error) || Boolean(nestedError);
+    }).map(([name, payload]) => ({ name: visibleVehicleText(name.replace(/-/g, " "), "section"), reason: sectionIssueLabel(payload) }));
+  }
+
+  function SectionHealthPanel({ overview }) {
+    const issues = sectionHealthItems(overview);
+    return h("div", { className: issues.length ? "tescmd-section-health tescmd-section-health-warn" : "tescmd-section-health", role: "status", "aria-live": "polite" },
+      h("div", null,
+        h("span", { className: "tescmd-widget-label" }, "Read health"),
+        h("strong", null, issues.length ? `${issues.length} overview read issue${issues.length === 1 ? "" : "s"}` : "Overview reads look clean"),
+        h("small", null, issues.length
+          ? "Section errors are summarized without VINs, tokens, destinations, or precise location data. Use the redacted payload panel for detail."
+          : "No failed overview read sections were reported in the latest dashboard payload.")
+      ),
+      issues.length ? h("ul", null, issues.slice(0, 6).map((item) => h("li", { key: item.name }, h("span", null, item.name), h(Badge, { className: "tescmd-warn" }, item.reason)))) : h(Badge, { className: "tescmd-ok" }, "all sections ok")
+    );
+  }
+
   function vehicleAvailability(overview) {
     const vehicle = selectedVehicle(overview);
     const state = String((vehicle && vehicle.state) || "").toLowerCase();
@@ -424,6 +465,7 @@
     return h("div", null,
       h(VehicleSleepStatus, { availability, runAction, loading, confirm }),
       h(VehicleIdentityCard, { identity }),
+      h(SectionHealthPanel, { overview }),
       h("div", { className: "tescmd-visual-grid" },
         h("div", { className: "tescmd-charge-widget" },
           h("div", { className: "tescmd-widget-label" }, "Charge"),
