@@ -140,9 +140,23 @@
       .replace(/\b\d{12,20}\b/g, (match) => `…${match.slice(-4)}`);
   }
 
+  function sanitizeDashboardText(value, fallback) {
+    const rawText = String(value ?? "").trim();
+    if (!rawText) return fallback || "";
+    const text = redactVisibleIdentifierText(rawText)
+      .replace(/([?&](?:code|state|access_token|refresh_token|id_token|client_secret|token)=)[^&\s]+/gi, "$1[REDACTED]")
+      .replace(/\b(?:lat(?:itude)?|lon(?:gitude)?|lng)\s*[:=]\s*-?\d+(?:\.\d+)?/gi, (match) => match.replace(/-?\d+(?:\.\d+)?/, "[REDACTED]"))
+      .replace(/\b-?\d{1,2}\.\d{3,}\s*,\s*-?\d{1,3}\.\d{3,}\b/g, "[coordinates redacted]")
+      .replace(/\b(destination|address|query|place_id|place_ids)\b\s*[:=]\s*("[^"]*"|'[^']*'|[^,;}\n]+)/gi, "$1=[REDACTED]");
+    return text || fallback || "";
+  }
+
   function visibleVehicleText(value, fallback) {
-    const text = redactVisibleIdentifierText(value).trim();
-    return text || fallback;
+    return sanitizeDashboardText(value, fallback);
+  }
+
+  function dashboardErrorMessage(err) {
+    return sanitizeDashboardText((err && err.message) || err, "Tesla dashboard request failed.");
   }
 
   function vehicleModelHint(vehicle) {
@@ -762,7 +776,7 @@
         setVehicles(Array.isArray(vehiclePayload.vehicles) ? vehiclePayload.vehicles : []);
         setDetail(overviewPayload);
       } catch (err) {
-        setError(String((err && err.message) || err));
+        setError(dashboardErrorMessage(err));
       } finally {
         setLoading(false);
         setLoadingMode("");
@@ -775,7 +789,7 @@
       let cancelled = false;
       api("/commands")
         .then((payload) => { if (!cancelled) setCommandCatalog(payload); })
-        .catch((err) => { if (!cancelled) setError(String((err && err.message) || err)); });
+        .catch((err) => { if (!cancelled) setError(dashboardErrorMessage(err)); });
       return () => { cancelled = true; };
     }, []);
 
@@ -790,7 +804,7 @@
           await refresh();
         }
       } catch (err) {
-        setError(String((err && err.message) || err));
+        setError(dashboardErrorMessage(err));
       } finally {
         setLoading(false);
         setLoadingMode("");
@@ -850,11 +864,11 @@
           body: JSON.stringify({ profile: profile || "default", vin: nextVin || null }),
         });
         setDetail(payload);
-        setLastActionStatus(payload.message || "Default Tesla vehicle updated.");
+        setLastActionStatus(sanitizeDashboardText(payload.message, "Default Tesla vehicle updated."));
         setVin("");
         await refresh("refresh", "");
       } catch (err) {
-        setError(String((err && err.message) || err));
+        setError(dashboardErrorMessage(err));
       } finally {
         setLoading(false);
         setLoadingMode("");
@@ -888,7 +902,7 @@
           : `Ran ${action}; physical actions are locked again.`);
         await refresh();
       } catch (err) {
-        setError(String((err && err.message) || err));
+        setError(dashboardErrorMessage(err));
         if (navigationAction) clearNavigationFields(action);
         setLastActionStatus(navigationAction
           ? `Attempted ${action}; route fields were cleared and confirmation is locked off after the request.`
