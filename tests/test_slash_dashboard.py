@@ -490,6 +490,25 @@ def test_dashboard_visible_vehicle_identity_helpers_redact_identifiers() -> None
     assert "visibleVehicleText(vehicle.state" in identity_body
 
 
+def test_dashboard_onboarding_card_sanitizes_setup_guidance() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    body = asset.split("function OnboardingCard", 1)[1].split("function BusyBanner", 1)[
+        0
+    ]
+
+    assert "missing_prerequisites.map((item) => sanitizeDashboardText" in body
+    assert "next_steps.slice(0, 2).map((step) => sanitizeDashboardText" in body
+    assert "const next = sanitizeDashboardText" in body
+    assert "const docsAnchor = sanitizeDashboardText" in body
+    assert (
+        "OAuth values, vehicle identifiers, and precise route/location details stay hidden"
+        in body
+    )
+    assert 'h("small", null, docsAnchor)' in body
+    assert 'h("li", { key: index }, step)' in body
+    assert 'h("li", { key: index }, onboarding' not in body
+
+
 def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
 
