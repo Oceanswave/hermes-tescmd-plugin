@@ -541,7 +541,7 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
     assert 'setLon("")' in asset
     assert 'setPlaceIds("")' in asset
     assert "if (navigationAction) clearNavigationFields(action);" in asset
-    assert "route fields were cleared and physical actions are locked again" in asset
+    assert "Route fields were cleared; physical actions are locked again." in asset
     assert (
         "route fields were cleared and confirmation is locked off after the request"
         in asset
@@ -560,6 +560,25 @@ def test_dashboard_user_visible_errors_are_sanitized_before_rendering() -> None:
     assert "destination|address|query|place_id|place_ids" in asset
     error_card_body = asset.split('className: "tescmd-error-card"', 1)[0]
     assert "dashboardErrorMessage(err)" in error_card_body
+
+
+def test_dashboard_quick_action_status_uses_redacted_payload_summary() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    body = asset.split("function dashboardActionStatus", 1)[1].split(
+        "async function setDefaultVehicle", 1
+    )[0]
+
+    assert "payload && payload.message" in body
+    assert "response.message" in body
+    assert "sanitizeDashboardText(rawMessage, fallback)" in body
+    assert "Tesla accepted the ${actionLabel} command." in body
+    assert "Route fields were cleared; physical actions are locked again." in body
+    assert (
+        "setLastActionStatus(dashboardActionStatus(payload, action, navigationAction));"
+        in asset
+    )
+    assert "Ran ${action}; route fields" not in asset
+    assert "Ran ${action}; physical actions" not in asset
 
 
 def test_vehicle_list_redacts_identifiers() -> None:
