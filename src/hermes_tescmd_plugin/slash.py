@@ -887,6 +887,55 @@ def _summarize_alerts(payload: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _release_note_title(note: Any) -> str:
+    if not isinstance(note, dict):
+        return _redact_slash_text(note)
+    title = (
+        note.get("title")
+        or note.get("name")
+        or note.get("heading")
+        or note.get("subtitle")
+        or note.get("version")
+        or "Untitled note"
+    )
+    return _redact_slash_text(title)
+
+
+def _summarize_release_notes(payload: dict[str, Any]) -> list[str]:
+    response = _first_dict(
+        payload.get("response"), payload.get("data"), payload.get("release_notes")
+    )
+    notes = _collection_from_payload(
+        payload, "release_notes", "notes", "sections", "release_notes_list"
+    )
+    version = _first_present(response, "version", "car_version", "release_version")
+    status = _first_present(response, "status", "state")
+
+    details: list[str] = []
+    if version is not None:
+        details.append(f"version {_redact_slash_text(version)}")
+    if status is not None:
+        details.append(f"status {_redact_slash_text(status)}")
+
+    if notes:
+        prefix = "Release notes: " + f"{len(notes)} note(s)"
+        if details:
+            prefix += " — " + ", ".join(details)
+        lines = [prefix]
+        lines.append(
+            "Top notes: "
+            + "; ".join(
+                f"#{idx} {_release_note_title(note)}"
+                for idx, note in enumerate(notes[:3], 1)
+            )
+        )
+        return lines
+
+    if details:
+        return ["Release notes: " + ", ".join(details)]
+    return ["Release notes: no release-note details returned."]
+
+
 def _state_flag(value: Any, *, true_text: str, false_text: str) -> str | None:
     if value is None:
         return None
@@ -1059,6 +1108,9 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     if name == "tescmd-alerts":
         lines.extend(_summarize_alerts(payload))
 
+    if name == "tescmd-release-notes":
+        lines.extend(_summarize_release_notes(payload))
+
     lines.extend(_navigation_search_summary(name, payload))
 
     response = _first_dict(
@@ -1095,6 +1147,7 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
                 "Nearby chargers:",
                 "Software:",
                 "Alerts:",
+                "Release notes:",
                 "Body action:",
                 "Navigation action:",
                 "Navigation search:",
