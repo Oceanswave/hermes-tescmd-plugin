@@ -950,6 +950,44 @@ def test_navigation_search_summary_redacts_place_ids_and_coordinates() -> None:
     assert "{" not in output
 
 
+def test_release_notes_slash_summary_is_human_readable_and_privacy_safe() -> None:
+    output = slash._format_command(
+        "tescmd-release-notes",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "response": {
+                "version": "2026.14.3",
+                "status": "available",
+                "release_notes": [
+                    {
+                        "title": "Improved Autopark for vehicle 5YJ3E1EA7JF000002",
+                        "body": "Park near 123 Main St at 37.7749295,-122.4194155",
+                    },
+                    {
+                        "heading": "Charge on Solar",
+                        "url": "https://cars.example.com/callback?code=secret-token-123456",
+                    },
+                ],
+            },
+        },
+    )
+
+    assert output.startswith("/tescmd-release-notes: success")
+    assert "Release notes: 2 note(s) — version 2026.14.3, status available" in output
+    assert (
+        "Top notes: #1 Improved Autopark for vehicle …0002; #2 Charge on Solar"
+        in output
+    )
+    assert "Result: command accepted" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "5YJ3E1EA7JF000002" not in output
+    assert "123 Main St" not in output
+    assert "37.7749295" not in output
+    assert "secret-token-123456" not in output
+    assert "{" not in output
+
+
 def test_climate_slash_summary_is_human_readable_and_privacy_safe() -> None:
     output = slash._format_command(
         "tescmd-climate",
