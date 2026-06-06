@@ -858,6 +858,26 @@
       if (action === "nav-waypoints") setPlaceIds("");
     }
 
+    function dashboardActionStatus(payload, action, navigationAction) {
+      const response = payload && payload.response && typeof payload.response === "object" ? payload.response : {};
+      const rawMessage = firstDefined(
+        payload && payload.message,
+        response.message,
+        typeof response.result === "string" ? response.result : undefined,
+        typeof (payload && payload.result) === "string" ? payload.result : undefined,
+        payload && payload.error
+      );
+      const actionLabel = sanitizeDashboardText(String(action || "Tesla action").replace(/-/g, " "), "Tesla action");
+      const fallback = payload && payload.ok === false
+        ? `Tesla returned a problem for ${actionLabel}.`
+        : `Tesla accepted the ${actionLabel} command.`;
+      const message = sanitizeDashboardText(rawMessage, fallback);
+      const suffix = navigationAction
+        ? " Route fields were cleared; physical actions are locked again."
+        : " Physical actions are locked again.";
+      return `${message}${suffix}`;
+    }
+
     async function setDefaultVehicle(nextVin) {
       setLoading(true);
       setLoadingMode("refresh");
@@ -903,9 +923,7 @@
         setDetail(payload);
         setConfirm(false);
         if (navigationAction) clearNavigationFields(action);
-        setLastActionStatus(navigationAction
-          ? `Ran ${action}; route fields were cleared and physical actions are locked again.`
-          : `Ran ${action}; physical actions are locked again.`);
+        setLastActionStatus(dashboardActionStatus(payload, action, navigationAction));
         await refresh();
       } catch (err) {
         setError(dashboardErrorMessage(err));
