@@ -423,6 +423,12 @@ _BEARER_TOKEN_PATTERN = re.compile(r"(?i)\b(bearer\s+)[A-Za-z0-9._~+/=-]{8,}")
 _SENSITIVE_QUERY_VALUE_PATTERN = re.compile(
     r"(?i)([?&](?:code|state|token|access_token|refresh_token|id_token)=)[^\s&]+"
 )
+_COORDINATE_VALUE_PATTERN = re.compile(
+    r"(?i)(\b(?:lat|latitude|lon|lng|longitude|native_latitude|native_longitude)\s*[:=]\s*)[-+]?\d{1,3}(?:\.\d+)?"
+)
+_COORDINATE_QUERY_VALUE_PATTERN = re.compile(
+    r"(?i)([?&](?:lat|latitude|lon|lng|longitude|native_latitude|native_longitude)=)[^\s&]+"
+)
 
 
 def _redact_slash_text(value: Any) -> str:
@@ -430,6 +436,8 @@ def _redact_slash_text(value: Any) -> str:
     text = str(value)
     text = _BEARER_TOKEN_PATTERN.sub(r"\1[REDACTED]", text)
     text = _SENSITIVE_QUERY_VALUE_PATTERN.sub(r"\1[REDACTED]", text)
+    text = _COORDINATE_QUERY_VALUE_PATTERN.sub(r"\1[coordinates redacted]", text)
+    text = _COORDINATE_VALUE_PATTERN.sub(r"\1[coordinates redacted]", text)
     text = _VIN_PATTERN.sub(
         lambda match: _redact_vehicle_identifier(match.group(0)) or "••••", text
     )

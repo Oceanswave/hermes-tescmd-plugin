@@ -408,10 +408,14 @@ def test_slash_command_failure_redacts_sensitive_context() -> None:
             "ok": False,
             "error": (
                 "Tesla rejected VIN 5YJ3E1EA7JF000001 for fleet id "
-                "12345678901234567 with Bearer secret-token-123456"
+                "12345678901234567 with Bearer secret-token-123456 "
+                "near latitude=37.7749295 longitude: -122.4194155"
             ),
             "retry_command": "/tescmd-lock 5YJ3E1EA7JF000001 confirm=true",
-            "next_action": "Check vehicle 12345678901234567 enrollment.",
+            "next_action": (
+                "Check vehicle 12345678901234567 enrollment at "
+                "https://maps.example.test/?lat=37.7749295&lng=-122.4194155."
+            ),
             "status_code": 403,
         },
     )
@@ -420,9 +424,15 @@ def test_slash_command_failure_redacts_sensitive_context() -> None:
     assert "…0001" in output
     assert "…4567" in output
     assert "Bearer [REDACTED]" in output
+    assert "latitude=[coordinates redacted]" in output
+    assert "longitude: [coordinates redacted]" in output
+    assert "lat=[coordinates redacted]" in output
+    assert "lng=[coordinates redacted]" in output
     assert "5YJ3E1EA7JF000001" not in output
     assert "12345678901234567" not in output
     assert "secret-token-123456" not in output
+    assert "37.7749295" not in output
+    assert "-122.4194155" not in output
     assert "Try: /tescmd-lock …0001 confirm=true" in output
 
 
