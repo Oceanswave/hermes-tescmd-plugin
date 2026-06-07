@@ -550,6 +550,24 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
     )
 
 
+def test_dashboard_read_safety_panel_explains_wake_confirm_boundary() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+    body = asset.split("function ReadSafetyPanel", 1)[1].split(
+        "function NavigationGuardPanel", 1
+    )[0]
+
+    assert "Read safety guardrails" in body
+    assert "Wake-enabled reads are armed" in body
+    assert "Reads are non-waking" in body
+    assert "wake and confirmation are both enabled" in body
+    assert "will not send wake-enabled reads until physical-action confirmation" in body
+    assert "fail-closed read" in body
+    assert "h(ReadSafetyPanel, { wakeReads, confirm })" in asset
+    assert ".tescmd-read-safety" in style
+    assert ".tescmd-read-safety-wake" in style
+
+
 def test_dashboard_user_visible_errors_are_sanitized_before_rendering() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
 
