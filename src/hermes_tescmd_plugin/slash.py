@@ -895,6 +895,60 @@ def _summarize_alerts(payload: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _summarize_mobile_access(payload: dict[str, Any]) -> list[str]:
+    if "mobile_access_enabled" not in payload:
+        return ["Mobile access: status not returned."]
+    enabled = payload.get("mobile_access_enabled")
+    if enabled is True:
+        return ["Mobile access: enabled."]
+    if enabled is False:
+        return ["Mobile access: disabled."]
+    return [f"Mobile access: {_redact_slash_text(_stringify(enabled))}."]
+
+
+def _summarize_service_data(payload: dict[str, Any]) -> list[str]:
+    service = _payload_section(payload, "service")
+    if not service:
+        return ["Service: no service details returned."]
+
+    details: list[str] = []
+    for key in (
+        "service_status",
+        "service_state",
+        "status",
+        "state",
+        "maintenance_status",
+    ):
+        value = _first_present(service, key)
+        if value is not None:
+            details.append(f"{key.replace('_', ' ')} {_redact_slash_text(value)}")
+            break
+
+    appointment = _first_dict(
+        service.get("appointment"),
+        service.get("upcoming_service_visit"),
+        service.get("service_visit"),
+    )
+    if appointment:
+        appointment_bits: list[str] = []
+        for key, label in (
+            ("status", "status"),
+            ("state", "state"),
+            ("start_time", "start"),
+            ("appointment_time", "time"),
+            ("service_center", "center"),
+        ):
+            value = _first_present(appointment, key)
+            if value is not None:
+                appointment_bits.append(f"{label} {_redact_slash_text(value)}")
+        if appointment_bits:
+            details.append("appointment " + ", ".join(appointment_bits[:3]))
+
+    if details:
+        return ["Service: " + "; ".join(details)]
+    return ["Service: data available (details redacted/summary-only)."]
+
+
 def _release_note_title(note: Any) -> str:
     if not isinstance(note, dict):
         return _redact_slash_text(note)
@@ -1116,6 +1170,12 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     if name == "tescmd-alerts":
         lines.extend(_summarize_alerts(payload))
 
+    if name == "tescmd-mobile-access":
+        lines.extend(_summarize_mobile_access(payload))
+
+    if name == "tescmd-service":
+        lines.extend(_summarize_service_data(payload))
+
     if name == "tescmd-release-notes":
         lines.extend(_summarize_release_notes(payload))
 
@@ -1155,6 +1215,8 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
                 "Nearby chargers:",
                 "Software:",
                 "Alerts:",
+                "Mobile access:",
+                "Service:",
                 "Release notes:",
                 "Body action:",
                 "Navigation action:",
@@ -1334,6 +1396,21 @@ _COMMANDS: dict[str, tuple[str, str, Callable[[dict[str, Any]], str]]] = {
         lambda ctx: _format_command(
             "tescmd-release-notes",
             _run_tool("tescmd_vehicle_release_notes", ctx["raw_args"]),
+        ),
+    ),
+    "tescmd-mobile-access": (
+        "Check whether mobile access is enabled for the selected vehicle.",
+        "[vin]",
+        lambda ctx: _format_command(
+            "tescmd-mobile-access",
+            _run_tool("tescmd_vehicle_mobile_access", ctx["raw_args"]),
+        ),
+    ),
+    "tescmd-service": (
+        "Fetch service data for the selected vehicle.",
+        "[vin]",
+        lambda ctx: _format_command(
+            "tescmd-service", _run_tool("tescmd_vehicle_service", ctx["raw_args"])
         ),
     ),
     "tescmd-climate": (

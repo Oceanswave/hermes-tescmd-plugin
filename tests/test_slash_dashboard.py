@@ -157,6 +157,8 @@ def test_registers_tescmd_slash_commands_and_status_handler(
         "tescmd-nearby-chargers",
         "tescmd-alerts",
         "tescmd-release-notes",
+        "tescmd-mobile-access",
+        "tescmd-service",
         "tescmd-charge",
         "tescmd-climate",
         "tescmd-location",
@@ -780,6 +782,50 @@ def test_read_slash_command_success_summarizes_vehicle_data() -> None:
     assert output.startswith("/tescmd-charge: success")
     assert "Charge: 65%, Disconnected, limit 80%" in output
     assert "Source: cached vehicle data" in output
+    assert "{" not in output
+
+
+def test_mobile_access_slash_summary_is_human_readable() -> None:
+    output = slash._format_command(
+        "tescmd-mobile-access",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "mobile_access_enabled": False,
+        },
+    )
+
+    assert output.startswith("/tescmd-mobile-access: success")
+    assert "Mobile access: disabled." in output
+    assert "Result: command accepted" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "{" not in output
+
+
+def test_service_slash_summary_redacts_vehicle_ids_and_avoids_raw_payload() -> None:
+    output = slash._format_command(
+        "tescmd-service",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "service": {
+                "service_status": "scheduled for vehicle 5YJ3E1EA7JF000002",
+                "appointment": {
+                    "status": "booked",
+                    "start_time": "2026-06-10T09:00:00Z",
+                    "service_center": "Tesla Service 12345678901234567",
+                },
+            },
+        },
+    )
+
+    assert output.startswith("/tescmd-service: success")
+    assert "Service: service status scheduled for vehicle …0002" in output
+    assert "appointment status booked, start 2026-06-10T09:00:00Z" in output
+    assert "center Tesla Service …4567" in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "5YJ3E1EA7JF000002" not in output
+    assert "12345678901234567" not in output
     assert "{" not in output
 
 
