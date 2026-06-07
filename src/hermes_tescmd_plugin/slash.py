@@ -604,6 +604,22 @@ def _summarize_nearby_chargers(payload: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _heading_cardinal(heading: Any) -> str | None:
+    """Return a coarse compass label for a numeric heading.
+
+    Compass labels make location/drive slash summaries easier to scan while
+    avoiding any additional precise location disclosure.
+    """
+
+    try:
+        degrees = float(heading)
+    except (TypeError, ValueError):
+        return None
+    sectors = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")
+    index = int(((degrees % 360) + 22.5) // 45) % len(sectors)
+    return sectors[index]
+
+
 def _drive_detail_parts(drive: dict[str, Any]) -> list[str]:
     """Return safe, operator-useful drive/location details.
 
@@ -630,7 +646,9 @@ def _drive_detail_parts(drive: dict[str, Any]) -> list[str]:
 
     heading = drive.get("heading")
     if heading is not None:
-        parts.append(f"heading {heading}°")
+        cardinal = _heading_cardinal(heading)
+        heading_label = f"{heading}° {cardinal}" if cardinal else f"{heading}°"
+        parts.append(f"heading {heading_label}")
 
     power = drive.get("power")
     if power is not None:

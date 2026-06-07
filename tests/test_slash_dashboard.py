@@ -1173,6 +1173,16 @@ def test_climate_set_temp_action_summary_uses_exposed_request(monkeypatch) -> No
     assert "{" not in output
 
 
+def test_heading_cardinal_labels_are_coarse_and_scan_friendly() -> None:
+    assert slash._heading_cardinal(0) == "N"  # noqa: SLF001
+    assert slash._heading_cardinal(44.9) == "NE"  # noqa: SLF001
+    assert slash._heading_cardinal(90) == "E"  # noqa: SLF001
+    assert slash._heading_cardinal(180) == "S"  # noqa: SLF001
+    assert slash._heading_cardinal(271) == "W"  # noqa: SLF001
+    assert slash._heading_cardinal("315") == "NW"  # noqa: SLF001
+    assert slash._heading_cardinal("unknown") is None  # noqa: SLF001
+
+
 def test_drive_slash_summary_redacts_precise_coordinates() -> None:
     output = slash._format_command(
         "tescmd-drive",
@@ -1195,7 +1205,7 @@ def test_drive_slash_summary_redacts_precise_coordinates() -> None:
     )
 
     assert (
-        "Drive: shift drive, speed 0 mph, heading 271°, power -2 kW, "
+        "Drive: shift drive, speed 0 mph, heading 271° W, power -2 kW, "
         "native location available (coordinates redacted)"
     ) in output
     assert "Location: available (coordinates redacted)" in output
@@ -1226,7 +1236,7 @@ def test_location_slash_summary_includes_safe_drive_context_only() -> None:
         },
     )
 
-    assert "Drive: shift parked, speed 0 mph, heading 0°" in output
+    assert "Drive: shift parked, speed 0 mph, heading 0° N" in output
     assert "Location: available (coordinates redacted)" in output
     assert "Result: command accepted" not in output
     assert "34.052235" not in output
@@ -1252,7 +1262,7 @@ def test_location_slash_summary_treats_zero_coordinates_as_present() -> None:
         },
     )
 
-    assert "Drive: shift parked, speed 0 mph, heading 0°" in output
+    assert "Drive: shift parked, speed 0 mph, heading 0° N" in output
     assert "Location: available (coordinates redacted)" in output
     assert "Result: command accepted" not in output
     assert "{" not in output
