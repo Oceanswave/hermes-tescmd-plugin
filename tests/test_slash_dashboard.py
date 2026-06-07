@@ -568,6 +568,31 @@ def test_dashboard_read_safety_panel_explains_wake_confirm_boundary() -> None:
     assert ".tescmd-read-safety-wake" in style
 
 
+def test_dashboard_scope_readiness_panel_summarizes_missing_scopes_safely() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+    body = asset.split("function ScopeReadinessPanel", 1)[1].split(
+        "function BusyBanner", 1
+    )[0]
+
+    assert "function scopeReadinessFromStatus(status)" in asset
+    assert "function scopeCapabilityRows(scopeReadiness)" in asset
+    assert "OAuth scope readiness" in body
+    assert "Some Tesla capabilities need scopes" in body
+    assert "Tesla OAuth scopes look ready" in body
+    assert "missing_granted_user_scopes" in body
+    assert "payload && payload.missing_scopes" in asset
+    assert (
+        "Missing scope names are shown without tokens, vehicle identifiers, or callback values"
+        in body
+    )
+    assert "sanitizeDashboardText(scopeReadiness.grant_scope_source" in body
+    assert 'sanitizeDashboardText(item, "scope")' in body
+    assert "h(ScopeReadinessPanel, { status })" in asset
+    assert ".tescmd-scope-readiness" in style
+    assert ".tescmd-scope-readiness-warn" in style
+
+
 def test_dashboard_user_visible_errors_are_sanitized_before_rendering() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
 

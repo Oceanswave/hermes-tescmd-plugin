@@ -115,6 +115,52 @@
     );
   }
 
+  function scopeReadinessFromStatus(status) {
+    const bootstrap = (status && status.bootstrap) || {};
+    return bootstrap.scope_readiness || null;
+  }
+
+  function scopeCapabilityRows(scopeReadiness) {
+    const capabilities = (scopeReadiness && scopeReadiness.capabilities) || {};
+    return Object.entries(capabilities).map(([name, payload]) => {
+      const missing = Array.isArray(payload && payload.missing_scopes)
+        ? payload.missing_scopes.map((item) => sanitizeDashboardText(item, "scope"))
+        : [];
+      return {
+        name: sanitizeDashboardText(String(name).replace(/_/g, " "), "capability"),
+        ready: Boolean(payload && payload.ready),
+        missing,
+      };
+    });
+  }
+
+  function ScopeReadinessPanel({ status }) {
+    const scopeReadiness = scopeReadinessFromStatus(status);
+    if (!scopeReadiness) return null;
+    const grantSource = sanitizeDashboardText(scopeReadiness.grant_scope_source || "unknown", "unknown");
+    const missingGranted = Array.isArray(scopeReadiness.missing_granted_user_scopes)
+      ? scopeReadiness.missing_granted_user_scopes.map((item) => sanitizeDashboardText(item, "scope"))
+      : [];
+    const capabilities = scopeCapabilityRows(scopeReadiness);
+    const blocked = missingGranted.length > 0 || capabilities.some((item) => !item.ready);
+    return h("div", { className: blocked ? "tescmd-scope-readiness tescmd-scope-readiness-warn" : "tescmd-scope-readiness", role: "status", "aria-live": "polite" },
+      h("div", null,
+        h("span", { className: "tescmd-widget-label" }, "OAuth scope readiness"),
+        h("strong", null, blocked ? "Some Tesla capabilities need scopes" : "Tesla OAuth scopes look ready"),
+        h("small", null, `Scope source: ${grantSource}. Missing scope names are shown without tokens, vehicle identifiers, or callback values.`)
+      ),
+      h("div", { className: "tescmd-scope-grid" },
+        missingGranted.length
+          ? h("div", { className: "tescmd-scope-missing" }, h("span", null, "Missing granted"), missingGranted.slice(0, 4).map((scope) => h(Badge, { key: scope, className: "tescmd-warn" }, scope)))
+          : h(Badge, { className: "tescmd-ok" }, "no missing granted scopes"),
+        capabilities.slice(0, 4).map((item) => h("div", { key: item.name, className: "tescmd-scope-capability" },
+          h("span", null, item.name),
+          h(Badge, { className: item.ready ? "tescmd-ok" : "tescmd-warn" }, item.ready ? "ready" : `needs ${item.missing.join(", ") || "scope"}`)
+        ))
+      )
+    );
+  }
+
   function BusyBanner({ loading, mode }) {
     if (!loading) return null;
     const initial = mode === "initial";
@@ -1021,7 +1067,8 @@
               )
             ),
             h(ReadSafetyPanel, { wakeReads, confirm }),
-            status ? h(Readiness, { status }) : null
+            status ? h(Readiness, { status }) : null,
+            status ? h(ScopeReadinessPanel, { status }) : null
           )
         ),
         h("div", { key: "workbench", className: "tescmd-workbench" },
