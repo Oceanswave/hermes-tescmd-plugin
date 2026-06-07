@@ -195,7 +195,8 @@
   line-height: 1.32;
 }
 
-.tescmd-nav-guard {
+.tescmd-nav-guard,
+.tescmd-read-safety {
   display: grid;
   grid-template-columns: minmax(14rem, 1fr) auto;
   gap: 0.65rem;
@@ -209,13 +210,27 @@
     color-mix(in srgb, var(--color-card) 94%, transparent);
 }
 
-.tescmd-nav-guard strong {
+.tescmd-read-safety {
+  margin: 0.7rem 0 0;
+  border-style: solid;
+}
+
+.tescmd-read-safety-wake {
+  border-color: color-mix(in srgb, var(--tescmd-amber) 50%, var(--color-border));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tescmd-amber) 12%, transparent), transparent 48%),
+    color-mix(in srgb, var(--color-card) 94%, transparent);
+}
+
+.tescmd-nav-guard strong,
+.tescmd-read-safety strong {
   display: block;
   margin: 0.1rem 0;
   letter-spacing: -0.02em;
 }
 
-.tescmd-nav-guard-badges {
+.tescmd-nav-guard-badges,
+.tescmd-read-safety-badges {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;

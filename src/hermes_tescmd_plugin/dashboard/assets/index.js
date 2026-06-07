@@ -282,6 +282,28 @@
     );
   }
 
+  function ReadSafetyPanel({ wakeReads, confirm }) {
+    const wakeRequested = Boolean(wakeReads);
+    const confirmArmed = Boolean(confirm);
+    const wakeWillRun = wakeRequested && confirmArmed;
+    return h("div", { className: wakeWillRun ? "tescmd-read-safety tescmd-read-safety-wake" : "tescmd-read-safety", role: "note", "aria-label": "Read safety guardrails" },
+      h("div", null,
+        h("span", { className: "tescmd-widget-label" }, "Read safety"),
+        h("strong", null, wakeWillRun ? "Wake-enabled reads are armed" : "Reads are non-waking"),
+        h("small", null, wakeWillRun
+          ? "A read can wake a sleeping vehicle because wake and confirmation are both enabled."
+          : wakeRequested
+            ? "Wake is requested, but the dashboard will not send wake-enabled reads until physical-action confirmation is also checked."
+            : "Read buttons fetch cached or available Tesla data without arming physical side effects.")
+      ),
+      h("div", { className: "tescmd-read-safety-badges" },
+        h(Badge, { className: wakeRequested ? "tescmd-warn" : "tescmd-ok" }, wakeRequested ? "wake requested" : "wake off"),
+        h(Badge, { className: confirmArmed ? "tescmd-warn" : "tescmd-ok" }, confirmArmed ? "confirmation armed" : "confirmation locked"),
+        h(Badge, { className: wakeWillRun ? "tescmd-warn" : "tescmd-ok" }, wakeWillRun ? "wake-capable read" : "fail-closed read")
+      )
+    );
+  }
+
   function NavigationGuardPanel({ destination, lat, lon, placeIds }) {
     const hasDestination = String(destination || "").trim() !== "";
     const hasLat = String(lat || "").trim() !== "";
@@ -998,6 +1020,7 @@
                 h("small", { className: "tescmd-muted" }, "Approximate mode rounds visible map text and marker position; raw payload stays redacted below.")
               )
             ),
+            h(ReadSafetyPanel, { wakeReads, confirm }),
             status ? h(Readiness, { status }) : null
           )
         ),
