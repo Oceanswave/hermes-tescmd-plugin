@@ -222,6 +222,51 @@
     color-mix(in srgb, var(--color-card) 94%, transparent);
 }
 
+.tescmd-scope-readiness {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1fr) minmax(16rem, 1.4fr);
+  gap: 0.65rem;
+  align-items: center;
+  margin-top: 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--tescmd-green) 34%, var(--color-border));
+  border-radius: var(--radius);
+  padding: 0.62rem 0.72rem;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tescmd-green) 9%, transparent), transparent 45%),
+    color-mix(in srgb, var(--color-card) 94%, transparent);
+}
+
+.tescmd-scope-readiness-warn {
+  border-color: color-mix(in srgb, var(--tescmd-amber) 50%, var(--color-border));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tescmd-amber) 12%, transparent), transparent 45%),
+    color-mix(in srgb, var(--color-card) 94%, transparent);
+}
+
+.tescmd-scope-readiness strong {
+  display: block;
+  margin: 0.1rem 0;
+  letter-spacing: -0.02em;
+}
+
+.tescmd-scope-readiness small,
+.tescmd-scope-capability span,
+.tescmd-scope-missing span {
+  color: var(--color-muted-foreground);
+  font-size: 0.78rem;
+  line-height: 1.32;
+}
+
+.tescmd-scope-grid,
+.tescmd-scope-missing,
+.tescmd-scope-capability {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .tescmd-nav-guard strong,
 .tescmd-read-safety strong {
   display: block;
@@ -905,6 +950,7 @@
 @media (max-width: 900px) {
   .tescmd-identity-card,
   .tescmd-nav-guard,
+  .tescmd-scope-readiness,
   .tescmd-visual-grid {
     grid-template-columns: 1fr;
   }
