@@ -1488,6 +1488,63 @@ def test_software_slash_summary_reports_version_and_update_privately() -> None:
     assert "{" not in output
 
 
+def test_config_slash_summary_reports_model_hints_and_capabilities_privately() -> None:
+    output = slash._format_command(
+        "tescmd-config",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "vehicle_config": {
+                "car_type": "cybertruck",
+                "car_version": "Cybertruck 5YJ3E1EA7JF000001",
+                "trim_badging": "Cyberbeast",
+                "exterior_color": "Stainless",
+                "plg": True,
+                "rear_seat_heaters": True,
+                "can_accept_navigation_requests": True,
+                "id_s": "12345678901234567",
+            },
+        },
+    )
+
+    assert output.startswith("/tescmd-config: success")
+    assert (
+        "Config: car type cybertruck, car version Cybertruck …0001, "
+        "trim badging Cyberbeast, exterior color Stainless; "
+        "capabilities powered liftgate, rear seat heaters, nav sharing"
+    ) in output
+    assert "Result: command accepted" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "12345678901234567" not in output
+    assert "{" not in output
+
+
+def test_gui_slash_summary_reports_unit_preferences_privately() -> None:
+    output = slash._format_command(
+        "tescmd-gui",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "gui_settings": {
+                "gui_distance_units": "mi/hr for 5YJ3E1EA7JF000001",
+                "gui_temperature_units": "F",
+                "gui_charge_rate_units": "mi/hr",
+                "gui_24_hour_time": False,
+                "gui_range_display": "Rated",
+            },
+        },
+    )
+
+    assert output.startswith("/tescmd-gui: success")
+    assert (
+        "GUI: distance mi/hr for …0001, temperature F, charge rate mi/hr, "
+        "24h time False, range display Rated"
+    ) in output
+    assert "Result: command accepted" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "{" not in output
+
+
 def test_alerts_slash_summary_reports_top_alerts_without_ids_or_raw_json() -> None:
     output = slash._format_command(
         "tescmd-alerts",
