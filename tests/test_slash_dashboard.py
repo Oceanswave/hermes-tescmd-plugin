@@ -11,6 +11,7 @@ from hermes_tescmd_plugin.dashboard.plugin_api import (
     DefaultVehicleBody,
     QuickActionBody,
     _dashboard_display_payload,
+    _command_safety_filters,
     _overview_section_health,
     commands,
     overview,
@@ -1724,6 +1725,76 @@ def test_dashboard_command_catalog_is_generated_from_runtime_specs() -> None:
     assert nav["sensitive_parameters"]["lon"] == ["location_or_destination"]
     assert any("Locations, destinations" in note for note in nav["safety_notes"])
     assert catalog["categories"]["charge"] >= 1
+    filters = {item["value"]: item for item in catalog["safety_filters"]}
+    assert filters["confirm_required"]["label"] == "Confirm-gated actions"
+    assert (
+        filters["confirm_required"]["count"]
+        == catalog["privacy_summary"]["confirm_required"]
+    )
+    assert (
+        filters["wake_capable"]["count"] == catalog["privacy_summary"]["wake_capable"]
+    )
+    assert (
+        filters["vehicle_identifier"]["count"]
+        == catalog["privacy_summary"]["vehicle_identifier"]
+    )
+    assert (
+        filters["location_or_destination"]["count"]
+        == catalog["privacy_summary"]["location_or_destination"]
+    )
+    assert filters["secret_like"]["count"] == (
+        catalog["privacy_summary"]["secret_or_oauth_value"]
+        + catalog["privacy_summary"]["schema_sensitive"]
+    )
+
+
+def test_dashboard_command_safety_filters_are_stable_and_privacy_safe() -> None:
+    filters = _command_safety_filters(
+        [
+            {
+                "confirm_required": True,
+                "wake_capable": False,
+                "sensitive_parameters": {"vin": ["vehicle_identifier"]},
+            },
+            {
+                "confirm_required": False,
+                "wake_capable": True,
+                "sensitive_parameters": {
+                    "destination": ["location_or_destination"],
+                    "code": ["secret_or_oauth_value", "schema_sensitive"],
+                },
+            },
+        ]
+    )
+
+    by_value = {item["value"]: item for item in filters}
+    assert by_value == {
+        "confirm_required": {
+            "value": "confirm_required",
+            "label": "Confirm-gated actions",
+            "count": 1,
+        },
+        "wake_capable": {
+            "value": "wake_capable",
+            "label": "Wake-capable reads",
+            "count": 1,
+        },
+        "vehicle_identifier": {
+            "value": "vehicle_identifier",
+            "label": "Vehicle identifier parameters",
+            "count": 1,
+        },
+        "location_or_destination": {
+            "value": "location_or_destination",
+            "label": "Location/destination parameters",
+            "count": 1,
+        },
+        "secret_like": {
+            "value": "secret_like",
+            "label": "Secret/OAuth-like parameters",
+            "count": 2,
+        },
+    }
 
 
 def test_dashboard_commands_tab_uses_dynamic_catalog_endpoint() -> None:
@@ -1776,6 +1847,26 @@ def test_dashboard_command_search_includes_safety_and_parameter_terms() -> None:
     assert "command.safety_notes" in asset
     assert "commandSearchCorpus(command).includes(queryText)" in asset
     assert "value).toLowerCase().includes(queryText)" not in asset
+
+
+def test_dashboard_command_catalog_can_filter_by_safety_marker() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    body = asset.split("function CommandCatalog", 1)[1].split(
+        "function TeslaDashboard", 1
+    )[0]
+
+    assert "function commandMatchesSafetyFilter(command, safetyFilter)" in asset
+    assert "Safety marker" in body
+    assert "All safety markers" in body
+    assert "catalog.safety_filters" in body
+    assert "commandMatchesSafetyFilter(command, safetyFilter)" in body
+    assert 'safetyFilter === "confirm_required"' in asset
+    assert 'safetyFilter === "wake_capable"' in asset
+    assert 'safetyFilter === "secret_like"' in asset
+    assert 'flatFlags.has("secret_or_oauth_value")' in asset
+    assert 'flatFlags.has("schema_sensitive")' in asset
+    assert "commandSafetyFilter" in asset
+    assert "setCommandSafetyFilter" in asset
 
 
 def test_dashboard_command_catalog_sanitizes_visible_runtime_metadata() -> None:
