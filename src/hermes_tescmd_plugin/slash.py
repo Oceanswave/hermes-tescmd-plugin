@@ -879,6 +879,59 @@ def _software_detail_parts(software: dict[str, Any]) -> list[str]:
     return parts
 
 
+def _config_detail_parts(config: dict[str, Any]) -> list[str]:
+    """Return safe model/trim/capability hints from vehicle_config.
+
+    Vehicle config is useful for target selection (for example distinguishing a
+    Cybertruck from another Tesla) but may travel with VIN-like identifiers or
+    option strings. Keep concise operator-facing fields and run all free text
+    through the slash redactor.
+    """
+
+    parts: list[str] = []
+    model_bits: list[str] = []
+    for key in ("car_type", "car_version", "trim_badging", "exterior_color"):
+        value = config.get(key)
+        if value is not None:
+            model_bits.append(f"{key.replace('_', ' ')} {_redact_slash_text(value)}")
+    if model_bits:
+        parts.append(", ".join(model_bits[:4]))
+
+    capabilities: list[str] = []
+    for key, label in (
+        ("plg", "powered liftgate"),
+        ("rear_seat_heaters", "rear seat heaters"),
+        ("third_row_seats", "third row"),
+        ("can_accept_navigation_requests", "nav sharing"),
+        ("can_actuate_trunks", "trunk actuation"),
+        ("supports_qr_pairing", "QR pairing"),
+    ):
+        value = config.get(key)
+        if value is True:
+            capabilities.append(label)
+    if capabilities:
+        parts.append("capabilities " + ", ".join(capabilities[:5]))
+
+    return parts
+
+
+def _gui_detail_parts(gui: dict[str, Any]) -> list[str]:
+    """Return concise, privacy-safe display/unit preferences from gui_settings."""
+
+    parts: list[str] = []
+    for key, label in (
+        ("gui_distance_units", "distance"),
+        ("gui_temperature_units", "temperature"),
+        ("gui_charge_rate_units", "charge rate"),
+        ("gui_24_hour_time", "24h time"),
+        ("gui_range_display", "range display"),
+    ):
+        value = gui.get(key)
+        if value is not None:
+            parts.append(f"{label} {_redact_slash_text(value)}")
+    return parts
+
+
 def _alert_label(alert: Any) -> str:
     if not isinstance(alert, dict):
         return _redact_slash_text(alert)
@@ -1158,6 +1211,18 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
         if software_parts:
             lines.append("Software: " + ", ".join(software_parts))
 
+    vehicle_config = _payload_section(payload, "vehicle_config")
+    if name == "tescmd-config" and vehicle_config:
+        config_parts = _config_detail_parts(vehicle_config)
+        if config_parts:
+            lines.append("Config: " + "; ".join(config_parts))
+
+    gui_settings = _payload_section(payload, "gui_settings")
+    if name == "tescmd-gui" and gui_settings:
+        gui_parts = _gui_detail_parts(gui_settings)
+        if gui_parts:
+            lines.append("GUI: " + ", ".join(gui_parts))
+
     security = _payload_section(payload, "security_state", "vehicle_state")
     if name in {"tescmd-security-status", "tescmd-closures"} and security:
         security_parts = _security_detail_parts(security)
@@ -1232,6 +1297,8 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
                 "Location:",
                 "Nearby chargers:",
                 "Software:",
+                "Config:",
+                "GUI:",
                 "Alerts:",
                 "Mobile access:",
                 "Service:",
