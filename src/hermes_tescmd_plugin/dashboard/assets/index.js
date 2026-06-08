@@ -749,8 +749,9 @@
     ];
   }
 
-  function CommandCatalog({ catalog, search, setSearch, category, setCategory, safetyFilter, setSafetyFilter, loading }) {
-    const commands = Array.isArray(catalog && catalog.commands) ? catalog.commands : [];
+  function CommandCatalog({ catalog, search, setSearch, category, setCategory, safetyFilter, setSafetyFilter, loading, catalogError, retryCatalog }) {
+    const catalogLoaded = Boolean(catalog && Array.isArray(catalog.commands));
+    const commands = catalogLoaded ? catalog.commands : [];
     const categories = ["all", ...Object.keys((catalog && catalog.categories) || {}).sort()];
     const safetyFilters = ["all", ...((catalog && catalog.safety_filters) || []).filter((item) => item && item.count > 0).map((item) => item.value)];
     const safetyFilterLabels = Object.fromEntries(((catalog && catalog.safety_filters) || []).map((item) => [item.value, `${commandCatalogText(item.label, "Safety marker")} (${item.count || 0})`]));
@@ -818,9 +819,23 @@
             );
           })
         ),
-        !filtered.length ? h(EmptyState, {
+        !catalogLoaded && !catalogError ? h(EmptyState, {
+          title: "Command catalog loading",
+          body: "Hermes is fetching the live tescmd tool catalog from the plugin runtime.",
+          steps: ["No Tesla vehicle command is sent while loading the catalog.", "Runtime metadata is sanitized before it appears in command names, safety notes, or parameter summaries."],
+          note: "If this state persists, retry the catalog fetch or check the redacted payload/error panel.",
+          action: retryCatalog ? h(Button, { onClick: retryCatalog, disabled: loading }, loading ? "Loading…" : "Retry catalog") : null,
+        }) : null,
+        catalogError ? h(EmptyState, {
+          title: "Command catalog unavailable",
+          body: catalogError,
+          steps: ["Dashboard quick actions remain confirm-gated; this catalog is only a read-only operator reference.", "Retry after plugin/runtime setup is healthy."],
+          note: "The error text is sanitized before rendering so tokens, vehicle identifiers, destinations, and coordinates stay hidden.",
+          action: retryCatalog ? h(Button, { onClick: retryCatalog, disabled: loading }, loading ? "Loading…" : "Retry catalog") : null,
+        }) : null,
+        catalogLoaded && !filtered.length ? h(EmptyState, {
           title: "No commands match",
-          body: "Try a different search term or category. The list is generated from the registered plugin tools, not maintained by dashboard copy.",
+          body: "Try a different search term, category, or safety marker. The list is generated from the registered plugin tools, not maintained by dashboard copy.",
         }) : null
       )
     );
@@ -854,7 +869,9 @@
     const [lon, setLon] = hooks.useState("");
     const [placeIds, setPlaceIds] = hooks.useState("");
     const [activeTab, setActiveTab] = hooks.useState("overview");
-    const [commandCatalog, setCommandCatalog] = hooks.useState({ commands: [], categories: {}, count: 0 });
+    const [commandCatalog, setCommandCatalog] = hooks.useState(null);
+    const [commandCatalogError, setCommandCatalogError] = hooks.useState("");
+    const [commandCatalogLoading, setCommandCatalogLoading] = hooks.useState(false);
     const [commandSearch, setCommandSearch] = hooks.useState("");
     const [commandCategory, setCommandCategory] = hooks.useState("all");
     const [commandSafetyFilter, setCommandSafetyFilter] = hooks.useState("all");
@@ -906,11 +923,37 @@
 
     hooks.useEffect(() => { refresh("initial"); }, []);
 
+    const loadCommandCatalog = hooks.useCallback(async () => {
+      setCommandCatalogLoading(true);
+      setCommandCatalogError("");
+      try {
+        const payload = await api("/commands");
+        setCommandCatalog(payload);
+      } catch (err) {
+        setCommandCatalog(null);
+        setCommandCatalogError(dashboardErrorMessage(err));
+      } finally {
+        setCommandCatalogLoading(false);
+      }
+    }, []);
+
     hooks.useEffect(() => {
       let cancelled = false;
+      setCommandCatalogLoading(true);
+      setCommandCatalogError("");
       api("/commands")
-        .then((payload) => { if (!cancelled) setCommandCatalog(payload); })
-        .catch((err) => { if (!cancelled) setError(dashboardErrorMessage(err)); });
+        .then((payload) => {
+          if (!cancelled) setCommandCatalog(payload);
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            setCommandCatalog(null);
+            setCommandCatalogError(dashboardErrorMessage(err));
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setCommandCatalogLoading(false);
+        });
       return () => { cancelled = true; };
     }, []);
 
@@ -1079,7 +1122,9 @@
         setCategory: setCommandCategory,
         safetyFilter: commandSafetyFilter,
         setSafetyFilter: setCommandSafetyFilter,
-        loading,
+        loading: commandCatalogLoading,
+        catalogError: commandCatalogError,
+        retryCatalog: loadCommandCatalog,
       }) : [
         overview && overview.onboarding ? h(OnboardingCard, { key: "onboarding", onboarding: overview.onboarding }) : null,
         h(Card, { key: "overview", className: "tescmd-overview-card" },
