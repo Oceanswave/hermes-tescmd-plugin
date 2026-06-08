@@ -248,6 +248,39 @@ def _command_privacy_summary(command_list: list[dict[str, Any]]) -> dict[str, in
     return summary
 
 
+def _command_safety_filters(command_list: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return stable dashboard filter metadata derived from privacy markers."""
+
+    summary = _command_privacy_summary(command_list)
+    return [
+        {
+            "value": "confirm_required",
+            "label": "Confirm-gated actions",
+            "count": summary["confirm_required"],
+        },
+        {
+            "value": "wake_capable",
+            "label": "Wake-capable reads",
+            "count": summary["wake_capable"],
+        },
+        {
+            "value": "vehicle_identifier",
+            "label": "Vehicle identifier parameters",
+            "count": summary["vehicle_identifier"],
+        },
+        {
+            "value": "location_or_destination",
+            "label": "Location/destination parameters",
+            "count": summary["location_or_destination"],
+        },
+        {
+            "value": "secret_like",
+            "label": "Secret/OAuth-like parameters",
+            "count": summary["secret_or_oauth_value"] + summary["schema_sensitive"],
+        },
+    ]
+
+
 def _run(tool_name: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
     spec = _specs().get(tool_name)
     if spec is None:
@@ -418,13 +451,15 @@ def commands() -> dict[str, Any]:
     for command in command_list:
         categories[command["category"]] = categories.get(command["category"], 0) + 1
         kinds[command["kind"]] = kinds.get(command["kind"], 0) + 1
+    privacy_summary = _command_privacy_summary(command_list)
     return {
         "ok": True,
         "source": "runtime.list_tool_specs",
         "count": len(command_list),
         "categories": categories,
         "kinds": kinds,
-        "privacy_summary": _command_privacy_summary(command_list),
+        "privacy_summary": privacy_summary,
+        "safety_filters": _command_safety_filters(command_list),
         "commands": command_list,
     }
 

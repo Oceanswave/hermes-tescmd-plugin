@@ -727,6 +727,16 @@
     ].filter(Boolean).join(" ").toLowerCase();
   }
 
+  function commandMatchesSafetyFilter(command, safetyFilter) {
+    if (!safetyFilter || safetyFilter === "all") return true;
+    const flags = command && command.sensitive_parameters && typeof command.sensitive_parameters === "object" ? command.sensitive_parameters : {};
+    const flatFlags = new Set(Object.values(flags).flatMap((value) => Array.isArray(value) ? value : []));
+    if (safetyFilter === "confirm_required") return Boolean(command && command.confirm_required);
+    if (safetyFilter === "wake_capable") return Boolean(command && command.wake_capable);
+    if (safetyFilter === "secret_like") return flatFlags.has("secret_or_oauth_value") || flatFlags.has("schema_sensitive");
+    return flatFlags.has(safetyFilter);
+  }
+
   function commandPrivacySummary(catalog) {
     const summary = (catalog && catalog.privacy_summary) || {};
     const secretCount = (summary.secret_or_oauth_value || 0) + (summary.schema_sensitive || 0);
@@ -739,12 +749,15 @@
     ];
   }
 
-  function CommandCatalog({ catalog, search, setSearch, category, setCategory, loading }) {
+  function CommandCatalog({ catalog, search, setSearch, category, setCategory, safetyFilter, setSafetyFilter, loading }) {
     const commands = Array.isArray(catalog && catalog.commands) ? catalog.commands : [];
     const categories = ["all", ...Object.keys((catalog && catalog.categories) || {}).sort()];
+    const safetyFilters = ["all", ...((catalog && catalog.safety_filters) || []).filter((item) => item && item.count > 0).map((item) => item.value)];
+    const safetyFilterLabels = Object.fromEntries(((catalog && catalog.safety_filters) || []).map((item) => [item.value, `${commandCatalogText(item.label, "Safety marker")} (${item.count || 0})`]));
     const queryText = String(search || "").trim().toLowerCase();
     const filtered = commands.filter((command) => {
       if (category && category !== "all" && command.category !== category) return false;
+      if (!commandMatchesSafetyFilter(command, safetyFilter)) return false;
       if (!queryText) return true;
       return commandSearchCorpus(command).includes(queryText);
     });
@@ -770,6 +783,9 @@
           h(TextInput, { label: "Search commands", value: search, setValue: setSearch, placeholder: "charge, auth, navigation…" }),
           h(Field, { label: "Category" }, h("select", { className: "tescmd-select", value: category, onChange: (event) => setCategory(event.target.value) },
             categories.map((item) => h("option", { key: item, value: item }, item === "all" ? "All categories" : `${item} (${(catalog.categories || {})[item] || 0})`))
+          )),
+          h(Field, { label: "Safety marker" }, h("select", { className: "tescmd-select", value: safetyFilter, onChange: (event) => setSafetyFilter(event.target.value) },
+            safetyFilters.map((item) => h("option", { key: item, value: item }, item === "all" ? "All safety markers" : (safetyFilterLabels[item] || commandCatalogText(item, "Safety marker"))))
           )),
           h("div", { className: "tescmd-command-stat" }, h("span", null, "Total"), h("strong", null, catalog && catalog.count != null ? catalog.count : "—")),
           h("div", { className: "tescmd-command-stat" }, h("span", null, "Showing"), h("strong", null, loading ? "…" : filtered.length))
@@ -841,6 +857,7 @@
     const [commandCatalog, setCommandCatalog] = hooks.useState({ commands: [], categories: {}, count: 0 });
     const [commandSearch, setCommandSearch] = hooks.useState("");
     const [commandCategory, setCommandCategory] = hooks.useState("all");
+    const [commandSafetyFilter, setCommandSafetyFilter] = hooks.useState("all");
 
     const query = (includeReadFlags) => {
       const params = new URLSearchParams();
@@ -1060,6 +1077,8 @@
         setSearch: setCommandSearch,
         category: commandCategory,
         setCategory: setCommandCategory,
+        safetyFilter: commandSafetyFilter,
+        setSafetyFilter: setCommandSafetyFilter,
         loading,
       }) : [
         overview && overview.onboarding ? h(OnboardingCard, { key: "onboarding", onboarding: overview.onboarding }) : null,
