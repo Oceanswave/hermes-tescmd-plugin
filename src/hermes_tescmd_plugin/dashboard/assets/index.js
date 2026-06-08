@@ -679,16 +679,20 @@
     );
   }
 
+  function commandCatalogText(value, fallback) {
+    return sanitizeDashboardText(value, fallback || "command detail");
+  }
+
   function commandParamSummary(command) {
     const params = command && command.parameters && typeof command.parameters === "object" ? command.parameters : {};
     const flags = command && command.sensitive_parameters && typeof command.sensitive_parameters === "object" ? command.sensitive_parameters : {};
     return Object.entries(params).map(([name, schema]) => {
-      const bits = [name];
-      if (schema && schema.type) bits.push(schema.type);
+      const bits = [commandCatalogText(name, "parameter")];
+      if (schema && schema.type) bits.push(commandCatalogText(schema.type, "type"));
       if (Array.isArray(command.required) && command.required.includes(name)) bits.push("required");
-      if (schema && schema.enum) bits.push(`one of ${schema.enum.join("|")}`);
+      if (schema && schema.enum) bits.push(`one of ${schema.enum.map((item) => commandCatalogText(item, "value")).join("|")}`);
       if (schema && schema["x-sensitive"]) bits.push("sensitive");
-      if (Array.isArray(flags[name]) && flags[name].length) bits.push(`privacy: ${flags[name].join(", ")}`);
+      if (Array.isArray(flags[name]) && flags[name].length) bits.push(`privacy: ${flags[name].map((item) => commandCatalogText(item, "privacy flag")).join(", ")}`);
       return bits.join(" · ");
     });
   }
@@ -699,7 +703,7 @@
     const badges = [];
     if (command && command.confirm_required) badges.push(["confirm", "tescmd-warn"]);
     else if (command && command.wake_capable) badges.push(["wake-aware", "tescmd-warn"]);
-    else badges.push([command && command.kind ? command.kind : "read", "tescmd-ok"]);
+    else badges.push([commandCatalogText(command && command.kind ? command.kind : "read", "read"), "tescmd-ok"]);
     if (flatFlags.has("vehicle_identifier")) badges.push(["redact ID", "tescmd-warn"]);
     if (flatFlags.has("location_or_destination")) badges.push(["location", "tescmd-warn"]);
     if (flatFlags.has("secret_or_oauth_value") || flatFlags.has("schema_sensitive")) badges.push(["secret-safe", "tescmd-warn"]);
@@ -723,6 +727,18 @@
     ].filter(Boolean).join(" ").toLowerCase();
   }
 
+  function commandPrivacySummary(catalog) {
+    const summary = (catalog && catalog.privacy_summary) || {};
+    const secretCount = (summary.secret_or_oauth_value || 0) + (summary.schema_sensitive || 0);
+    return [
+      ["confirm-gated", summary.confirm_required || 0, "tescmd-warn"],
+      ["wake-capable", summary.wake_capable || 0, "tescmd-warn"],
+      ["vehicle ID params", summary.vehicle_identifier || 0, "tescmd-warn"],
+      ["location/destination params", summary.location_or_destination || 0, "tescmd-warn"],
+      ["secret-like params", secretCount, "tescmd-warn"],
+    ];
+  }
+
   function CommandCatalog({ catalog, search, setSearch, category, setCategory, loading }) {
     const commands = Array.isArray(catalog && catalog.commands) ? catalog.commands : [];
     const categories = ["all", ...Object.keys((catalog && catalog.categories) || {}).sort()];
@@ -732,10 +748,24 @@
       if (!queryText) return true;
       return commandSearchCorpus(command).includes(queryText);
     });
+    const privacySummary = commandPrivacySummary(catalog);
     return h(Card, { className: "tescmd-command-card" },
       h(CardHeader, null, h(CardTitle, null, "Commands")),
       h(CardContent, null,
         h("p", { className: "tescmd-muted" }, "Live catalog pulled from the plugin runtime tool specs. Change the native plugin surface and this list updates without a hand-maintained dashboard copy."),
+        h("div", { className: "tescmd-command-privacy", role: "note", "aria-label": "Catalog privacy summary" },
+          h("div", null,
+            h("span", { className: "tescmd-widget-label" }, "Catalog privacy summary"),
+            h("strong", null, "Safety markers across registered tools"),
+            h("small", null, "Schema-sensitive parameters are grouped with secret-like counts so operators can scan the catalog without exposing raw tokens, vehicle IDs, destinations, or coordinates.")
+          ),
+          h("div", { className: "tescmd-command-privacy-grid" },
+            privacySummary.map(([label, count, className]) => h("div", { key: label, className: "tescmd-command-privacy-stat" },
+              h(Badge, { className }, count),
+              h("span", null, label)
+            ))
+          )
+        ),
         h("div", { className: "tescmd-command-toolbar" },
           h(TextInput, { label: "Search commands", value: search, setValue: setSearch, placeholder: "charge, auth, navigation…" }),
           h(Field, { label: "Category" }, h("select", { className: "tescmd-select", value: category, onChange: (event) => setCategory(event.target.value) },
@@ -751,19 +781,19 @@
             const safetyNotes = Array.isArray(command.safety_notes) ? command.safety_notes : [];
             return h("article", { key: command.name, className: "tescmd-command-item" },
               h("div", { className: "tescmd-command-head" },
-                h("code", null, command.name),
+                h("code", null, commandCatalogText(command.name, "tescmd command")),
                 h("div", { className: "tescmd-command-badges" },
-                  safetyBadges.map(([label, className]) => h(Badge, { key: label, className }, label)),
-                  h(Badge, null, command.category)
+                  safetyBadges.map(([label, className]) => h(Badge, { key: label, className }, commandCatalogText(label, "safety badge"))),
+                  h(Badge, null, commandCatalogText(command.category, "uncategorized"))
                 )
               ),
-              h("p", null, command.description || command.operation),
+              h("p", null, commandCatalogText(command.description || command.operation, "No description available.")),
               safetyNotes.length ? h("ul", { className: "tescmd-command-safety" },
-                safetyNotes.slice(0, 3).map((note) => h("li", { key: note }, note))
+                safetyNotes.slice(0, 3).map((note) => h("li", { key: note }, commandCatalogText(note, "Safety note redacted.")))
               ) : null,
               h("div", { className: "tescmd-command-meta" },
-                h("span", null, `operation: ${command.operation}`),
-                command.command_name ? h("span", null, `tesla: ${command.command_name}`) : null
+                h("span", null, `operation: ${commandCatalogText(command.operation, "unknown")}`),
+                command.command_name ? h("span", null, `tesla: ${commandCatalogText(command.command_name, "command")}`) : null
               ),
               params.length ? h("details", null,
                 h("summary", null, `${params.length} parameter${params.length === 1 ? "" : "s"}`),

@@ -216,6 +216,38 @@ def _serialize_command(spec: runtime.ToolSpec) -> dict[str, Any]:
     }
 
 
+def _command_privacy_summary(command_list: list[dict[str, Any]]) -> dict[str, int]:
+    """Count visible command-catalog safety/privacy markers for dashboard triage."""
+
+    summary = {
+        "confirm_required": 0,
+        "wake_capable": 0,
+        "vehicle_identifier": 0,
+        "location_or_destination": 0,
+        "secret_or_oauth_value": 0,
+        "schema_sensitive": 0,
+    }
+    for command in command_list:
+        if command.get("confirm_required"):
+            summary["confirm_required"] += 1
+        if command.get("wake_capable"):
+            summary["wake_capable"] += 1
+        flags_payload = command.get("sensitive_parameters")
+        if not isinstance(flags_payload, dict):
+            continue
+        flattened = {
+            flag
+            for flags in flags_payload.values()
+            if isinstance(flags, list)
+            for flag in flags
+            if isinstance(flag, str)
+        }
+        for flag in flattened:
+            if flag in summary:
+                summary[flag] += 1
+    return summary
+
+
 def _run(tool_name: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
     spec = _specs().get(tool_name)
     if spec is None:
@@ -392,6 +424,7 @@ def commands() -> dict[str, Any]:
         "count": len(command_list),
         "categories": categories,
         "kinds": kinds,
+        "privacy_summary": _command_privacy_summary(command_list),
         "commands": command_list,
     }
 
