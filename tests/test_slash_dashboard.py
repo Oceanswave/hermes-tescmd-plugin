@@ -1869,6 +1869,34 @@ def test_dashboard_command_catalog_can_filter_by_safety_marker() -> None:
     assert "setCommandSafetyFilter" in asset
 
 
+def test_dashboard_command_catalog_has_loading_error_and_filtered_empty_states() -> (
+    None
+):
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    body = asset.split("function CommandCatalog", 1)[1].split(
+        "function TeslaDashboard", 1
+    )[0]
+
+    assert "catalogLoaded" in body
+    assert "Command catalog loading" in body
+    assert "No Tesla vehicle command is sent while loading the catalog." in body
+    assert "Command catalog unavailable" in body
+    assert "catalogError" in body
+    assert "The error text is sanitized before rendering" in body
+    assert "catalogLoaded && !filtered.length" in body
+    assert "Try a different search term, category, or safety marker." in body
+    assert "retryCatalog" in body
+    assert "commandCatalogLoading" in asset
+    assert "setCommandCatalogLoading(true)" in asset
+    assert "setCommandCatalogLoading(false)" in asset
+    assert "loading: commandCatalogLoading" in asset
+    assert "setCommandCatalogError(dashboardErrorMessage(err))" in asset
+    assert (
+        "setError(dashboardErrorMessage(err))"
+        not in asset.split('api("/commands")', 1)[1].split("return () =>", 1)[0]
+    )
+
+
 def test_dashboard_command_catalog_sanitizes_visible_runtime_metadata() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     body = asset.split("function CommandCatalog", 1)[1].split(
