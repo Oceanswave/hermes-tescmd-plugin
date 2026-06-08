@@ -835,6 +835,50 @@
   margin: 0.65rem 0;
 }
 
+.tescmd-command-privacy {
+  display: grid;
+  grid-template-columns: minmax(16rem, 1fr) minmax(18rem, 1.1fr);
+  gap: 0.75rem;
+  align-items: center;
+  margin: 0.7rem 0 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--tescmd-blue) 34%, var(--color-border));
+  border-radius: var(--radius);
+  padding: 0.65rem 0.75rem;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tescmd-blue) 9%, transparent), transparent 46%),
+    color-mix(in srgb, var(--color-card) 94%, transparent);
+}
+
+.tescmd-command-privacy strong {
+  display: block;
+  margin-top: 0.12rem;
+  letter-spacing: -0.025em;
+}
+
+.tescmd-command-privacy small,
+.tescmd-command-privacy-stat span {
+  color: var(--color-muted-foreground);
+  font-size: 0.78rem;
+  line-height: 1.32;
+}
+
+.tescmd-command-privacy-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.42rem;
+}
+
+.tescmd-command-privacy-stat {
+  display: inline-flex;
+  gap: 0.34rem;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
+  border-radius: 999px;
+  padding: 0.22rem 0.42rem;
+  background: color-mix(in srgb, var(--color-card) 76%, transparent);
+}
+
 .tescmd-command-stat {
   display: grid;
   gap: 0.1rem;
@@ -951,6 +995,7 @@
   .tescmd-identity-card,
   .tescmd-nav-guard,
   .tescmd-scope-readiness,
+  .tescmd-command-privacy,
   .tescmd-visual-grid {
     grid-template-columns: 1fr;
   }
@@ -964,15 +1009,6 @@
   .tescmd-hero {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  .tescmd-identity-card {
-    grid-template-columns: 1fr;
-  }
-
-  .tescmd-identity-meta {
-    justify-content: flex-start;
-    text-align: left;
   }
 
   .tescmd-onboarding-card {

@@ -1748,6 +1748,25 @@ def test_dashboard_commands_tab_uses_dynamic_catalog_endpoint() -> None:
     assert ".tescmd-tabs" in style
 
 
+def test_dashboard_commands_tab_shows_privacy_safety_summary() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+
+    assert "function commandPrivacySummary(catalog)" in asset
+    assert "function commandCatalogText(value, fallback)" in asset
+    assert "commandCatalogText(command.description || command.operation" in asset
+    assert "Catalog privacy summary" in asset
+    assert "confirm-gated" in asset
+    assert "wake-capable" in asset
+    assert "vehicle ID params" in asset
+    assert "location/destination params" in asset
+    assert "secret-like params" in asset
+    assert "Schema-sensitive parameters are grouped with secret-like counts" in asset
+    assert "commandPrivacySummary(catalog)" in asset
+    assert ".tescmd-command-privacy" in style
+    assert ".tescmd-command-privacy-grid" in style
+
+
 def test_dashboard_command_search_includes_safety_and_parameter_terms() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
 
@@ -1757,6 +1776,28 @@ def test_dashboard_command_search_includes_safety_and_parameter_terms() -> None:
     assert "command.safety_notes" in asset
     assert "commandSearchCorpus(command).includes(queryText)" in asset
     assert "value).toLowerCase().includes(queryText)" not in asset
+
+
+def test_dashboard_command_catalog_sanitizes_visible_runtime_metadata() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    body = asset.split("function CommandCatalog", 1)[1].split(
+        "function TeslaDashboard", 1
+    )[0]
+
+    assert "function commandCatalogText(value, fallback)" in asset
+    assert "return sanitizeDashboardText(value" in asset
+    assert 'h("code", null, commandCatalogText(command.name' in body
+    assert "commandCatalogText(command.category" in body
+    assert "commandCatalogText(command.description || command.operation" in body
+    assert "commandCatalogText(note" in body
+    assert "commandCatalogText(command.operation" in body
+    assert "commandCatalogText(command.command_name" in body
+    assert 'commandCatalogText(name, "parameter")' in asset
+    assert "schema.enum.map((item) => commandCatalogText" in asset
+    assert "flags[name].map((item) => commandCatalogText" in asset
+    assert "command.name)," not in body
+    assert "command.description || command.operation)," not in body
+    assert 'h("li", { key: note }, note)' not in body
 
 
 def test_dashboard_overview_collects_visual_read_sections_without_wake(
