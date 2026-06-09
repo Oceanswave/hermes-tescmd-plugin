@@ -231,6 +231,41 @@ def test_status_slash_output_redacts_next_action_and_steps() -> None:
     assert "{" not in output
 
 
+def test_cache_status_slash_output_summarizes_counts_without_raw_payload() -> None:
+    output = slash._format_command(  # noqa: SLF001
+        "tescmd-cache-status",
+        {
+            "ok": True,
+            "profile": "daily-5YJ3E1EA7JF000001",
+            "enabled": True,
+            "entries": 0,
+            "expired_entries": 1,
+            "message": "Plugin-native response cache for selected read-only Fleet API calls.",
+            "path": "/tmp/hermes/plugins/hermes-tescmd-plugin/response-cache.json",
+        },
+    )
+
+    assert output.startswith("/tescmd-cache-status: success")
+    assert "Context: profile daily-…0001" in output
+    assert "Cache: enabled, 0 current entries, 1 expired entry" in output
+    assert "local cache may contain sensitive vehicle snapshots" in output
+    assert "response-cache.json" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "{" not in output
+
+
+def test_cache_clear_slash_output_reports_cleared_count() -> None:
+    output = slash._format_command(  # noqa: SLF001
+        "tescmd-cache-clear",
+        {"ok": True, "profile": "default", "enabled": True, "cleared": 1},
+    )
+
+    assert output.startswith("/tescmd-cache-clear: success")
+    assert "Cache: cleared 1 cached response." in output
+    assert "Result: command accepted by Tesla Fleet API" not in output
+    assert "{" not in output
+
+
 def test_onboarding_slash_output_is_human_readable_and_read_only() -> None:
     output = slash._format_onboarding(  # noqa: SLF001
         {

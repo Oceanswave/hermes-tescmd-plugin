@@ -505,6 +505,44 @@ def _first_present(mapping: dict[str, Any], *keys: str) -> Any:
     return None
 
 
+def _cache_detail_parts(name: str, payload: dict[str, Any]) -> list[str]:
+    """Return privacy-safe cache status/clear details for slash summaries.
+
+    The response cache can contain vehicle telemetry snapshots. Slash output
+    should expose only counts and operational guidance, never cache keys,
+    payload bodies, paths, or raw cached values.
+    """
+
+    if name == "tescmd-cache-status":
+        enabled = _first_present(payload, "enabled")
+        entries = _first_present(payload, "entries")
+        expired = _first_present(payload, "expired_entries")
+        parts: list[str] = []
+        if enabled is not None:
+            parts.append("enabled" if bool(enabled) else "disabled")
+        if entries is not None:
+            parts.append(f"{entries} current entr{'y' if entries == 1 else 'ies'}")
+        if expired is not None:
+            parts.append(f"{expired} expired entr{'y' if expired == 1 else 'ies'}")
+        if not parts:
+            parts.append("status returned")
+        return [
+            "Cache: "
+            + ", ".join(parts)
+            + "; local cache may contain sensitive vehicle snapshots."
+        ]
+
+    if name == "tescmd-cache-clear":
+        cleared = _first_present(payload, "cleared")
+        if cleared is None:
+            return ["Cache: cleared cached responses."]
+        return [
+            f"Cache: cleared {cleared} cached response{'s' if cleared != 1 else ''}."
+        ]
+
+    return []
+
+
 def _collection_from_payload(payload: dict[str, Any], *keys: str) -> list[Any]:
     for container in (
         payload,
@@ -1168,10 +1206,12 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     if profile or region:
         bits = []
         if profile:
-            bits.append(f"profile {profile}")
+            bits.append(f"profile {_redact_slash_text(profile)}")
         if region:
-            bits.append(f"region {region}")
+            bits.append(f"region {_redact_slash_text(region)}")
         lines.append("Context: " + ", ".join(bits))
+
+    lines.extend(_cache_detail_parts(name, payload))
 
     charge = _payload_section(payload, "charge_state")
     if charge:
@@ -1306,6 +1346,7 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
                 "Body action:",
                 "Navigation action:",
                 "Navigation search:",
+                "Cache:",
             )
         )
         for line in lines
