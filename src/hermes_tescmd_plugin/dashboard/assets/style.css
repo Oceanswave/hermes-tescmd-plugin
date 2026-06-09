@@ -902,6 +902,50 @@
   line-height: 1;
 }
 
+.tescmd-target-context {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1fr) minmax(16rem, 1.1fr);
+  gap: 0.65rem;
+  align-items: center;
+  grid-column: 1 / -1;
+  border: 1px solid color-mix(in srgb, var(--tescmd-green) 38%, var(--color-border));
+  border-radius: var(--radius);
+  padding: 0.58rem 0.68rem;
+  background:
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--tescmd-green) 10%, transparent), transparent 35%),
+    color-mix(in srgb, var(--color-card) 90%, transparent);
+}
+
+.tescmd-target-context-override {
+  border-color: color-mix(in srgb, var(--tescmd-amber) 54%, var(--color-border));
+  background:
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--tescmd-amber) 12%, transparent), transparent 35%),
+    color-mix(in srgb, var(--color-card) 90%, transparent);
+}
+
+.tescmd-target-context strong {
+  display: block;
+  margin-top: 0.12rem;
+}
+
+.tescmd-target-context small,
+.tescmd-target-context-grid span {
+  color: var(--color-muted-foreground);
+  font-size: 0.76rem;
+  line-height: 1.32;
+}
+
+.tescmd-target-context-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.42rem;
+}
+
+.tescmd-target-context-grid > div {
+  display: grid;
+  gap: 0.22rem;
+}
+
 .tescmd-command-reset {
   align-self: stretch;
   min-height: 2.65rem;
@@ -1016,6 +1060,7 @@
 
 @media (max-width: 900px) {
   .tescmd-identity-card,
+  .tescmd-target-context,
   .tescmd-nav-guard,
   .tescmd-scope-readiness,
   .tescmd-command-privacy,
@@ -1036,6 +1081,10 @@
 
   .tescmd-onboarding-card {
     align-items: stretch;
+  }
+
+  .tescmd-target-context-grid {
+    grid-template-columns: 1fr;
   }
 
   .tescmd-empty-state {

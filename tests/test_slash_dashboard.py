@@ -13,6 +13,7 @@ from hermes_tescmd_plugin.dashboard.plugin_api import (
     _dashboard_display_payload,
     _command_safety_filters,
     _overview_section_health,
+    _overview_target_context,
     commands,
     overview,
     quick_action,
@@ -1974,6 +1975,9 @@ def test_dashboard_overview_collects_visual_read_sections_without_wake(
         "issues": [],
         "privacy_note": "Section errors are summarized without VINs, tokens, destinations, or precise location data.",
     }
+    assert payload["target_context"]["using_override"] is True
+    assert payload["target_context"]["target_override"] == "…0001"
+    assert payload["display_payload"]["target_context"]["target_override"] == "…0001"
     assert payload["onboarding"]["tool"] == "tescmd_onboarding_status"
     assert (
         "tescmd_charge_status",
@@ -2068,6 +2072,54 @@ def test_dashboard_vehicle_picker_uses_safe_model_hints_not_visible_ids() -> Non
     assert "`${name} — ${id} — ${state}`" not in asset
     assert "`${name} — ${vehicle.vin}" not in asset
     assert "`${name} — ${vehicle.id_s}" not in asset
+
+
+def test_dashboard_target_context_panel_shows_safe_default_vs_override() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+
+    assert "function TargetContextPanel" in asset
+    assert "Dashboard target context" in asset
+    assert "Temporary vehicle override active" in asset
+    assert "Using configured default target" in asset
+    assert "Target identifiers are redacted here" in asset
+    assert "overview && overview.target_context" in asset
+    assert "tescmd-target-context-override" in asset
+    assert "tescmd-target-context-grid" in asset
+    assert ".tescmd-target-context" in style
+    assert ".tescmd-target-context-grid" in style
+    assert "targetContext.target_override" in asset
+    assert "targetContext.configured_default" in asset
+    assert "targetContext.vin" not in asset
+    assert "targetContext.id_s" not in asset
+
+
+def test_dashboard_overview_target_context_redacts_identifiers(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    config.save_config(
+        config.PluginConfig(profile="dashboard", default_vin="5YJ3E1EA7JF000001")
+    )
+
+    default_context = _overview_target_context("dashboard", None, None)
+    override_context = _overview_target_context("dashboard", "12345678901234567", "na")
+
+    assert default_context == {
+        "profile": "dashboard",
+        "region": "configured",
+        "using_override": False,
+        "using_configured_default": True,
+        "target_override": None,
+        "configured_default": "…0001",
+        "privacy_note": "Dashboard target context redacts VIN/Fleet IDs and only indicates whether reads use a temporary override or the configured default.",
+    }
+    assert override_context["using_override"] is True
+    assert override_context["using_configured_default"] is False
+    assert override_context["target_override"] == "…4567"
+    assert override_context["configured_default"] == "…0001"
+    assert "5YJ3E1EA7JF000001" not in json.dumps(default_context)
+    assert "12345678901234567" not in json.dumps(override_context)
 
 
 def test_dashboard_overview_shows_safe_selected_target_summary() -> None:
