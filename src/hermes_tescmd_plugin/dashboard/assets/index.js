@@ -286,6 +286,26 @@
     );
   }
 
+  function TargetContextPanel({ targetContext }) {
+    if (!targetContext) return null;
+    const usingOverride = Boolean(targetContext.using_override);
+    const configuredDefault = sanitizeDashboardText(targetContext.configured_default, "not configured");
+    const override = sanitizeDashboardText(targetContext.target_override, "none");
+    const region = sanitizeDashboardText(targetContext.region || "configured", "configured");
+    return h("div", { className: usingOverride ? "tescmd-target-context tescmd-target-context-override" : "tescmd-target-context", role: "note", "aria-label": "Dashboard target context" },
+      h("div", null,
+        h("span", { className: "tescmd-widget-label" }, "Target context"),
+        h("strong", null, usingOverride ? "Temporary vehicle override active" : "Using configured default target"),
+        h("small", null, "Target identifiers are redacted here; the dashboard shows only whether reads use the configured default or a temporary override.")
+      ),
+      h("div", { className: "tescmd-target-context-grid" },
+        h("div", null, h("span", null, "Region"), h(Badge, { className: "tescmd-ok" }, region)),
+        h("div", null, h("span", null, "Configured default"), h(Badge, { className: configuredDefault === "not configured" ? "tescmd-warn" : "tescmd-ok" }, configuredDefault)),
+        h("div", null, h("span", null, "Override"), h(Badge, { className: usingOverride ? "tescmd-warn" : "tescmd-ok" }, override))
+      )
+    );
+  }
+
   function ActionGroup({ title, actions, runAction, loading, confirm, actionDisabledReason }) {
     return h("div", { className: "tescmd-group" },
       h("h3", null, title),
@@ -1169,6 +1189,7 @@
                 h("option", { value: "" }, "Configured"), h("option", { value: "na" }, "NA"), h("option", { value: "eu" }, "EU"), h("option", { value: "cn" }, "CN")
               )),
               h(VehiclePicker, { vehicles, vin, setVin, setDefaultVehicle, loading }),
+              h(TargetContextPanel, { targetContext: overview && overview.target_context }),
               h(Field, { label: "Read options" },
                 h("label", { className: "tescmd-inline" }, h("input", { type: "checkbox", checked: wakeReads, onChange: (event) => setWakeReads(event.target.checked) }), " wake"),
                 h("label", { className: "tescmd-inline" }, h("input", { type: "checkbox", checked: noCache, onChange: (event) => setNoCache(event.target.checked) }), " no cache")

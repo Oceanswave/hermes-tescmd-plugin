@@ -576,6 +576,30 @@ def _overview_section_health(sections: dict[str, dict[str, Any]]) -> dict[str, A
     }
 
 
+def _overview_target_context(
+    profile: str, vin: str | None, region: str | None
+) -> dict[str, Any]:
+    """Return privacy-safe target-selection context for dashboard operators."""
+
+    cfg = config.load_config(profile)
+    configured_default = cfg.default_vin
+    override = vin.strip() if isinstance(vin, str) and vin.strip() else None
+    return {
+        "profile": profile,
+        "region": region or "configured",
+        "using_override": bool(override),
+        "using_configured_default": not bool(override),
+        "target_override": _redact_vehicle_identifier(override) if override else None,
+        "configured_default": _redact_vehicle_identifier(configured_default)
+        if configured_default
+        else None,
+        "privacy_note": (
+            "Dashboard target context redacts VIN/Fleet IDs and only indicates "
+            "whether reads use a temporary override or the configured default."
+        ),
+    }
+
+
 @router.get("/overview")
 def overview(
     vin: str | None = None,
@@ -609,6 +633,7 @@ def overview(
             "tescmd_vehicle_list",
             {k: v for k, v in {"profile": profile, "region": region}.items() if v},
         ),
+        "target_context": _overview_target_context(profile, vin, region),
         "sections": sections,
         "section_health": _overview_section_health(sections),
     }
