@@ -902,6 +902,29 @@
   line-height: 1;
 }
 
+.tescmd-command-reset {
+  align-self: stretch;
+  min-height: 2.65rem;
+}
+
+.tescmd-command-active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.42rem;
+  align-items: center;
+  margin: -0.25rem 0 0.65rem;
+  border: 1px dashed color-mix(in srgb, var(--tescmd-blue) 42%, var(--color-border));
+  border-radius: var(--radius);
+  padding: 0.45rem 0.55rem;
+  background: color-mix(in srgb, var(--tescmd-blue) 7%, transparent);
+}
+
+.tescmd-command-active-filters > span,
+.tescmd-command-active-filters small {
+  color: var(--color-muted-foreground);
+  font-size: 0.74rem;
+}
+
 .tescmd-command-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));

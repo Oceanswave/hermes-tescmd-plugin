@@ -749,6 +749,15 @@
     ];
   }
 
+  function activeCommandFilters(search, category, safetyFilter, safetyFilterLabels) {
+    const filters = [];
+    const query = String(search || "").trim();
+    if (query) filters.push(`search: ${sanitizeDashboardText(query, "search")}`);
+    if (category && category !== "all") filters.push(`category: ${commandCatalogText(category, "category")}`);
+    if (safetyFilter && safetyFilter !== "all") filters.push(`safety: ${safetyFilterLabels[safetyFilter] || commandCatalogText(safetyFilter, "safety marker")}`);
+    return filters;
+  }
+
   function CommandCatalog({ catalog, search, setSearch, category, setCategory, safetyFilter, setSafetyFilter, loading, catalogError, retryCatalog }) {
     const catalogLoaded = Boolean(catalog && Array.isArray(catalog.commands));
     const commands = catalogLoaded ? catalog.commands : [];
@@ -763,6 +772,12 @@
       return commandSearchCorpus(command).includes(queryText);
     });
     const privacySummary = commandPrivacySummary(catalog);
+    const activeFilters = activeCommandFilters(search, category, safetyFilter, safetyFilterLabels);
+    const resetFilters = () => {
+      setSearch("");
+      setCategory("all");
+      setSafetyFilter("all");
+    };
     return h(Card, { className: "tescmd-command-card" },
       h(CardHeader, null, h(CardTitle, null, "Commands")),
       h(CardContent, null,
@@ -789,8 +804,14 @@
             safetyFilters.map((item) => h("option", { key: item, value: item }, item === "all" ? "All safety markers" : (safetyFilterLabels[item] || commandCatalogText(item, "Safety marker"))))
           )),
           h("div", { className: "tescmd-command-stat" }, h("span", null, "Total"), h("strong", null, catalog && catalog.count != null ? catalog.count : "—")),
-          h("div", { className: "tescmd-command-stat" }, h("span", null, "Showing"), h("strong", null, loading ? "…" : filtered.length))
+          h("div", { className: "tescmd-command-stat" }, h("span", null, "Showing"), h("strong", null, loading ? "…" : filtered.length)),
+          h(Button, { className: "tescmd-command-reset", onClick: resetFilters, disabled: activeFilters.length === 0 }, "Reset filters")
         ),
+        activeFilters.length ? h("div", { className: "tescmd-command-active-filters", role: "status", "aria-live": "polite" },
+          h("span", null, "Active filters"),
+          activeFilters.map((filter) => h(Badge, { key: filter }, filter)),
+          h("small", null, "Reset filters clears search, category, and safety marker without sending a Tesla command.")
+        ) : null,
         h("div", { className: "tescmd-command-grid" },
           filtered.map((command) => {
             const params = commandParamSummary(command);
@@ -835,7 +856,9 @@
         }) : null,
         catalogLoaded && !filtered.length ? h(EmptyState, {
           title: "No commands match",
-          body: "Try a different search term, category, or safety marker. The list is generated from the registered plugin tools, not maintained by dashboard copy.",
+          body: "Try a different search term, category, or safety marker, or reset all command filters. The list is generated from the registered plugin tools, not maintained by dashboard copy.",
+          note: "Resetting command filters only changes this dashboard view; it does not call Tesla or run a plugin command.",
+          action: h(Button, { onClick: resetFilters }, "Reset command filters"),
         }) : null
       )
     );
