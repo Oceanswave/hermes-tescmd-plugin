@@ -902,7 +902,8 @@
   line-height: 1;
 }
 
-.tescmd-target-context {
+.tescmd-target-context,
+.tescmd-read-context {
   display: grid;
   grid-template-columns: minmax(14rem, 1fr) minmax(16rem, 1.1fr);
   gap: 0.65rem;
@@ -916,6 +917,13 @@
     color-mix(in srgb, var(--color-card) 90%, transparent);
 }
 
+.tescmd-read-context {
+  border-color: color-mix(in srgb, var(--tescmd-blue) 38%, var(--color-border));
+  background:
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--tescmd-blue) 10%, transparent), transparent 35%),
+    color-mix(in srgb, var(--color-card) 90%, transparent);
+}
+
 .tescmd-target-context-override {
   border-color: color-mix(in srgb, var(--tescmd-amber) 54%, var(--color-border));
   background:
@@ -923,25 +931,34 @@
     color-mix(in srgb, var(--color-card) 90%, transparent);
 }
 
-.tescmd-target-context strong {
+.tescmd-target-context strong,
+.tescmd-read-context strong {
   display: block;
   margin-top: 0.12rem;
 }
 
 .tescmd-target-context small,
-.tescmd-target-context-grid span {
+.tescmd-target-context-grid span,
+.tescmd-read-context small,
+.tescmd-read-context-grid span {
   color: var(--color-muted-foreground);
   font-size: 0.76rem;
   line-height: 1.32;
 }
 
-.tescmd-target-context-grid {
+.tescmd-target-context-grid,
+.tescmd-read-context-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.42rem;
 }
 
-.tescmd-target-context-grid > div {
+.tescmd-read-context-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.tescmd-target-context-grid > div,
+.tescmd-read-context-grid > div {
   display: grid;
   gap: 0.22rem;
 }
@@ -1061,6 +1078,7 @@
 @media (max-width: 900px) {
   .tescmd-identity-card,
   .tescmd-target-context,
+  .tescmd-read-context,
   .tescmd-nav-guard,
   .tescmd-scope-readiness,
   .tescmd-command-privacy,
@@ -1083,7 +1101,8 @@
     align-items: stretch;
   }
 
-  .tescmd-target-context-grid {
+  .tescmd-target-context-grid,
+  .tescmd-read-context-grid {
     grid-template-columns: 1fr;
   }
 

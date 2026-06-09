@@ -12,6 +12,7 @@ from hermes_tescmd_plugin.dashboard.plugin_api import (
     QuickActionBody,
     _dashboard_display_payload,
     _command_safety_filters,
+    _overview_read_context,
     _overview_section_health,
     _overview_target_context,
     commands,
@@ -2013,6 +2014,15 @@ def test_dashboard_overview_collects_visual_read_sections_without_wake(
     assert payload["target_context"]["using_override"] is True
     assert payload["target_context"]["target_override"] == "…0001"
     assert payload["display_payload"]["target_context"]["target_override"] == "…0001"
+    assert payload["read_context"] == {
+        "overview_reads_wake": False,
+        "overview_reads_confirm": False,
+        "cache_mode": "fresh Fleet API reads",
+        "units": "metric",
+        "section_count": 6,
+        "privacy_note": "Overview refreshes are non-waking and non-confirmed; use explicit read controls for wake-enabled checks.",
+    }
+    assert payload["display_payload"]["read_context"] == payload["read_context"]
     assert payload["onboarding"]["tool"] == "tescmd_onboarding_status"
     assert (
         "tescmd_charge_status",
@@ -2026,6 +2036,48 @@ def test_dashboard_overview_collects_visual_read_sections_without_wake(
             "units": "metric",
         },
     ) in calls
+
+
+def test_dashboard_overview_read_context_is_non_waking_and_privacy_safe() -> None:
+    assert _overview_read_context(False, None) == {
+        "overview_reads_wake": False,
+        "overview_reads_confirm": False,
+        "cache_mode": "cache allowed",
+        "units": "configured",
+        "section_count": 6,
+        "privacy_note": "Overview refreshes are non-waking and non-confirmed; use explicit read controls for wake-enabled checks.",
+    }
+    assert _overview_read_context(True, "us") == {
+        "overview_reads_wake": False,
+        "overview_reads_confirm": False,
+        "cache_mode": "fresh Fleet API reads",
+        "units": "us",
+        "section_count": 6,
+        "privacy_note": "Overview refreshes are non-waking and non-confirmed; use explicit read controls for wake-enabled checks.",
+    }
+
+
+def test_dashboard_options_show_safe_overview_read_mode_panel() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+
+    assert "function ReadContextPanel" in asset
+    assert "Overview read context" in asset
+    assert "Overview refreshes stay read-only" in asset
+    assert "Overview refresh has elevated read flags" in asset
+    assert "Wake/confirm" in asset
+    assert "readContext.cache_mode" in asset
+    assert "readContext.units" in asset
+    assert "readContext.section_count" in asset
+    assert "readContext.overview_reads_wake" in asset
+    assert (
+        "h(ReadContextPanel, { readContext: overview && overview.read_context })"
+        in asset
+    )
+    assert ".tescmd-read-context" in style
+    assert ".tescmd-read-context-grid" in style
+    assert "readContext.vin" not in asset
+    assert "readContext.id_s" not in asset
 
 
 def test_dashboard_hides_operational_onboarding_banner() -> None:
