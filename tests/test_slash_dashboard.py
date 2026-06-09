@@ -1884,7 +1884,10 @@ def test_dashboard_command_catalog_has_loading_error_and_filtered_empty_states()
     assert "catalogError" in body
     assert "The error text is sanitized before rendering" in body
     assert "catalogLoaded && !filtered.length" in body
-    assert "Try a different search term, category, or safety marker." in body
+    assert (
+        "Try a different search term, category, or safety marker, or reset all command filters."
+        in body
+    )
     assert "retryCatalog" in body
     assert "commandCatalogLoading" in asset
     assert "setCommandCatalogLoading(true)" in asset
@@ -1895,6 +1898,28 @@ def test_dashboard_command_catalog_has_loading_error_and_filtered_empty_states()
         "setError(dashboardErrorMessage(err))"
         not in asset.split('api("/commands")', 1)[1].split("return () =>", 1)[0]
     )
+
+
+def test_dashboard_command_catalog_can_reset_active_filters() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+    body = asset.split("function CommandCatalog", 1)[1].split(
+        "function TeslaDashboard", 1
+    )[0]
+
+    assert "function activeCommandFilters" in asset
+    assert "const activeFilters = activeCommandFilters" in body
+    assert 'setSearch("")' in body
+    assert 'setCategory("all")' in body
+    assert 'setSafetyFilter("all")' in body
+    assert "Reset filters" in body
+    assert "Active filters" in body
+    assert "Reset command filters" in body
+    assert "without sending a Tesla command" in body
+    assert "does not call Tesla or run a plugin command" in body
+    assert "tescmd-command-active-filters" in body
+    assert ".tescmd-command-active-filters" in style
+    assert ".tescmd-command-reset" in style
 
 
 def test_dashboard_command_catalog_sanitizes_visible_runtime_metadata() -> None:
