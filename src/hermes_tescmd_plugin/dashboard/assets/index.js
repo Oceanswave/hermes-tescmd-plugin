@@ -306,6 +306,28 @@
     );
   }
 
+  function ReadContextPanel({ readContext }) {
+    if (!readContext) return null;
+    const cacheMode = sanitizeDashboardText(readContext.cache_mode || "cache allowed", "cache allowed");
+    const unitsMode = sanitizeDashboardText(readContext.units || "configured", "configured");
+    const sectionCount = Number(readContext.section_count) || 0;
+    const wakeFree = readContext.overview_reads_wake === false && readContext.overview_reads_confirm === false;
+    const privacyNote = sanitizeDashboardText(readContext.privacy_note, "Overview refresh metadata is privacy-safe.");
+    return h("div", { className: "tescmd-read-context", role: "note", "aria-label": "Overview read context" },
+      h("div", null,
+        h("span", { className: "tescmd-widget-label" }, "Overview read context"),
+        h("strong", null, wakeFree ? "Overview refreshes stay read-only" : "Overview refresh has elevated read flags"),
+        h("small", null, privacyNote)
+      ),
+      h("div", { className: "tescmd-read-context-grid" },
+        h("div", null, h("span", null, "Wake/confirm"), h(Badge, { className: wakeFree ? "tescmd-ok" : "tescmd-warn" }, wakeFree ? "off" : "enabled")),
+        h("div", null, h("span", null, "Cache"), h(Badge, { className: cacheMode.includes("fresh") ? "tescmd-warn" : "tescmd-ok" }, cacheMode)),
+        h("div", null, h("span", null, "Units"), h(Badge, null, unitsMode)),
+        h("div", null, h("span", null, "Sections"), h(Badge, null, sectionCount ? `${sectionCount} reads` : "configured"))
+      )
+    );
+  }
+
   function ActionGroup({ title, actions, runAction, loading, confirm, actionDisabledReason }) {
     return h("div", { className: "tescmd-group" },
       h("h3", null, title),
@@ -1190,6 +1212,7 @@
               )),
               h(VehiclePicker, { vehicles, vin, setVin, setDefaultVehicle, loading }),
               h(TargetContextPanel, { targetContext: overview && overview.target_context }),
+              h(ReadContextPanel, { readContext: overview && overview.read_context }),
               h(Field, { label: "Read options" },
                 h("label", { className: "tescmd-inline" }, h("input", { type: "checkbox", checked: wakeReads, onChange: (event) => setWakeReads(event.target.checked) }), " wake"),
                 h("label", { className: "tescmd-inline" }, h("input", { type: "checkbox", checked: noCache, onChange: (event) => setNoCache(event.target.checked) }), " no cache")

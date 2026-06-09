@@ -600,6 +600,22 @@ def _overview_target_context(
     }
 
 
+def _overview_read_context(no_cache: bool, units: str | None) -> dict[str, Any]:
+    """Return privacy-safe read-mode metadata for the visual overview refresh."""
+
+    return {
+        "overview_reads_wake": False,
+        "overview_reads_confirm": False,
+        "cache_mode": "fresh Fleet API reads" if no_cache else "cache allowed",
+        "units": units or "configured",
+        "section_count": 6,
+        "privacy_note": (
+            "Overview refreshes are non-waking and non-confirmed; use explicit "
+            "read controls for wake-enabled checks."
+        ),
+    }
+
+
 @router.get("/overview")
 def overview(
     vin: str | None = None,
@@ -634,6 +650,7 @@ def overview(
             {k: v for k, v in {"profile": profile, "region": region}.items() if v},
         ),
         "target_context": _overview_target_context(profile, vin, region),
+        "read_context": _overview_read_context(no_cache, units),
         "sections": sections,
         "section_health": _overview_section_health(sections),
     }
