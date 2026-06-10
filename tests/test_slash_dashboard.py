@@ -200,6 +200,12 @@ def test_registers_tescmd_slash_commands_and_status_handler(
     assert (
         by_name["tescmd-charge-limit"]["args_hint"] == "[vin] percent=80 confirm=true"
     )
+    assert (
+        by_name["tescmd-nav"]["args_hint"]
+        == "'address or place' [vin=...] confirm=true"
+    )
+    assert "vin=..." in by_name["tescmd-nav"]["description"]
+    assert by_name["tescmd-nav-search"]["args_hint"] == "'address or place' [limit=5]"
 
     config.save_config(config.PluginConfig(profile="default", client_id="client-123"))
     output = by_name["tescmd-status"]["handler"]("")

@@ -1767,8 +1767,8 @@ _COMMANDS: dict[str, tuple[str, str, Callable[[dict[str, Any]], str]]] = {
         ),
     ),
     "tescmd-nav": (
-        "Send navigation destination string; requires confirm=true.",
-        "[vin] destination='address or place' confirm=true",
+        "Send navigation destination text; use vin=... for an explicit vehicle; requires confirm=true.",
+        "'address or place' [vin=...] confirm=true",
         lambda ctx: _format_command(
             "tescmd-nav",
             _run_tool(
@@ -1779,8 +1779,8 @@ _COMMANDS: dict[str, tuple[str, str, Callable[[dict[str, Any]], str]]] = {
         ),
     ),
     "tescmd-nav-search": (
-        "Search Google Places for navigation Place IDs.",
-        "query='address or place' [limit=5]",
+        "Search Google Places by bare/quoted place text for navigation Place IDs.",
+        "'address or place' [limit=5]",
         lambda ctx: _format_command(
             "tescmd-nav-search",
             _run_tool(
