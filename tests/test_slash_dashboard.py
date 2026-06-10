@@ -1665,6 +1665,7 @@ def test_dashboard_redacts_visible_debug_payload_privacy_fields() -> None:
             "id_s": "12345678901234567",
             "vehicle_id": 98765432109876543,
             "display_name": "seaQuest",
+            "state": "online",
         },
         "drive_state": {"latitude": 37.33182, "longitude": -122.03118},
         "navigation": {
@@ -1678,6 +1679,19 @@ def test_dashboard_redacts_visible_debug_payload_privacy_fields() -> None:
         },
         "auth": {
             "access_token": "secret-access-token-123456",
+            "refresh_token": "refresh-token-123456",
+            "id_token": "id-token-123456",
+            "oauth_token": "oauth-token-123456",
+            "client_id": "client-id-123456",
+            "client_secret": "client-secret-123456",
+            "code": "oauth-code-123456",
+            "oauth_code": "oauth-code-654321",
+            "authorization_code": "authorization-code-123456",
+            "auth_code": "auth-code-123456",
+            "state": "oauth-state-123456",
+            "oauth_state": "oauth-state-654321",
+            "code_verifier": "verifier-123456",
+            "code_challenge": "challenge-123456",
             "message": "Bearer nav-token-123456789 for 5YJ3E1EA7JF000001",
         },
     }
@@ -1693,6 +1707,7 @@ def test_dashboard_redacts_visible_debug_payload_privacy_fields() -> None:
     assert redacted["vehicle"]["id_s"] == "…4567"
     assert redacted["vehicle"]["vehicle_id"] == "…6543"
     assert redacted["vehicle"]["display_name"] == "seaQuest"
+    assert redacted["vehicle"]["state"] == "online"
     assert redacted["drive_state"]["latitude"] == "[REDACTED_LOCATION]"
     assert redacted["drive_state"]["longitude"] == "[REDACTED_LOCATION]"
     assert redacted["navigation"]["destination"] == "[REDACTED_LOCATION]"
@@ -1703,6 +1718,19 @@ def test_dashboard_redacts_visible_debug_payload_privacy_fields() -> None:
     assert redacted["navigation"]["waypoints"] == "[REDACTED_LOCATION]"
     assert redacted["navigation"]["place_ids"] == "[REDACTED_LOCATION]"
     assert redacted["auth"]["access_token"] == "[REDACTED]"
+    assert redacted["auth"]["refresh_token"] == "[REDACTED]"
+    assert redacted["auth"]["id_token"] == "[REDACTED]"
+    assert redacted["auth"]["oauth_token"] == "[REDACTED]"
+    assert redacted["auth"]["client_id"] == "[REDACTED]"
+    assert redacted["auth"]["client_secret"] == "[REDACTED]"
+    assert redacted["auth"]["code"] == "[REDACTED]"
+    assert redacted["auth"]["oauth_code"] == "[REDACTED]"
+    assert redacted["auth"]["authorization_code"] == "[REDACTED]"
+    assert redacted["auth"]["auth_code"] == "[REDACTED]"
+    assert redacted["auth"]["state"] == "[REDACTED]"
+    assert redacted["auth"]["oauth_state"] == "[REDACTED]"
+    assert redacted["auth"]["code_verifier"] == "[REDACTED]"
+    assert redacted["auth"]["code_challenge"] == "[REDACTED]"
     assert "5YJ3E1EA7JF000001" not in rendered
     assert "5YJ3E1EA7JF000002" not in rendered
     assert "5YJ3E1EA7JF000003" not in rendered
@@ -1710,6 +1738,19 @@ def test_dashboard_redacts_visible_debug_payload_privacy_fields() -> None:
     assert "12345678901234568" not in rendered
     assert "98765432109876543" not in rendered
     assert "secret...3456" not in rendered
+    assert "refresh-token-123456" not in rendered
+    assert "id-token-123456" not in rendered
+    assert "oauth-token-123456" not in rendered
+    assert "client-id-123456" not in rendered
+    assert "client-secret-123456" not in rendered
+    assert "oauth-code-123456" not in rendered
+    assert "oauth-code-654321" not in rendered
+    assert "authorization-code-123456" not in rendered
+    assert "auth-code-123456" not in rendered
+    assert "oauth-state-123456" not in rendered
+    assert "oauth-state-654321" not in rendered
+    assert "verifier-123456" not in rendered
+    assert "challenge-123456" not in rendered
     assert "nav-token-123456789" not in rendered
     assert "37.33182" not in rendered
     assert "1 Infinite Loop" not in rendered
