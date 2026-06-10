@@ -528,7 +528,13 @@ def test_dashboard_visible_vehicle_identity_helpers_redact_identifiers() -> None
     assert "Bearer [REDACTED]" in asset
     assert "[A-HJ-NPR-Z0-9]{17}" in asset
     assert "\\d{12,20}" in asset
-    assert "access_token|refresh_token|id_token|client_secret|token" in asset
+    assert "access_token|refresh_token|id_token|client_id|client_secret" in asset
+    assert "code_verifier|code_challenge|token|pin" in asset
+    assert "([?#&](?:${secretKeys})=)" in asset
+    assert "secretValuePattern" in asset
+    assert "(^|[\\\\s,;({\\\\[])" in asset
+    assert "(_match, prefix, key) => `${prefix}${key}[REDACTED]`" in asset
+    assert "([\"']?(?:${secretKeys})[\"']?\\\\s*:\\\\s*)" in asset
     assert "[coordinates redacted]" in asset
     assert "destination|address|query|place_id|place_ids" in asset
 
@@ -644,7 +650,11 @@ def test_dashboard_user_visible_errors_are_sanitized_before_rendering() -> None:
     assert "setError(String((err && err.message) || err));" not in asset
     assert "setLastActionStatus(sanitizeDashboardText(payload.message" in asset
     assert "Tesla dashboard request failed." in asset
-    assert "code|state|access_token|refresh_token|id_token|client_secret|token" in asset
+    assert (
+        "code|state|access_token|refresh_token|id_token|client_id|client_secret"
+        in asset
+    )
+    assert "code_verifier|code_challenge|token|pin" in asset
     assert "lat(?:itude)?|lon(?:gitude)?|lng" in asset
     assert "destination|address|query|place_id|place_ids" in asset
     error_card_body = asset.split('className: "tescmd-error-card"', 1)[0]

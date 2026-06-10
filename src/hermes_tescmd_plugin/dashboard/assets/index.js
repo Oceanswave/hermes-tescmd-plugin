@@ -195,8 +195,12 @@
   function sanitizeDashboardText(value, fallback) {
     const rawText = String(value ?? "").trim();
     if (!rawText) return fallback || "";
+    const secretKeys = "code|state|access_token|refresh_token|id_token|client_id|client_secret|code_verifier|code_challenge|token|pin";
+    const secretValuePattern = "(\\\"[^\\\"]*\\\"|'[^']*'|[^,;})\\]\\s]+)";
     const text = redactVisibleIdentifierText(rawText)
-      .replace(/([?&](?:code|state|access_token|refresh_token|id_token|client_secret|token)=)[^&\s]+/gi, "$1[REDACTED]")
+      .replace(new RegExp(`([?#&](?:${secretKeys})=)[^&\\s#]+`, "gi"), "$1[REDACTED]")
+      .replace(new RegExp(`(^|[\\s,;({\\[])((?:${secretKeys})\\s*=\\s*)${secretValuePattern}`, "gi"), (_match, prefix, key) => `${prefix}${key}[REDACTED]`)
+      .replace(new RegExp(`(^|[\\s,;({\\[])(["']?(?:${secretKeys})["']?\\s*:\\s*)${secretValuePattern}`, "gi"), (_match, prefix, key) => `${prefix}${key}[REDACTED]`)
       .replace(/\b(?:lat(?:itude)?|lon(?:gitude)?|lng)\s*[:=]\s*-?\d+(?:\.\d+)?/gi, (match) => match.replace(/-?\d+(?:\.\d+)?/, "[REDACTED]"))
       .replace(/\b-?\d{1,2}\.\d{3,}\s*,\s*-?\d{1,3}\.\d{3,}\b/g, "[coordinates redacted]")
       .replace(/\b(destination|address|query|place_id|place_ids)\b\s*[:=]\s*("[^"]*"|'[^']*'|[^,;}\n]+)/gi, "$1=[REDACTED]");
