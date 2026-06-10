@@ -421,7 +421,10 @@ _VIN_PATTERN = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b")
 _LONG_NUMERIC_ID_PATTERN = re.compile(r"\b\d{10,}\b")
 _BEARER_TOKEN_PATTERN = re.compile(r"(?i)\b(bearer\s+)[A-Za-z0-9._~+/=-]{8,}")
 _SENSITIVE_QUERY_VALUE_PATTERN = re.compile(
-    r"(?i)([?&](?:code|state|token|access_token|refresh_token|id_token)=)[^\s&]+"
+    r"(?i)([?#&](?:code|state|token|access_token|refresh_token|id_token|client_secret|code_verifier|code_challenge|oauth_token)=)[^\s&#]+"
+)
+_SENSITIVE_ASSIGNMENT_VALUE_PATTERN = re.compile(
+    r"(?i)(\b(?:code|state|token|access_token|refresh_token|id_token|client_secret|code_verifier|code_challenge|oauth_token)\s*[:=]\s*)[^\s,;&]+"
 )
 _COORDINATE_VALUE_PATTERN = re.compile(
     r"(?i)(\b(?:lat|latitude|lon|lng|longitude|native_latitude|native_longitude)\s*[:=]\s*)[-+]?\d{1,3}(?:\.\d+)?"
@@ -436,6 +439,7 @@ def _redact_slash_text(value: Any) -> str:
     text = str(value)
     text = _BEARER_TOKEN_PATTERN.sub(r"\1[REDACTED]", text)
     text = _SENSITIVE_QUERY_VALUE_PATTERN.sub(r"\1[REDACTED]", text)
+    text = _SENSITIVE_ASSIGNMENT_VALUE_PATTERN.sub(r"\1[REDACTED]", text)
     text = _COORDINATE_QUERY_VALUE_PATTERN.sub(r"\1[coordinates redacted]", text)
     text = _COORDINATE_VALUE_PATTERN.sub(r"\1[coordinates redacted]", text)
     text = _VIN_PATTERN.sub(
