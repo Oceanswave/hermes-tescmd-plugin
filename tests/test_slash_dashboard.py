@@ -282,7 +282,8 @@ def test_onboarding_slash_output_is_human_readable_and_read_only() -> None:
             ],
             "next_steps": [
                 "Run tescmd_auth_login before using vehicle 12345678901234567.",
-                "Do not paste Bearer secret-token-123456 into chat.",
+                "Open https://cars.example.com/callback#code=oauth-code-123456&state=oauth-state-123456.",
+                "Do not paste Bearer secret-token-123456 or client_secret=client-secret-123456 into chat.",
             ],
             "readiness": {
                 "app_configured": True,
@@ -304,12 +305,17 @@ def test_onboarding_slash_output_is_human_readable_and_read_only() -> None:
     assert "vehicle …0001" in output
     assert "Run tescmd_auth_login before using vehicle …4567." in output
     assert "Bearer [REDACTED]" in output
+    assert "#code=[REDACTED]&state=[REDACTED]" in output
+    assert "client_secret=[REDACTED]" in output
     assert "authenticated=no" in output
     assert "ready_for_vehicle_commands=no" in output
     assert "Safety: read-only" in output
     assert "5YJ3E1EA7JF000001" not in output
     assert "12345678901234567" not in output
     assert "secret-token-123456" not in output
+    assert "oauth-code-123456" not in output
+    assert "oauth-state-123456" not in output
+    assert "client-secret-123456" not in output
     assert "{" not in output
 
 
