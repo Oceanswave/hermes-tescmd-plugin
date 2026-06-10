@@ -375,6 +375,22 @@ _LOCATION_KEYS = {
     "place_ids",
 }
 _SECRET_KEY_PARTS = ("token", "secret", "authorization", "bearer", "pin", "password")
+_OAUTH_SECRET_KEYS = {
+    "code",
+    "auth_code",
+    "authorization_code",
+    "oauth_code",
+    "oauth_state",
+    "client_id",
+    "client_secret",
+    "code_verifier",
+    "code_challenge",
+    "access_token",
+    "refresh_token",
+    "id_token",
+    "oauth_token",
+}
+_CONTEXTUAL_OAUTH_SECRET_KEYS = {"state"}
 
 
 def _dashboard_identifier_hint(value: Any) -> Any:
@@ -399,6 +415,10 @@ def _dashboard_display_payload(value: Any) -> Any:
     """
     if isinstance(value, dict):
         safe: dict[str, Any] = {}
+        sibling_keys = {str(key).lower() for key in value}
+        oauth_context = bool(sibling_keys & _OAUTH_SECRET_KEYS) or any(
+            "oauth" in key or "auth" in key for key in sibling_keys
+        )
         for key, item in value.items():
             key_text = str(key)
             lowered = key_text.lower()
@@ -406,7 +426,11 @@ def _dashboard_display_payload(value: Any) -> Any:
                 safe[key_text] = _dashboard_identifier_hint(item)
             elif lowered in _LOCATION_KEYS:
                 safe[key_text] = "[REDACTED_LOCATION]"
-            elif any(part in lowered for part in _SECRET_KEY_PARTS):
+            elif (
+                lowered in _OAUTH_SECRET_KEYS
+                or (oauth_context and lowered in _CONTEXTUAL_OAUTH_SECRET_KEYS)
+                or any(part in lowered for part in _SECRET_KEY_PARTS)
+            ):
                 safe[key_text] = "[REDACTED]"
             else:
                 safe[key_text] = _dashboard_display_payload(item)
