@@ -282,6 +282,16 @@
   gap: 0.35rem;
 }
 
+.tescmd-nav-guard-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.45rem;
+  padding-top: 0.2rem;
+}
+
 .tescmd-overview-card {
   overflow: visible;
 }
