@@ -258,6 +258,60 @@ def test_cache_status_slash_output_summarizes_counts_without_raw_payload() -> No
     assert "local cache may contain sensitive vehicle snapshots" in output
     assert "response-cache.json" not in output
     assert "5YJ3E1EA7JF000001" not in output
+
+
+def test_key_show_slash_output_summarizes_readiness_without_paths_or_urls() -> None:
+    output = slash._format_command(  # noqa: SLF001
+        "tescmd-key-show",
+        {
+            "ok": True,
+            "profile": "default",
+            "status": "found",
+            "private_key_present": True,
+            "public_key_path": "/tmp/hermes/plugins/hermes-tescmd-plugin/keys/default/public.pem",
+            "fingerprint": "SHA256:abc123",
+            "expected_public_key_url": "https://cars.example.com/.well-known/appspecific/com.tesla.3p.public-key.pem",
+            "enrollment_url": "https://tesla.com/_ak/cars.example.com",
+        },
+    )
+
+    assert output.startswith("/tescmd-key-show: success")
+    assert "Vehicle-command key: found" in output
+    assert "private key present" in output
+    assert "fingerprint SHA256:abc123" in output
+    assert "public-key URL configured" in output
+    assert "enrollment URL available" in output
+    assert "Result: command accepted by Tesla Fleet API" not in output
+    assert "public.pem" not in output
+    assert "cars.example.com" not in output
+    assert "tesla.com/_ak" not in output
+    assert "{" not in output
+
+
+def test_key_validate_slash_output_summarizes_hosting_without_url_leak() -> None:
+    output = slash._format_command(  # noqa: SLF001
+        "tescmd-key-validate",
+        {
+            "ok": True,
+            "profile": "setup-5YJ3E1EA7JF000001",
+            "domain": "cars.example.com",
+            "url": "https://cars.example.com/.well-known/appspecific/com.tesla.3p.public-key.pem",
+            "accessible": False,
+            "matches_local_key": False,
+            "local_fingerprint": "SHA256:local",
+            "remote_fingerprint": None,
+        },
+    )
+
+    assert output.startswith("/tescmd-key-validate: success")
+    assert "Context: profile setup-…0001" in output
+    assert "Vehicle-command key hosting: hosted key not reachable" in output
+    assert "does not match local key" in output
+    assert "local fingerprint SHA256:local" in output
+    assert "Result: command accepted by Tesla Fleet API" not in output
+    assert "cars.example.com" not in output
+    assert "public-key.pem" not in output
+    assert "5YJ3E1EA7JF000001" not in output
     assert "{" not in output
 
 
