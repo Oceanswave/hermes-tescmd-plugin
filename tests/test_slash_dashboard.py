@@ -752,6 +752,27 @@ def test_dashboard_quick_action_status_uses_redacted_payload_summary() -> None:
     assert "Ran ${action}; physical actions" not in asset
 
 
+def test_dashboard_payload_panel_has_local_clear_privacy_control() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+    body = asset.split("function PayloadPrivacyToolbar", 1)[1].split(
+        "function Field", 1
+    )[0]
+
+    assert "Payload privacy controls" in body
+    assert "Local debug payload" in body
+    assert "Redacted payload is visible" in body
+    assert "No payload retained" in body
+    assert "Clear payload panel" in body
+    assert "does not call Tesla or the plugin" in body
+    assert "disabled: !hasPayload" in body
+    assert (
+        "h(PayloadPrivacyToolbar, { hasPayload: Boolean(detail), clearPayload: () => setDetail(null) })"
+        in asset
+    )
+    assert ".tescmd-payload-privacy" in style
+
+
 def test_vehicle_list_redacts_identifiers() -> None:
     output = slash._format_vehicles(
         {

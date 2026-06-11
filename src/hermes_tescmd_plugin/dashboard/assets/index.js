@@ -38,6 +38,17 @@
     return h("pre", { className: "tescmd-json" }, JSON.stringify(displayData, null, 2));
   }
 
+  function PayloadPrivacyToolbar({ hasPayload, clearPayload }) {
+    return h("div", { className: "tescmd-payload-privacy", role: "note", "aria-label": "Payload privacy controls" },
+      h("div", null,
+        h("span", { className: "tescmd-widget-label" }, "Local debug payload"),
+        h("strong", null, hasPayload ? "Redacted payload is visible" : "No payload retained"),
+        h("small", null, "The panel renders sanitized display_payload data for troubleshooting. Clearing it only removes dashboard-local display state; it does not call Tesla or the plugin.")
+      ),
+      h(Button, { onClick: clearPayload, disabled: !hasPayload }, "Clear payload panel")
+    );
+  }
+
   function Field({ label, children }) {
     return h("div", { className: "tescmd-field" }, h(Label, null, label), children);
   }
@@ -1284,6 +1295,7 @@
           h(Card, { className: "tescmd-payload-card" },
             h(CardHeader, null, h(CardTitle, null, "Redacted last payload")),
             h(CardContent, null,
+              h(PayloadPrivacyToolbar, { hasPayload: Boolean(detail), clearPayload: () => setDetail(null) }),
               h("p", { className: "tescmd-muted" }, "Debug view hides full vehicle identifiers, tokens, navigation destinations, and precise coordinates."),
               detail ? h(JsonBlock, { data: detail }) : h(EmptyState, {
                 title: "No payload selected",
