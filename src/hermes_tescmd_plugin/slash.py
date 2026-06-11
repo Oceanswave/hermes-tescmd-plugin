@@ -547,6 +547,61 @@ def _cache_detail_parts(name: str, payload: dict[str, Any]) -> list[str]:
     return []
 
 
+def _key_detail_parts(name: str, payload: dict[str, Any]) -> list[str]:
+    """Return privacy-safe vehicle-command key readiness details.
+
+    Key surfaces are setup/diagnostic commands, but their raw payloads include
+    local filesystem paths and public hosting URLs. Slash output should help the
+    operator understand readiness without echoing those paths or URLs.
+    """
+
+    if name == "tescmd-key-show":
+        status = payload.get("status")
+        if status == "not_found":
+            return [
+                "Vehicle-command key: not found; run tescmd_key_generate confirm=true before signed commands."
+            ]
+        if status == "found":
+            parts = ["found"]
+            if payload.get("private_key_present") is not None:
+                parts.append(
+                    "private key present"
+                    if payload.get("private_key_present")
+                    else "private key missing"
+                )
+            fingerprint = payload.get("fingerprint")
+            if fingerprint:
+                parts.append(f"fingerprint {_redact_slash_text(fingerprint)}")
+            if payload.get("expected_public_key_url"):
+                parts.append("public-key URL configured")
+            if payload.get("enrollment_url"):
+                parts.append("enrollment URL available")
+            return ["Vehicle-command key: " + ", ".join(parts) + "."]
+        return []
+
+    if name == "tescmd-key-validate":
+        accessible = payload.get("accessible")
+        matches = payload.get("matches_local_key")
+        parts = []
+        if accessible is not None:
+            parts.append(
+                "hosted key reachable" if accessible else "hosted key not reachable"
+            )
+        if matches is not None:
+            parts.append("matches local key" if matches else "does not match local key")
+        local_fingerprint = payload.get("local_fingerprint")
+        remote_fingerprint = payload.get("remote_fingerprint")
+        if local_fingerprint:
+            parts.append(f"local fingerprint {_redact_slash_text(local_fingerprint)}")
+        if remote_fingerprint:
+            parts.append(f"remote fingerprint {_redact_slash_text(remote_fingerprint)}")
+        if not parts:
+            parts.append("validation returned")
+        return ["Vehicle-command key hosting: " + ", ".join(parts) + "."]
+
+    return []
+
+
 def _collection_from_payload(payload: dict[str, Any], *keys: str) -> list[Any]:
     for container in (
         payload,
@@ -1216,6 +1271,7 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
         lines.append("Context: " + ", ".join(bits))
 
     lines.extend(_cache_detail_parts(name, payload))
+    lines.extend(_key_detail_parts(name, payload))
 
     charge = _payload_section(payload, "charge_state")
     if charge:
@@ -1351,6 +1407,8 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
                 "Navigation action:",
                 "Navigation search:",
                 "Cache:",
+                "Vehicle-command key:",
+                "Vehicle-command key hosting:",
             )
         )
         for line in lines
