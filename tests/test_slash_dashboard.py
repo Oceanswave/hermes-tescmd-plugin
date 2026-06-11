@@ -998,6 +998,47 @@ def test_service_slash_summary_redacts_vehicle_ids_and_avoids_raw_payload() -> N
     assert "{" not in output
 
 
+def test_service_slash_summary_handles_response_visit_lists_privately() -> None:
+    output = slash._format_command(
+        "tescmd-service",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "response": {
+                "maintenance_status": "appointment pending for Fleet 12345678901234567",
+                "service_visits": [
+                    {
+                        "appointment_id": "APT-SECRET-123",
+                        "state": "confirmed",
+                        "scheduled_time": "2026-07-01T13:30:00Z",
+                        "service_center_name": "Tesla Service 5YJ3E1EA7JF000002",
+                        "service_center_url": "https://cars.example.com/callback?code=secret-token-123456&state=secret-state",
+                        "address": "123 Main St, Springfield",
+                        "latitude": 37.7749295,
+                        "longitude": -122.4194155,
+                    }
+                ],
+            },
+        },
+    )
+
+    assert output.startswith("/tescmd-service: success")
+    assert "Service: maintenance status appointment pending for Fleet …4567" in output
+    assert "appointment state confirmed" in output
+    assert "time 2026-07-01T13:30:00Z" in output
+    assert "center Tesla Service …0002" in output
+    assert "APT-SECRET-123" not in output
+    assert "secret-token-123456" not in output
+    assert "secret-state" not in output
+    assert "123 Main St" not in output
+    assert "37.7749295" not in output
+    assert "-122.4194155" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "5YJ3E1EA7JF000002" not in output
+    assert "12345678901234567" not in output
+    assert "{" not in output
+
+
 def test_charge_slash_summary_includes_operator_details_without_location_or_ids() -> (
     None
 ):

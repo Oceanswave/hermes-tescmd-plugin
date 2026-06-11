@@ -1075,7 +1075,9 @@ def _summarize_mobile_access(payload: dict[str, Any]) -> list[str]:
 
 
 def _summarize_service_data(payload: dict[str, Any]) -> list[str]:
-    service = _payload_section(payload, "service")
+    service = _payload_section(payload, "service") or _first_dict(
+        payload.get("service"), payload.get("response"), payload.get("data")
+    )
     if not service:
         return ["Service: no service details returned."]
 
@@ -1097,13 +1099,24 @@ def _summarize_service_data(payload: dict[str, Any]) -> list[str]:
         service.get("upcoming_service_visit"),
         service.get("service_visit"),
     )
+    if not appointment:
+        for key in ("appointments", "service_visits", "visits"):
+            visits = service.get(key)
+            if isinstance(visits, list):
+                appointment = next(
+                    (visit for visit in visits if isinstance(visit, dict)), {}
+                )
+                if appointment:
+                    break
     if appointment:
         appointment_bits: list[str] = []
         for key, label in (
             ("status", "status"),
             ("state", "state"),
             ("start_time", "start"),
+            ("scheduled_time", "time"),
             ("appointment_time", "time"),
+            ("service_center_name", "center"),
             ("service_center", "center"),
         ):
             value = _first_present(appointment, key)
