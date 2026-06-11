@@ -520,6 +520,34 @@
   grid-column: 1 / -1;
 }
 
+.tescmd-payload-privacy {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--tescmd-blue) 30%, var(--color-border));
+  border-radius: var(--radius);
+  padding: 0.62rem 0.72rem;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tescmd-blue) 8%, transparent), transparent 45%),
+    color-mix(in srgb, var(--color-card) 94%, transparent);
+}
+
+.tescmd-payload-privacy strong {
+  display: block;
+  margin-top: 0.1rem;
+  letter-spacing: -0.02em;
+}
+
+.tescmd-payload-privacy small {
+  display: block;
+  margin-top: 0.1rem;
+  color: var(--color-muted-foreground);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
 .tescmd-visual-grid {
   display: grid;
   grid-template-columns: minmax(12rem, 0.68fr) minmax(13rem, 0.74fr) minmax(18rem, 1.25fr);
