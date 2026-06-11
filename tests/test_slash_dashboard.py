@@ -633,13 +633,25 @@ def test_dashboard_onboarding_card_sanitizes_setup_guidance() -> None:
 
 def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
 
     assert "function NavigationGuardPanel" in asset
     assert (
         "Navigation buttons stay unavailable until their required destination fields are present"
         in asset
     )
-    assert "After a navigation action is sent, route fields are cleared" in asset
+    assert (
+        "Route text, coordinates, and place IDs are treated as temporary sensitive state"
+        in asset
+    )
+    assert "Clear route fields" in asset
+    assert ".tescmd-nav-guard-actions" in style
+    assert (
+        "Clearing only edits dashboard form state; it does not call Tesla or the plugin."
+        in asset
+    )
+    assert "function clearAllNavigationFields()" in asset
+    assert "clearRouteFields: clearAllNavigationFields" in asset
     assert "actionDisabledReason(action)" in asset
     assert "const disabledReason = actionDisabledReason(action);" in asset
     assert "Enter a destination before sending navigation." in asset

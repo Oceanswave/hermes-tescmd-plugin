@@ -396,7 +396,7 @@
     );
   }
 
-  function NavigationGuardPanel({ destination, lat, lon, placeIds }) {
+  function NavigationGuardPanel({ destination, lat, lon, placeIds, clearRouteFields }) {
     const hasDestination = String(destination || "").trim() !== "";
     const hasLat = String(lat || "").trim() !== "";
     const hasLon = String(lon || "").trim() !== "";
@@ -404,16 +404,21 @@
     const navReady = hasDestination;
     const gpsReady = hasLat && hasLon;
     const waypointReady = waypointCount > 0;
+    const routeFieldsPresent = navReady || gpsReady || waypointReady;
     return h("div", { className: "tescmd-nav-guard", role: "note", "aria-label": "Navigation action guardrails" },
       h("div", null,
         h("span", { className: "tescmd-widget-label" }, "Navigation guardrail"),
-        h("strong", null, navReady || gpsReady || waypointReady ? "Route fields ready" : "No route target entered"),
-        h("small", null, "Navigation buttons stay unavailable until their required destination fields are present. After a navigation action is sent, route fields are cleared from dashboard state.")
+        h("strong", null, routeFieldsPresent ? "Route fields ready" : "No route target entered"),
+        h("small", null, "Navigation buttons stay unavailable until their required destination fields are present. Route text, coordinates, and place IDs are treated as temporary sensitive state.")
       ),
       h("div", { className: "tescmd-nav-guard-badges" },
         h(Badge, { className: navReady ? "tescmd-ok" : "tescmd-warn" }, navReady ? "destination set" : "destination needed"),
         h(Badge, { className: gpsReady ? "tescmd-ok" : "tescmd-warn" }, gpsReady ? "GPS pair set" : "lat/lon needed"),
         h(Badge, { className: waypointReady ? "tescmd-ok" : "tescmd-warn" }, waypointReady ? `${waypointCount} waypoint${waypointCount === 1 ? "" : "s"}` : "place IDs needed")
+      ),
+      h("div", { className: "tescmd-nav-guard-actions" },
+        h(Button, { onClick: clearRouteFields, disabled: !routeFieldsPresent }, "Clear route fields"),
+        h("small", { className: "tescmd-muted" }, "Clearing only edits dashboard form state; it does not call Tesla or the plugin.")
       )
     );
   }
@@ -1085,6 +1090,13 @@
       if (action === "nav-waypoints") setPlaceIds("");
     }
 
+    function clearAllNavigationFields() {
+      setDestination("");
+      setLat("");
+      setLon("");
+      setPlaceIds("");
+    }
+
     function dashboardActionStatus(payload, action, navigationAction) {
       const response = payload && payload.response && typeof payload.response === "object" ? payload.response : {};
       const rawMessage = firstDefined(
@@ -1263,7 +1275,7 @@
                 h(TextInput, { label: "Longitude", value: lon, setValue: setLon, type: "number" }),
                 h(TextInput, { label: "Place IDs", value: placeIds, setValue: setPlaceIds, placeholder: "id1,id2" })
               ),
-              h(NavigationGuardPanel, { destination, lat, lon, placeIds }),
+              h(NavigationGuardPanel, { destination, lat, lon, placeIds, clearRouteFields: clearAllNavigationFields }),
               ACTION_GROUPS.map(([title, actions]) => h(ActionGroup, { key: title, title, actions, runAction, loading, confirm, actionDisabledReason })),
               h("p", { className: "tescmd-muted" }, "Higher-risk flows like remote-start-drive, speed limit PINs, valet/PIN-to-drive, erase-user-data, and raw API calls remain tool-only with explicit confirm=true.")
             )
