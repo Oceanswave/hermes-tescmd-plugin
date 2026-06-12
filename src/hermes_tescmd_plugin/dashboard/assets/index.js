@@ -276,6 +276,7 @@
 
   function VehiclePicker({ vehicles, vin, setVin, setDefaultVehicle, loading }) {
     const list = Array.isArray(vehicles) ? vehicles : [];
+    const [showIdentifier, setShowIdentifier] = hooks.useState(false);
     return h(Field, { label: "Vehicle" },
       h("select", {
         className: "tescmd-select",
@@ -288,16 +289,28 @@
           return h("option", { key: `${id}-${index}`, value: id }, vehiclePickerLabel(vehicle, index));
         })
       ),
-      h(Input, {
-        placeholder: "VIN or id_s override",
-        value: vin || "",
-        onChange: (event) => setVin(event.target.value),
-      }),
+      h("div", { className: "tescmd-identifier-entry" },
+        h(Input, {
+          type: showIdentifier ? "text" : "password",
+          placeholder: "VIN or id_s override",
+          value: vin || "",
+          autoComplete: "off",
+          spellCheck: false,
+          "aria-label": "Vehicle identifier override, hidden by default",
+          onChange: (event) => setVin(event.target.value),
+        }),
+        h(Button, {
+          type: "button",
+          onClick: () => setShowIdentifier(!showIdentifier),
+          disabled: !vin,
+          "aria-pressed": showIdentifier,
+        }, showIdentifier ? "Hide identifier" : "Reveal identifier")
+      ),
       h("div", { className: "tescmd-inline-actions" },
         h(Button, { onClick: () => setDefaultVehicle(vin), disabled: loading || !vin }, "Make selected default"),
         h(Button, { onClick: () => setDefaultVehicle(""), disabled: loading }, "Clear dashboard default")
       ),
-      h("small", { className: "tescmd-muted" }, "Vehicle menu labels show safe model hints only; full VIN/Fleet IDs stay out of visible option text. Saving a default stores the selected identifier in plugin config while visible text stays redacted.")
+      h("small", { className: "tescmd-muted" }, "Vehicle menu labels show safe model hints only; the raw override field is hidden by default and never echoed in surrounding dashboard copy. Saving a default stores the selected identifier in plugin config while visible text stays redacted.")
     );
   }
 

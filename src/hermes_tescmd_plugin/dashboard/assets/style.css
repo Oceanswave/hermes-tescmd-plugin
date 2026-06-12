@@ -139,6 +139,23 @@
   flex-wrap: wrap;
 }
 
+.tescmd-identifier-entry {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) auto;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.tescmd-identifier-entry input[type="password"] {
+  letter-spacing: 0.12em;
+}
+
+@media (max-width: 520px) {
+  .tescmd-identifier-entry {
+    grid-template-columns: 1fr;
+  }
+}
+
 .tescmd-confirm {
   margin: 0 0 0.65rem;
 }
