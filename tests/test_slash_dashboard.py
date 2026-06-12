@@ -1011,6 +1011,7 @@ def test_service_slash_summary_redacts_vehicle_ids_and_avoids_raw_payload() -> N
 
     assert output.startswith("/tescmd-service: success")
     assert "Service: service status scheduled for vehicle …0002" in output
+    assert "1 service visit returned" in output
     assert "appointment status booked, start 2026-06-10T09:00:00Z" in output
     assert "center Tesla Service …4567" in output
     assert "5YJ3E1EA7JF000001" not in output
@@ -1037,7 +1038,13 @@ def test_service_slash_summary_handles_response_visit_lists_privately() -> None:
                         "address": "123 Main St, Springfield",
                         "latitude": 37.7749295,
                         "longitude": -122.4194155,
-                    }
+                    },
+                    {
+                        "appointment_id": "APT-SECRET-456",
+                        "state": "waiting",
+                        "scheduled_time": "2026-07-02T14:00:00Z",
+                        "service_center_name": "Tesla Service 98765432109876543",
+                    },
                 ],
             },
         },
@@ -1045,10 +1052,14 @@ def test_service_slash_summary_handles_response_visit_lists_privately() -> None:
 
     assert output.startswith("/tescmd-service: success")
     assert "Service: maintenance status appointment pending for Fleet …4567" in output
+    assert "2 service visits returned" in output
     assert "appointment state confirmed" in output
     assert "time 2026-07-01T13:30:00Z" in output
     assert "center Tesla Service …0002" in output
     assert "APT-SECRET-123" not in output
+    assert "APT-SECRET-456" not in output
+    assert "98765432109876543" not in output
+    assert "2026-07-02T14:00:00Z" not in output
     assert "secret-token-123456" not in output
     assert "secret-state" not in output
     assert "123 Main St" not in output

@@ -1099,15 +1099,23 @@ def _summarize_service_data(payload: dict[str, Any]) -> list[str]:
         service.get("upcoming_service_visit"),
         service.get("service_visit"),
     )
-    if not appointment:
+    visit_count: int | None = None
+    if appointment:
+        visit_count = 1
+    else:
         for key in ("appointments", "service_visits", "visits"):
             visits = service.get(key)
             if isinstance(visits, list):
+                visit_count = sum(1 for visit in visits if isinstance(visit, dict))
                 appointment = next(
                     (visit for visit in visits if isinstance(visit, dict)), {}
                 )
                 if appointment:
                     break
+    if visit_count is not None:
+        details.append(
+            f"{visit_count} service visit{'s' if visit_count != 1 else ''} returned"
+        )
     if appointment:
         appointment_bits: list[str] = []
         for key, label in (
