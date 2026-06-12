@@ -420,29 +420,60 @@
     );
   }
 
-  function NavigationGuardPanel({ destination, lat, lon, placeIds, clearRouteFields }) {
+  function routeReadiness(destination, lat, lon, placeIds) {
     const hasDestination = String(destination || "").trim() !== "";
     const hasLat = String(lat || "").trim() !== "";
     const hasLon = String(lon || "").trim() !== "";
     const waypointCount = String(placeIds || "").split(",").map((value) => value.trim()).filter(Boolean).length;
-    const navReady = hasDestination;
-    const gpsReady = hasLat && hasLon;
-    const waypointReady = waypointCount > 0;
-    const routeFieldsPresent = navReady || gpsReady || waypointReady;
+    return {
+      navReady: hasDestination,
+      gpsReady: hasLat && hasLon,
+      waypointReady: waypointCount > 0,
+      waypointCount,
+      routeFieldsPresent: hasDestination || (hasLat && hasLon) || waypointCount > 0,
+    };
+  }
+
+  function NavigationGuardPanel({ destination, lat, lon, placeIds, clearRouteFields }) {
+    const readiness = routeReadiness(destination, lat, lon, placeIds);
     return h("div", { className: "tescmd-nav-guard", role: "note", "aria-label": "Navigation action guardrails" },
       h("div", null,
         h("span", { className: "tescmd-widget-label" }, "Navigation guardrail"),
-        h("strong", null, routeFieldsPresent ? "Route fields ready" : "No route target entered"),
+        h("strong", null, readiness.routeFieldsPresent ? "Route fields ready" : "No route target entered"),
         h("small", null, "Navigation buttons stay unavailable until their required destination fields are present. Route text, coordinates, and place IDs are treated as temporary sensitive state.")
       ),
       h("div", { className: "tescmd-nav-guard-badges" },
-        h(Badge, { className: navReady ? "tescmd-ok" : "tescmd-warn" }, navReady ? "destination set" : "destination needed"),
-        h(Badge, { className: gpsReady ? "tescmd-ok" : "tescmd-warn" }, gpsReady ? "GPS pair set" : "lat/lon needed"),
-        h(Badge, { className: waypointReady ? "tescmd-ok" : "tescmd-warn" }, waypointReady ? `${waypointCount} waypoint${waypointCount === 1 ? "" : "s"}` : "place IDs needed")
+        h(Badge, { className: readiness.navReady ? "tescmd-ok" : "tescmd-warn" }, readiness.navReady ? "destination set" : "destination needed"),
+        h(Badge, { className: readiness.gpsReady ? "tescmd-ok" : "tescmd-warn" }, readiness.gpsReady ? "GPS pair set" : "lat/lon needed"),
+        h(Badge, { className: readiness.waypointReady ? "tescmd-ok" : "tescmd-warn" }, readiness.waypointReady ? `${readiness.waypointCount} waypoint${readiness.waypointCount === 1 ? "" : "s"}` : "place IDs needed")
       ),
       h("div", { className: "tescmd-nav-guard-actions" },
-        h(Button, { onClick: clearRouteFields, disabled: !routeFieldsPresent }, "Clear route fields"),
+        h(Button, { onClick: clearRouteFields, disabled: !readiness.routeFieldsPresent }, "Clear route fields"),
         h("small", { className: "tescmd-muted" }, "Clearing only edits dashboard form state; it does not call Tesla or the plugin.")
+      )
+    );
+  }
+
+  function ActionRequirementsPanel({ confirm, destination, lat, lon, placeIds }) {
+    const readiness = routeReadiness(destination, lat, lon, placeIds);
+    const requirements = [
+      ["Physical confirmation", Boolean(confirm), confirm ? "armed for one action" : "check the confirmation box before any physical action"],
+      ["Navigate", readiness.navReady, readiness.navReady ? "destination ready" : "enter a destination"],
+      ["GPS navigation", readiness.gpsReady, readiness.gpsReady ? "latitude/longitude ready" : "enter both latitude and longitude"],
+      ["Waypoints", readiness.waypointReady, readiness.waypointReady ? `${readiness.waypointCount} place ID${readiness.waypointCount === 1 ? "" : "s"} ready` : "enter at least one place ID"],
+    ];
+    const blockedCount = requirements.filter((item) => !item[1]).length;
+    return h("div", { className: blockedCount ? "tescmd-action-requirements tescmd-action-requirements-warn" : "tescmd-action-requirements", role: "note", "aria-label": "Quick action readiness checklist" },
+      h("div", null,
+        h("span", { className: "tescmd-widget-label" }, "Action readiness"),
+        h("strong", null, blockedCount ? `${blockedCount} guardrail${blockedCount === 1 ? "" : "s"} still blocking some buttons` : "All quick-action guardrails are satisfied"),
+        h("small", null, "Disabled-button reasons are shown here without echoing destinations, coordinates, place IDs, VINs, or Fleet IDs.")
+      ),
+      h("div", { className: "tescmd-action-requirement-list" },
+        requirements.map(([label, ready, copy]) => h("div", { key: label, className: "tescmd-action-requirement" },
+          h("span", null, label),
+          h(Badge, { className: ready ? "tescmd-ok" : "tescmd-warn" }, copy)
+        ))
       )
     );
   }
@@ -1300,6 +1331,7 @@
                 h(TextInput, { label: "Place IDs", value: placeIds, setValue: setPlaceIds, placeholder: "id1,id2" })
               ),
               h(NavigationGuardPanel, { destination, lat, lon, placeIds, clearRouteFields: clearAllNavigationFields }),
+              h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds }),
               ACTION_GROUPS.map(([title, actions]) => h(ActionGroup, { key: title, title, actions, runAction, loading, confirm, actionDisabledReason })),
               h("p", { className: "tescmd-muted" }, "Higher-risk flows like remote-start-drive, speed limit PINs, valet/PIN-to-drive, erase-user-data, and raw API calls remain tool-only with explicit confirm=true.")
             )

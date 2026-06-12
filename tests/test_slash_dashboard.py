@@ -718,11 +718,60 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
     assert 'setLon("")' in asset
     assert 'setPlaceIds("")' in asset
     assert "if (navigationAction) clearNavigationFields(action);" in asset
+    assert "function routeReadiness(destination, lat, lon, placeIds)" in asset
+    assert "function ActionRequirementsPanel" in asset
+    assert "Action readiness" in asset
+    assert "Quick action readiness checklist" in asset
+    assert (
+        "Disabled-button reasons are shown here without echoing destinations, coordinates, place IDs, VINs, or Fleet IDs."
+        in asset
+    )
+    assert "check the confirmation box before any physical action" in asset
+    assert "enter both latitude and longitude" in asset
+    assert (
+        "h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds })"
+        in asset
+    )
+    assert ".tescmd-action-requirements" in style
+    assert ".tescmd-action-requirements-warn" in style
+    assert ".tescmd-action-requirement-list" in style
     assert "Route fields were cleared; physical actions are locked again." in asset
     assert (
         "route fields were cleared and confirmation is locked off after the request"
         in asset
     )
+
+
+def test_dashboard_action_readiness_panel_explains_disabled_buttons_privately() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+    body = asset.split("function ActionRequirementsPanel", 1)[1].split(
+        "function objectAt", 1
+    )[0]
+
+    assert "function routeReadiness(destination, lat, lon, placeIds)" in asset
+    assert "Quick action readiness checklist" in body
+    assert "Action readiness" in body
+    assert "still blocking some buttons" in body
+    assert "All quick-action guardrails are satisfied" in body
+    assert "Disabled-button reasons are shown here" in body
+    assert (
+        "without echoing destinations, coordinates, place IDs, VINs, or Fleet IDs"
+        in body
+    )
+    assert "Physical confirmation" in body
+    assert "Navigate" in body
+    assert "GPS navigation" in body
+    assert "Waypoints" in body
+    assert "enter both latitude and longitude" in body
+    assert "enter at least one place ID" in body
+    assert (
+        "h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds })"
+        in asset
+    )
+    assert ".tescmd-action-requirements" in style
+    assert ".tescmd-action-requirements-warn" in style
+    assert ".tescmd-action-requirement-list" in style
 
 
 def test_dashboard_read_safety_panel_explains_wake_confirm_boundary() -> None:
