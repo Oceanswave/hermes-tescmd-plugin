@@ -205,6 +205,7 @@
 
 .tescmd-action-safety p,
 .tescmd-action-safety small,
+.tescmd-action-requirements small,
 .tescmd-nav-guard small {
   margin: 0;
   color: var(--color-muted-foreground);
@@ -213,6 +214,7 @@
 }
 
 .tescmd-nav-guard,
+.tescmd-action-requirements,
 .tescmd-read-safety {
   display: grid;
   grid-template-columns: minmax(14rem, 1fr) auto;
@@ -285,6 +287,7 @@
 }
 
 .tescmd-nav-guard strong,
+.tescmd-action-requirements strong,
 .tescmd-read-safety strong {
   display: block;
   margin: 0.1rem 0;
@@ -292,11 +295,31 @@
 }
 
 .tescmd-nav-guard-badges,
+.tescmd-action-requirement-list,
 .tescmd-read-safety-badges {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.35rem;
+}
+
+.tescmd-action-requirements-warn {
+  border-color: color-mix(in srgb, var(--tescmd-amber) 44%, var(--color-border));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tescmd-amber) 10%, transparent), transparent 48%),
+    color-mix(in srgb, var(--color-card) 94%, transparent);
+}
+
+.tescmd-action-requirement {
+  display: inline-flex;
+  gap: 0.32rem;
+  align-items: center;
+  padding: 0.12rem 0;
+}
+
+.tescmd-action-requirement span {
+  color: var(--color-muted-foreground);
+  font-size: 0.78rem;
 }
 
 .tescmd-nav-guard-actions {
