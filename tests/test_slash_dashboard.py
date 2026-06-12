@@ -101,6 +101,39 @@ def test_navigation_positional_parsing_preserves_explicit_named_vin() -> None:
     }
 
 
+def test_navigation_search_slash_summary_redacts_route_target_details() -> None:
+    output = slash._format_command(  # noqa: SLF001
+        "tescmd-nav-search",
+        {
+            "ok": True,
+            "places": [
+                {
+                    "id": "ChIJN1t_tDeuEmsRUsoyG83frY4",
+                    "display_name": {"text": "Central Coffee"},
+                    "formatted_address": "123 Main St, Austin, TX 78701",
+                    "location": {"latitude": 30.267153, "longitude": -97.743057},
+                },
+                {
+                    "name": "places/ChIJRouteTargetPlaceId123456789",
+                    "formatted_address": "456 Secret Ave, Austin, TX 78702",
+                    "location": {"lat": 30.268, "lng": -97.744},
+                },
+            ],
+        },
+    )
+
+    assert "Navigation search: 2 place candidate(s) returned." in output
+    assert "#1 Central Coffee (address/location redacted)" in output
+    assert "#2 Unnamed place (address/location redacted)" in output
+    assert "place_ids=..." in output
+    assert "123 Main St" not in output
+    assert "456 Secret Ave" not in output
+    assert "ChIJN1t_tDeuEmsRUsoyG83frY4" not in output
+    assert "ChIJRouteTargetPlaceId123456789" not in output
+    assert "30.267153" not in output
+    assert "-97.743057" not in output
+
+
 def test_run_tool_navigation_keeps_explicit_vin_and_joins_unquoted_destination(
     monkeypatch,
 ) -> None:
@@ -1298,8 +1331,12 @@ def test_navigation_search_summary_redacts_place_ids_and_coordinates() -> None:
 
     assert output.startswith("/tescmd-nav-search: success")
     assert "Navigation search: 2 place candidate(s) returned." in output
-    assert "Top places: #1 Coffee & Charge; #2 456 Example Ave" in output
+    assert (
+        "Top places: #1 Coffee & Charge (address/location redacted); "
+        "#2 Unnamed place (address/location redacted)" in output
+    )
     assert "place_ids=..." in output
+    assert "456 Example Ave" not in output
     assert "ChIJsecretPlaceId123" not in output
     assert "37.7749295" not in output
     assert "-122.4194155" not in output

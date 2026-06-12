@@ -917,27 +917,44 @@ def _navigation_search_summary(name: str, payload: dict[str, Any]) -> list[str]:
 
     labels: list[str] = []
     for idx, place in enumerate(places[:3], 1):
-        if isinstance(place, dict):
-            display_name: Any = place.get("display_name")
-            place_name: Any
-            if isinstance(display_name, dict):
-                place_name = display_name.get("text") or display_name.get("name")
-            else:
-                place_name = display_name
-            label = str(
-                place_name
-                or place.get("name")
-                or place.get("formatted_address")
-                or "Unnamed"
-            )
-        else:
-            label = str(place)
-        labels.append(f"#{idx} {_redact_slash_text(label)}")
+        labels.append(f"#{idx} {_navigation_search_place_label(place)}")
     return [
         f"Navigation search: {len(places)} place candidate(s) returned.",
         "Top places: " + "; ".join(labels),
         "Navigation: use tescmd_navigation_waypoints place_ids=... confirm=true; place IDs stay out of slash summaries.",
     ]
+
+
+def _navigation_search_place_label(place: Any) -> str:
+    """Return a useful but route-safe label for a navigation search result.
+
+    Google Places candidates can include street addresses, precise coordinates,
+    and stable place IDs. Slash output should help the operator choose a result
+    by public display name while keeping route-target details out of chat logs.
+    """
+
+    if not isinstance(place, dict):
+        return _redact_slash_text(place)
+
+    display_name: Any = place.get("display_name")
+    if isinstance(display_name, dict):
+        place_name = display_name.get("text") or display_name.get("name")
+    else:
+        place_name = display_name
+    if not place_name and isinstance(place.get("name"), str):
+        raw_name = str(place["name"])
+        # Google Places resource names often look like ``places/<place_id>``;
+        # those IDs are route-target state, not human-readable labels.
+        place_name = None if raw_name.startswith("places/") else raw_name
+
+    label = _redact_slash_text(place_name or "Unnamed place")
+    has_route_detail = bool(place.get("formatted_address") or place.get("location"))
+    has_route_detail = has_route_detail or any(
+        key in place for key in ("lat", "latitude", "lon", "lng", "longitude")
+    )
+    if has_route_detail:
+        label += " (address/location redacted)"
+    return label
 
 
 def _software_detail_parts(software: dict[str, Any]) -> list[str]:
