@@ -612,6 +612,26 @@ def test_dashboard_visible_vehicle_identity_helpers_redact_identifiers() -> None
     assert "visibleVehicleText(vehicle.state" in identity_body
 
 
+def test_dashboard_vehicle_override_field_hides_identifier_by_default() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+    body = asset.split("function VehiclePicker", 1)[1].split(
+        "function TargetContextPanel", 1
+    )[0]
+
+    assert "const [showIdentifier, setShowIdentifier] = hooks.useState(false);" in body
+    assert 'className: "tescmd-identifier-entry"' in body
+    assert 'type: showIdentifier ? "text" : "password"' in body
+    assert 'autoComplete: "off"' in body
+    assert "spellCheck: false" in body
+    assert '"aria-label": "Vehicle identifier override, hidden by default"' in body
+    assert 'showIdentifier ? "Hide identifier" : "Reveal identifier"' in body
+    assert '"aria-pressed": showIdentifier' in body
+    assert "raw override field is hidden by default" in body
+    assert ".tescmd-identifier-entry" in style
+    assert 'input[type="password"]' in style
+
+
 def test_dashboard_onboarding_card_sanitizes_setup_guidance() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     body = asset.split("function OnboardingCard", 1)[1].split("function BusyBanner", 1)[
@@ -2355,7 +2375,7 @@ def test_dashboard_vehicle_picker_uses_safe_model_hints_not_visible_ids() -> Non
     assert "config.trim_badging" in asset
     assert "vehiclePickerLabel(vehicle, index)" in asset
     assert "Vehicle menu labels show safe model hints only" in asset
-    assert "full VIN/Fleet IDs stay out of visible option text" in asset
+    assert "raw override field is hidden by default" in asset
     assert "`${name} — ${hint} — ${state}`" in asset
     assert "`${name} — ${state}`" in asset
     assert "`${name} — ${id} — ${state}`" not in asset
