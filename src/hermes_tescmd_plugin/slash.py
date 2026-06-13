@@ -1135,18 +1135,22 @@ def _summarize_service_data(payload: dict[str, Any]) -> list[str]:
         )
     if appointment:
         appointment_bits: list[str] = []
+        center_returned = any(
+            appointment.get(key) is not None
+            for key in ("service_center_name", "service_center")
+        )
         for key, label in (
             ("status", "status"),
             ("state", "state"),
             ("start_time", "start"),
             ("scheduled_time", "time"),
             ("appointment_time", "time"),
-            ("service_center_name", "center"),
-            ("service_center", "center"),
         ):
             value = _first_present(appointment, key)
             if value is not None:
                 appointment_bits.append(f"{label} {_redact_slash_text(value)}")
+        if center_returned:
+            appointment_bits.append("center returned (location redacted)")
         if appointment_bits:
             details.append("appointment " + ", ".join(appointment_bits[:3]))
 
