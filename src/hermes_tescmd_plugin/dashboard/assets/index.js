@@ -721,15 +721,20 @@
     const ref = hooks.useRef(null);
     const mapRef = hooks.useRef(null);
     const markerRef = hooks.useRef(null);
+    const [mapStatus, setMapStatus] = hooks.useState("idle");
     const lat = visibleLocation && visibleLocation.lat;
     const lon = visibleLocation && visibleLocation.lon;
     const label = (visibleLocation && visibleLocation.label) || "No coordinates";
     const precise = Boolean(visibleLocation && visibleLocation.precise);
 
     hooks.useEffect(() => {
-      if (lat == null || lon == null || !ref.current) return undefined;
+      if (lat == null || lon == null || !ref.current) {
+        setMapStatus("idle");
+        return undefined;
+      }
       let cancelled = false;
       let resizeObserver = null;
+      setMapStatus("loading");
       loadLeaflet().then((L) => {
         if (cancelled || !ref.current) return;
         if (!mapRef.current) {
@@ -759,10 +764,13 @@
           resizeObserver = new ResizeObserver(() => mapRef.current && mapRef.current.invalidateSize());
           resizeObserver.observe(ref.current);
         }
+        setMapStatus("ready");
         setTimeout(() => mapRef.current && mapRef.current.invalidateSize(), 40);
         setTimeout(() => mapRef.current && mapRef.current.invalidateSize(), 240);
         setTimeout(() => mapRef.current && mapRef.current.invalidateSize(), 900);
-      }).catch(() => {});
+      }).catch(() => {
+        if (!cancelled) setMapStatus("error");
+      });
       return () => {
         cancelled = true;
         if (resizeObserver) resizeObserver.disconnect();
@@ -781,7 +789,16 @@
     }
     return h("div", { className: "tescmd-map-shell" },
       h("div", { className: "tescmd-map-meta" }, h("strong", null, precise ? "Vehicle map" : "Approximate area"), h("span", null, label)),
-      h("div", { ref, className: "tescmd-map" })
+      h("div", { ref, className: "tescmd-map" }),
+      mapStatus === "error" ? h("div", { className: "tescmd-map-error", role: "status", "aria-live": "polite" },
+        h(EmptyState, {
+          title: "Map could not load",
+          body: "The location read succeeded, but the dashboard map library did not load in this browser session.",
+          steps: ["Refresh the dashboard or check browser network access to the map assets.", "The coordinates remain hidden here; use the redacted payload panel for troubleshooting detail."],
+          note: precise ? "Precise map display stays opt-in and is not retried as a Tesla command." : "Approximate location text stays visible without exposing precise coordinates.",
+        })
+      ) : null,
+      mapStatus === "loading" ? h("div", { className: "tescmd-map-loading", role: "status" }, "Loading map…") : null
     );
   }
 

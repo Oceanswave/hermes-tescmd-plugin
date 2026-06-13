@@ -2468,6 +2468,28 @@ def test_dashboard_location_display_defaults_to_approximate_coordinates() -> Non
     assert 'h("span", null, label)' in asset
 
 
+def test_dashboard_map_load_failure_has_privacy_safe_error_state() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+    body = asset.split("function LeafletMap", 1)[1].split(
+        "function commandCatalogText", 1
+    )[0]
+
+    assert 'useState("idle")' in body
+    assert 'setMapStatus("loading")' in body
+    assert 'setMapStatus("ready")' in body
+    assert 'setMapStatus("error")' in body
+    assert "Map could not load" in body
+    assert "The coordinates remain hidden here" in body
+    assert "is not retried as a Tesla command" in body
+    assert "Loading map…" in body
+    assert "tescmd-map-error" in style
+    assert "tescmd-map-loading" in style
+    assert ").catch(() => {});" not in body
+    assert "37.331" not in body
+    assert "destination" not in body.lower()
+
+
 def test_dashboard_vehicle_picker_uses_safe_model_hints_not_visible_ids() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
 

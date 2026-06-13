@@ -704,6 +704,7 @@
 }
 
 .tescmd-map-shell {
+  position: relative;
   overflow: hidden;
   height: 14.4rem;
   min-height: 14.4rem;
@@ -737,6 +738,37 @@
   z-index: 0;
   overflow: hidden;
   background: color-mix(in srgb, #020617 25%, var(--color-card));
+}
+
+.tescmd-map-loading {
+  position: absolute;
+  right: 0.55rem;
+  bottom: 0.55rem;
+  z-index: 2;
+  border: 1px solid color-mix(in srgb, var(--tescmd-blue) 45%, var(--color-border));
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+  background: color-mix(in srgb, var(--color-card) 88%, transparent);
+  color: var(--color-muted-foreground);
+  font-size: 0.72rem;
+  box-shadow: 0 0.5rem 1rem color-mix(in srgb, #000 18%, transparent);
+}
+
+.tescmd-map-error {
+  position: absolute;
+  inset: 2.4rem 0 0 0;
+  z-index: 2;
+  display: grid;
+  align-items: center;
+  padding: 0.7rem;
+  border-color: color-mix(in srgb, var(--tescmd-amber) 55%, var(--color-border));
+  background:
+    radial-gradient(circle at 16% 20%, color-mix(in srgb, var(--tescmd-amber) 12%, transparent), transparent 30%),
+    color-mix(in srgb, var(--color-card) 94%, transparent);
+}
+
+.tescmd-map-error .tescmd-empty-state {
+  max-width: 100%;
 }
 
 /* Keep the vehicle map self-contained. Hermes may block or delay the CDN
