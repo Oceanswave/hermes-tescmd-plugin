@@ -1105,7 +1105,7 @@ def test_service_slash_summary_redacts_vehicle_ids_and_avoids_raw_payload() -> N
                 "appointment": {
                     "status": "booked",
                     "start_time": "2026-06-10T09:00:00Z",
-                    "service_center": "Tesla Service 12345678901234567",
+                    "service_center": "Tesla Service 123 Main St 12345678901234567",
                 },
             },
         },
@@ -1114,10 +1114,14 @@ def test_service_slash_summary_redacts_vehicle_ids_and_avoids_raw_payload() -> N
     assert output.startswith("/tescmd-service: success")
     assert "Service: service status scheduled for vehicle …0002" in output
     assert "1 service visit returned" in output
-    assert "appointment status booked, start 2026-06-10T09:00:00Z" in output
-    assert "center Tesla Service …4567" in output
+    assert (
+        "appointment status booked, start 2026-06-10T09:00:00Z, "
+        "center returned (location redacted)" in output
+    )
     assert "5YJ3E1EA7JF000001" not in output
     assert "5YJ3E1EA7JF000002" not in output
+    assert "Tesla Service" not in output
+    assert "123 Main St" not in output
     assert "12345678901234567" not in output
     assert "{" not in output
 
@@ -1157,7 +1161,8 @@ def test_service_slash_summary_handles_response_visit_lists_privately() -> None:
     assert "2 service visits returned" in output
     assert "appointment state confirmed" in output
     assert "time 2026-07-01T13:30:00Z" in output
-    assert "center Tesla Service …0002" in output
+    assert "center returned (location redacted)" in output
+    assert "Tesla Service" not in output
     assert "APT-SECRET-123" not in output
     assert "APT-SECRET-456" not in output
     assert "98765432109876543" not in output
