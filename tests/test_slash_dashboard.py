@@ -774,6 +774,26 @@ def test_dashboard_action_readiness_panel_explains_disabled_buttons_privately() 
     assert ".tescmd-action-requirement-list" in style
 
 
+def test_dashboard_action_groups_show_privacy_safe_safety_notes() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+    body = asset.split("function actionGroupSafetyNote", 1)[1].split(
+        "function ReadGroup", 1
+    )[0]
+
+    assert "function actionGroupSafetyNote(title)" in asset
+    assert "tescmd-action-group-heading" in body
+    assert "can affect access or alert people near the vehicle" in body
+    assert "success banners avoid VINs, Fleet IDs, and raw request JSON" in body
+    assert "route targets are temporary sensitive fields" in body
+    assert 'h("small", null, actionGroupSafetyNote(title))' in body
+    assert ".tescmd-action-group-heading" in style
+    assert "5YJ3E1EA7JF000001" not in body
+    assert "12345678901234567" not in body
+    assert "latitude" not in body
+    assert "longitude" not in body
+
+
 def test_dashboard_read_safety_panel_explains_wake_confirm_boundary() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()

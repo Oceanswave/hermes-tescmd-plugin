@@ -356,9 +356,23 @@
     );
   }
 
+  function actionGroupSafetyNote(title) {
+    const notes = {
+      "Attention & security": "Wake, lock, unlock, honk, flash, and Sentry controls can affect access or alert people near the vehicle.",
+      "Climate": "Climate buttons can wake the vehicle and change cabin temperature; requested temperatures are summarized without identifiers.",
+      "Charging": "Charging buttons can start, stop, or change limits/amps; success banners avoid VINs, Fleet IDs, and raw request JSON.",
+      "Body": "Body controls actuate trunks, windows, or closures. Confirm the vehicle is in a safe location before sending.",
+      "Media & navigation": "Media changes audio state; navigation route targets are temporary sensitive fields and are cleared after attempts.",
+    };
+    return notes[title] || "Quick actions require confirmation and use sanitized dashboard result summaries.";
+  }
+
   function ActionGroup({ title, actions, runAction, loading, confirm, actionDisabledReason }) {
     return h("div", { className: "tescmd-group" },
-      h("h3", null, title),
+      h("div", { className: "tescmd-action-group-heading" },
+        h("h3", null, title),
+        h("small", null, actionGroupSafetyNote(title))
+      ),
       h("div", { className: "tescmd-actions" },
         actions.map(([action, label]) => {
           const reason = actionDisabledReason ? actionDisabledReason(action) : "";
