@@ -1405,13 +1405,10 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     response = _first_dict(
         payload.get("response"), payload.get("result"), payload.get("payload")
     )
-    result = (
-        response.get("result")
-        or response.get("reason")
-        or response.get("message")
-        or payload.get("message")
-    )
-    if result:
+    result = _first_present(response, "result", "reason", "message")
+    if result is None:
+        result = _first_present(payload, "message")
+    if result is not None:
         if result is True and charge_action:
             lines.append("Result: Tesla accepted the charging command.")
         elif result is True and climate_action:

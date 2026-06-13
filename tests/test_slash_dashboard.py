@@ -1899,6 +1899,22 @@ def test_success_result_redacts_sensitive_identifiers() -> None:
     assert "{" not in output
 
 
+def test_success_result_preserves_falsey_values_without_generic_fallback() -> None:
+    false_output = slash._format_command(
+        "tescmd-security-status",
+        {"ok": True, "response": {"result": False}},
+    )
+    zero_output = slash._format_command(
+        "tescmd-charge-limit",
+        {"ok": True, "response": {"reason": 0}},
+    )
+
+    assert "Result: no" in false_output
+    assert "Result: 0" in zero_output
+    assert "Result: command accepted by Tesla Fleet API" not in false_output
+    assert "Result: command accepted by Tesla Fleet API" not in zero_output
+
+
 def test_dashboard_redacts_visible_debug_payload_privacy_fields() -> None:
     payload = {
         "vin": "5YJ3E1EA7JF000001",
