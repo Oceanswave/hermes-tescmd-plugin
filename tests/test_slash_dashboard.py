@@ -2533,6 +2533,27 @@ def test_dashboard_location_display_defaults_to_approximate_coordinates() -> Non
     assert 'h("span", null, label)' in asset
 
 
+def test_dashboard_location_summary_shows_safe_compass_heading() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    body = asset.split("function locationSummary", 1)[1].split(
+        "function selectedVehicle", 1
+    )[0]
+
+    assert "function compassHeadingLabel(heading)" in body
+    assert "vehicle_heading" in body
+    assert "heading ${Math.round(normalized)}° ${directions[index]}" in body
+    assert "speed unavailable" in body
+    assert "heading unavailable" in body
+    assert "Speed and heading unavailable" in body
+    assert "location.native_latitude" not in body
+    assert "drive.native_latitude" not in body
+    assert "location.native_longitude" not in body
+    assert "drive.native_longitude" not in body
+    assert 'precision === "precise"' in body
+    assert "precise coordinates hidden" in body
+    assert "precise coordinates visible" in body
+
+
 def test_dashboard_map_load_failure_has_privacy_safe_error_state() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
