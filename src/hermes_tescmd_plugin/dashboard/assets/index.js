@@ -534,13 +534,37 @@
     };
   }
 
+  const closureLabels = {
+    df: "driver front door",
+    pf: "passenger front door",
+    dr: "driver rear door",
+    pr: "passenger rear door",
+    ft: "front trunk",
+    rt: "rear trunk",
+    fd_window: "driver front window",
+    fp_window: "passenger front window",
+    rd_window: "driver rear window",
+    rp_window: "passenger rear window",
+  };
+
+  function closureIsOpen(value) {
+    if (value === true || value === 1) return true;
+    if (value === false || value === 0 || value == null) return false;
+    const normalized = String(value).trim().toLowerCase();
+    if (["open", "opened", "ajar", "vent", "vented", "true", "1"].includes(normalized)) return true;
+    if (["closed", "close", "off", "false", "0", "locked"].includes(normalized)) return false;
+    return Boolean(normalized);
+  }
+
   function securitySummary(overview) {
     const security = objectAt(section(overview, "security"), ["vehicle_state", "security_state"]);
     const closures = objectAt(section(overview, "closures"), ["closures_state", "vehicle_state"]);
     const locked = firstDefined(security.locked, closures.locked);
     const sentry = firstDefined(security.sentry_mode, security.sentry_mode_available && security.sentry_mode);
-    const openBits = ["df", "pf", "dr", "pr", "ft", "rt"].filter((key) => closures[key] && closures[key] !== 0 && closures[key] !== "closed");
-    return { locked, sentry, openCount: openBits.length };
+    const openLabels = Object.entries(closureLabels)
+      .filter(([key]) => closureIsOpen(closures[key]))
+      .map(([, label]) => label);
+    return { locked, sentry, openCount: openLabels.length, openLabels };
   }
 
   function locationSummary(overview) {
@@ -693,6 +717,9 @@
     const chargeStyle = { "--tescmd-charge": `${Math.max(0, Math.min(100, charge.level ?? 0))}%` };
     const availability = vehicleAvailability(overview);
     const identity = vehicleIdentitySummary(overview);
+    const closureText = security.openLabels && security.openLabels.length
+      ? `Open: ${security.openLabels.slice(0, 3).join(", ")}${security.openLabels.length > 3 ? ` +${security.openLabels.length - 3} more` : ""}`
+      : "No open closures reported";
     return h("div", null,
       h(VehicleSleepStatus, { availability, runAction, loading, confirm }),
       h(VehicleIdentityCard, { identity }),
@@ -708,7 +735,7 @@
         ),
         h("div", { className: "tescmd-stack-widgets" },
           h("div", { className: "tescmd-mini-widget" }, h("span", null, "Climate"), h("strong", null, climate.on ? "On" : "Off"), h("small", null, `Inside ${climate.inside == null ? "—" : climate.inside.toFixed(1)}° · Outside ${climate.outside == null ? "—" : climate.outside.toFixed(1)}°`)),
-          h("div", { className: "tescmd-mini-widget" }, h("span", null, "Security"), h("strong", null, security.locked === true ? "Locked" : security.locked === false ? "Unlocked" : "Unknown"), h("small", null, `${security.openCount} open closure${security.openCount === 1 ? "" : "s"} · Sentry ${security.sentry ? "on" : "off/unknown"}`)),
+          h("div", { className: "tescmd-mini-widget tescmd-security-widget" }, h("span", null, "Security"), h("strong", null, security.locked === true ? "Locked" : security.locked === false ? "Unlocked" : "Unknown"), h("small", null, `${security.openCount} open closure${security.openCount === 1 ? "" : "s"} · Sentry ${security.sentry ? "on" : "off/unknown"}`), h("em", null, closureText)),
           h("div", { className: "tescmd-mini-widget" }, h("span", null, "Location"), h("strong", null, visibleLocation.label), h("small", null, visibleLocation.note))
         ),
         h(LeafletMap, { visibleLocation })
