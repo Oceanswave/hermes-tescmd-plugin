@@ -666,6 +666,32 @@ def test_dashboard_vehicle_override_field_hides_identifier_by_default() -> None:
     assert 'input[type="password"]' in style
 
 
+def test_dashboard_security_snapshot_names_open_closures_without_raw_codes() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+    summary_body = asset.split("function securitySummary", 1)[1].split(
+        "function locationSummary", 1
+    )[0]
+    snapshot_body = asset.split("function VehicleSnapshot", 1)[1].split(
+        "function loadLeaflet", 1
+    )[0]
+
+    assert "const closureLabels = {" in asset
+    assert 'df: "driver front door"' in asset
+    assert 'rt: "rear trunk"' in asset
+    assert 'fd_window: "driver front window"' in asset
+    assert "function closureIsOpen(value)" in asset
+    assert '"ajar"' in asset
+    assert '"vented"' in asset
+    assert "Object.entries(closureLabels)" in summary_body
+    assert "openLabels" in summary_body
+    assert "Open: ${security.openLabels.slice(0, 3).join" in snapshot_body
+    assert "No open closures reported" in snapshot_body
+    assert 'className: "tescmd-mini-widget tescmd-security-widget"' in snapshot_body
+    assert 'h("em", null, closureText)' in snapshot_body
+    assert ".tescmd-security-widget em" in style
+
+
 def test_dashboard_onboarding_card_sanitizes_setup_guidance() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     body = asset.split("function OnboardingCard", 1)[1].split("function BusyBanner", 1)[
@@ -2562,6 +2588,30 @@ def test_dashboard_location_display_defaults_to_approximate_coordinates() -> Non
     assert "h(LeafletMap, { visibleLocation })" in asset
     assert "`${location.lat.toFixed(4)}, ${location.lon.toFixed(4)}`" not in asset
     assert 'h("span", null, label)' in asset
+
+
+def test_dashboard_security_widget_lists_safe_open_closure_labels() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+    body = asset.split("function closureIsOpen", 1)[1].split(
+        "function locationSummary", 1
+    )[0]
+
+    assert "const closureLabels =" in asset
+    assert "function closureIsOpen(value)" in asset
+    assert '"driver front door"' in asset
+    assert '"front trunk"' in asset
+    assert '"driver front window"' in asset
+    assert "closed" in body
+    assert "opened" in body
+    assert "vented" in body
+    assert "openLabels" in body
+    assert "Open: ${security.openLabels.slice(0, 3).join" in asset
+    assert "No open closures reported" in asset
+    assert "tescmd-security-widget" in asset
+    assert ".tescmd-security-widget em" in style
+    assert 'bool("closed")' not in asset
+    assert "closures[key] && closures[key] !== 0" not in asset
 
 
 def test_dashboard_location_summary_shows_safe_compass_heading() -> None:

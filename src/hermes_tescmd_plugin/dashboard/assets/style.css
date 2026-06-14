@@ -715,6 +715,13 @@
   line-height: 1.2;
 }
 
+.tescmd-security-widget em {
+  color: var(--color-foreground);
+  font-size: 0.72rem;
+  font-style: normal;
+  line-height: 1.2;
+}
+
 .tescmd-map-shell {
   position: relative;
   overflow: hidden;
