@@ -194,6 +194,7 @@ def test_registers_tescmd_slash_commands_and_status_handler(
         "tescmd-alerts",
         "tescmd-release-notes",
         "tescmd-mobile-access",
+        "tescmd-energy",
         "tescmd-service",
         "tescmd-charge",
         "tescmd-climate",
@@ -1111,6 +1112,45 @@ def test_mobile_access_slash_summary_is_human_readable() -> None:
     assert "Mobile access: disabled." in output
     assert "Result: command accepted" not in output
     assert "5YJ3E1EA7JF000001" not in output
+    assert "{" not in output
+
+
+def test_energy_slash_summary_lists_products_without_raw_payload() -> None:
+    output = slash._format_command(
+        "tescmd-energy",
+        {
+            "ok": True,
+            "profile": "default",
+            "region": "na",
+            "products": [
+                {
+                    "site_name": "Home Powerwall",
+                    "resource_type": "battery",
+                    "site_id": 12345678901234567,
+                    "backup_reserve_percent": 20,
+                    "latitude": 37.7749295,
+                    "longitude": -122.4194155,
+                },
+                {
+                    "asset_site_name": "Solar Roof",
+                    "product_type": "solar",
+                    "energy_site_id": 98765432109876543,
+                },
+            ],
+        },
+    )
+
+    assert output.startswith("/tescmd-energy: success")
+    assert "Energy products: 2 product(s) returned." in output
+    assert "#1 Home Powerwall (type battery, site …4567)" in output
+    assert "#2 Solar Roof (type solar, site …6543)" in output
+    assert "use site_id=... with tescmd_energy_live/status" in output
+    assert "Result: command accepted" not in output
+    assert "12345678901234567" not in output
+    assert "98765432109876543" not in output
+    assert "37.7749295" not in output
+    assert "-122.4194155" not in output
+    assert "backup_reserve_percent" not in output
     assert "{" not in output
 
 

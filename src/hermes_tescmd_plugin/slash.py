@@ -1091,6 +1091,54 @@ def _summarize_mobile_access(payload: dict[str, Any]) -> list[str]:
     return [f"Mobile access: {_redact_slash_text(_stringify(enabled))}."]
 
 
+def _energy_product_label(product: Any) -> str:
+    """Return a concise label for an energy product without dumping site data."""
+
+    if not isinstance(product, dict):
+        return _redact_slash_text(product)
+
+    name = _first_present(
+        product,
+        "site_name",
+        "energy_site_name",
+        "asset_site_name",
+        "name",
+        "display_name",
+    )
+    product_type = _first_present(
+        product, "resource_type", "asset_type", "device_type", "product_type", "type"
+    )
+    site_id = _first_present(product, "site_id", "energy_site_id", "id")
+
+    label = _redact_slash_text(name or product_type or "Unnamed energy product")
+    details: list[str] = []
+    if product_type is not None and name is not None:
+        details.append(f"type {_redact_slash_text(product_type)}")
+    if site_id is not None:
+        details.append(f"site {_redact_slash_text(site_id)}")
+    if details:
+        label += " (" + ", ".join(details) + ")"
+    return label
+
+
+def _summarize_energy_products(payload: dict[str, Any]) -> list[str]:
+    products = _collection_from_payload(payload, "products", "energy_products")
+    if not products:
+        return ["Energy products: no energy products returned."]
+
+    top = "; ".join(
+        f"#{idx} {_energy_product_label(product)}"
+        for idx, product in enumerate(products[:3], 1)
+    )
+    lines = [f"Energy products: {len(products)} product(s) returned."]
+    if top:
+        lines.append("Top products: " + top)
+    lines.append(
+        "Energy: use site_id=... with tescmd_energy_live/status for details; full site payloads stay out of slash summaries."
+    )
+    return lines
+
+
 def _summarize_service_data(payload: dict[str, Any]) -> list[str]:
     service = _payload_section(payload, "service") or _first_dict(
         payload.get("service"), payload.get("response"), payload.get("data")
@@ -1398,6 +1446,9 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     if name == "tescmd-mobile-access":
         lines.extend(_summarize_mobile_access(payload))
 
+    if name == "tescmd-energy":
+        lines.extend(_summarize_energy_products(payload))
+
     if name == "tescmd-service":
         lines.extend(_summarize_service_data(payload))
 
@@ -1440,6 +1491,8 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
                 "GUI:",
                 "Alerts:",
                 "Mobile access:",
+                "Energy products:",
+                "Energy:",
                 "Service:",
                 "Release notes:",
                 "Body action:",
@@ -1631,6 +1684,13 @@ _COMMANDS: dict[str, tuple[str, str, Callable[[dict[str, Any]], str]]] = {
         lambda ctx: _format_command(
             "tescmd-mobile-access",
             _run_tool("tescmd_vehicle_mobile_access", ctx["raw_args"]),
+        ),
+    ),
+    "tescmd-energy": (
+        "List Tesla energy products on the account.",
+        "[profile=default] [region=na|eu|cn]",
+        lambda ctx: _format_command(
+            "tescmd-energy", _run_tool("tescmd_energy_list", ctx["raw_args"])
         ),
     ),
     "tescmd-service": (
