@@ -548,27 +548,36 @@
     const drive = objectAt(section(overview, "drive"), ["drive_state", "location_data"]);
     const lat = numericValue(location.latitude, location.lat, drive.latitude, drive.lat);
     const lon = numericValue(location.longitude, location.lon, location.lng, drive.longitude, drive.lon, drive.lng);
-    const heading = numericValue(location.heading, drive.heading, location.native_latitude, drive.native_latitude);
+    const heading = numericValue(location.heading, location.vehicle_heading, drive.heading, drive.vehicle_heading);
     const speed = numericValue(drive.speed, location.speed);
     return { lat, lon, heading, speed, raw: Object.keys(location).length ? location : drive };
+  }
+
+  function compassHeadingLabel(heading) {
+    if (heading == null) return "heading unavailable";
+    const normalized = ((Number(heading) % 360) + 360) % 360;
+    const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+    const index = Math.round(normalized / 45) % directions.length;
+    return `heading ${Math.round(normalized)}° ${directions[index]}`;
   }
 
   function displayLocation(location, precision) {
     const lat = location && location.lat;
     const lon = location && location.lon;
-    if (lat == null || lon == null) return { lat: null, lon: null, label: "No coordinates", note: "Speed unavailable", precise: false };
+    if (lat == null || lon == null) return { lat: null, lon: null, label: "No coordinates", note: "Speed and heading unavailable", precise: false };
     const precise = precision === "precise";
     const displayLat = precise ? lat : Number(lat.toFixed(2));
     const displayLon = precise ? lon : Number(lon.toFixed(2));
     const coordLabel = precise
       ? `${lat.toFixed(5)}, ${lon.toFixed(5)}`
       : `≈ ${displayLat.toFixed(2)}, ${displayLon.toFixed(2)}`;
-    const speedNote = location.speed == null ? "Speed unavailable" : `${location.speed} mph`;
+    const speedNote = location.speed == null ? "speed unavailable" : `${location.speed} mph`;
+    const headingNote = compassHeadingLabel(location.heading);
     return {
       lat: displayLat,
       lon: displayLon,
       label: coordLabel,
-      note: precise ? `${speedNote} · precise coordinates visible` : `${speedNote} · precise coordinates hidden`,
+      note: precise ? `${speedNote} · ${headingNote} · precise coordinates visible` : `${speedNote} · ${headingNote} · precise coordinates hidden`,
       precise,
       zoom: precise ? 14 : 10,
       popup: precise ? "Vehicle location" : "Approximate vehicle area",
