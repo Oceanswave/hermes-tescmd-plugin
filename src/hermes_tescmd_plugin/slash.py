@@ -1183,10 +1183,6 @@ def _summarize_service_data(payload: dict[str, Any]) -> list[str]:
         )
     if appointment:
         appointment_bits: list[str] = []
-        center_returned = any(
-            appointment.get(key) is not None
-            for key in ("service_center_name", "service_center")
-        )
         for key, label in (
             ("status", "status"),
             ("state", "state"),
@@ -1197,14 +1193,61 @@ def _summarize_service_data(payload: dict[str, Any]) -> list[str]:
             value = _first_present(appointment, key)
             if value is not None:
                 appointment_bits.append(f"{label} {_redact_slash_text(value)}")
-        if center_returned:
-            appointment_bits.append("center returned (location redacted)")
+        center_detail = _service_center_detail(appointment)
+        if center_detail:
+            appointment_bits.append(center_detail)
         if appointment_bits:
-            details.append("appointment " + ", ".join(appointment_bits[:3]))
+            details.append("appointment " + ", ".join(appointment_bits[:4]))
 
     if details:
         return ["Service: " + "; ".join(details)]
     return ["Service: data available (details redacted/summary-only)."]
+
+
+def _service_center_detail(appointment: dict[str, Any]) -> str | None:
+    """Return a concise public service-center hint for service summaries.
+
+    Appointment payloads may mix public service-center names/addresses with
+    private appointment ids, callback URLs, vehicle identifiers, and internal
+    resource ids. Show the useful center label when present, but ignore URL-like
+    fields and run all visible text through the slash redactor.
+    """
+
+    center = _first_present(
+        appointment,
+        "service_center_name",
+        "service_center",
+        "center_name",
+        "center",
+    )
+    center_name: Any = None
+    center_address: Any = _first_present(
+        appointment,
+        "service_center_address",
+        "service_address",
+        "address",
+    )
+    if isinstance(center, dict):
+        center_name = _first_present(center, "name", "display_name", "title")
+        if center_address is None:
+            center_address = _first_present(center, "address", "formatted_address")
+    else:
+        center_name = center
+
+    parts = []
+    for value in (center_name, center_address):
+        if value is None:
+            continue
+        text = str(value).strip()
+        if not text or text.startswith(("http://", "https://")):
+            continue
+        redacted = _redact_slash_text(text)
+        if redacted and redacted not in parts:
+            parts.append(redacted)
+
+    if not parts:
+        return None
+    return "center " + ", ".join(parts[:2])
 
 
 def _release_note_title(note: Any) -> str:

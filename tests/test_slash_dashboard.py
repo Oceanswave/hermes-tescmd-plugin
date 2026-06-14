@@ -1176,12 +1176,11 @@ def test_service_slash_summary_redacts_vehicle_ids_and_avoids_raw_payload() -> N
     assert "1 service visit returned" in output
     assert (
         "appointment status booked, start 2026-06-10T09:00:00Z, "
-        "center returned (location redacted)" in output
+        "center Tesla Service 123 Main St …4567" in output
     )
     assert "5YJ3E1EA7JF000001" not in output
     assert "5YJ3E1EA7JF000002" not in output
-    assert "Tesla Service" not in output
-    assert "123 Main St" not in output
+    assert "Tesla Service 123 Main St …4567" in output
     assert "12345678901234567" not in output
     assert "{" not in output
 
@@ -1221,20 +1220,52 @@ def test_service_slash_summary_handles_response_visit_lists_privately() -> None:
     assert "2 service visits returned" in output
     assert "appointment state confirmed" in output
     assert "time 2026-07-01T13:30:00Z" in output
-    assert "center returned (location redacted)" in output
-    assert "Tesla Service" not in output
+    assert "center Tesla Service …0002, 123 Main St, Springfield" in output
     assert "APT-SECRET-123" not in output
     assert "APT-SECRET-456" not in output
     assert "98765432109876543" not in output
     assert "2026-07-02T14:00:00Z" not in output
     assert "secret-token-123456" not in output
     assert "secret-state" not in output
-    assert "123 Main St" not in output
     assert "37.7749295" not in output
     assert "-122.4194155" not in output
     assert "5YJ3E1EA7JF000001" not in output
     assert "5YJ3E1EA7JF000002" not in output
     assert "12345678901234567" not in output
+    assert "{" not in output
+
+
+def test_service_slash_summary_handles_nested_public_center_details_without_urls() -> (
+    None
+):
+    output = slash._format_command(
+        "tescmd-service",
+        {
+            "ok": True,
+            "service": {
+                "appointment": {
+                    "status": "scheduled",
+                    "service_center": {
+                        "name": "Tesla Service Center",
+                        "address": "3500 Deer Creek Rd, Palo Alto, CA",
+                        "url": "https://cars.example.com/callback?code=secret-token-123456&state=secret-state",
+                    },
+                    "service_center_url": "https://cars.example.com/callback?code=another-secret&state=another-state",
+                    "appointment_id": "APT-SECRET-789",
+                }
+            },
+        },
+    )
+
+    assert output.startswith("/tescmd-service: success")
+    assert (
+        "appointment status scheduled, center Tesla Service Center, "
+        "3500 Deer Creek Rd, Palo Alto, CA" in output
+    )
+    assert "cars.example.com" not in output
+    assert "secret-token-123456" not in output
+    assert "another-secret" not in output
+    assert "APT-SECRET-789" not in output
     assert "{" not in output
 
 
