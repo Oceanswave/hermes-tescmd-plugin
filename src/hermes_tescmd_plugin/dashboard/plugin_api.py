@@ -375,6 +375,30 @@ _LOCATION_KEYS = {
     "place_ids",
 }
 _SECRET_KEY_PARTS = ("token", "secret", "authorization", "bearer", "pin", "password")
+_PERSONAL_INFO_KEYS = {
+    "email",
+    "phone",
+    "phone_number",
+    "mobile_phone",
+    "invite_url",
+    "invitation_url",
+    "driver_id",
+    "share_user_id",
+}
+_PERSONAL_CONTEXT_KEYS = _PERSONAL_INFO_KEYS | {
+    "driver",
+    "drivers",
+    "share_user",
+    "share_users",
+}
+_PERSONAL_CONTEXT_NAME_KEYS = {
+    "name",
+    "first_name",
+    "last_name",
+    "full_name",
+    "display_name",
+}
+_PERSONAL_KEY_PARTS = ("email", "phone", "invite", "share_user", "driver_id")
 _OAUTH_SECRET_KEYS = {
     "code",
     "auth_code",
@@ -411,13 +435,17 @@ def _dashboard_display_payload(value: Any) -> Any:
     The dashboard needs raw values internally for maps and targeted actions, but
     the human-facing "Last payload" panel is easy to screenshot or copy. Keep the
     structural debugging breadcrumbs while redacting full vehicle identifiers,
-    tokens/secrets/PINs, navigation destinations, and precise coordinates.
+    tokens/secrets/PINs, navigation destinations, precise coordinates, and
+    driver personal details.
     """
     if isinstance(value, dict):
         safe: dict[str, Any] = {}
         sibling_keys = {str(key).lower() for key in value}
         oauth_context = bool(sibling_keys & _OAUTH_SECRET_KEYS) or any(
             "oauth" in key or "auth" in key for key in sibling_keys
+        )
+        personal_context = bool(sibling_keys & _PERSONAL_CONTEXT_KEYS) or any(
+            any(part in key for part in _PERSONAL_KEY_PARTS) for key in sibling_keys
         )
         for key, item in value.items():
             key_text = str(key)
@@ -426,6 +454,12 @@ def _dashboard_display_payload(value: Any) -> Any:
                 safe[key_text] = _dashboard_identifier_hint(item)
             elif lowered in _LOCATION_KEYS:
                 safe[key_text] = "[REDACTED_LOCATION]"
+            elif lowered in _PERSONAL_INFO_KEYS or any(
+                part in lowered for part in _PERSONAL_KEY_PARTS
+            ):
+                safe[key_text] = "[REDACTED_PERSONAL]"
+            elif personal_context and lowered in _PERSONAL_CONTEXT_NAME_KEYS:
+                safe[key_text] = "[REDACTED_PERSONAL]"
             elif (
                 lowered in _OAUTH_SECRET_KEYS
                 or (oauth_context and lowered in _CONTEXTUAL_OAUTH_SECRET_KEYS)

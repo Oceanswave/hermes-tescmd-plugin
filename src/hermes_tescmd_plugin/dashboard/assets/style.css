@@ -382,7 +382,8 @@
   text-align: right;
 }
 
-.tescmd-section-health {
+.tescmd-section-health,
+.tescmd-read-summary {
   display: grid;
   grid-template-columns: minmax(14rem, 1fr) auto;
   gap: 0.7rem;
@@ -393,6 +394,14 @@
   padding: 0.65rem 0.75rem;
   background:
     linear-gradient(90deg, color-mix(in srgb, var(--tescmd-green) 7%, transparent), transparent 42%),
+    color-mix(in srgb, var(--color-card) 94%, transparent);
+}
+
+.tescmd-read-summary {
+  margin: 0.65rem 0;
+  border-color: color-mix(in srgb, var(--tescmd-blue) 34%, var(--color-border));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tescmd-blue) 8%, transparent), transparent 42%),
     color-mix(in srgb, var(--color-card) 94%, transparent);
 }
 
@@ -409,8 +418,23 @@
   letter-spacing: -0.025em;
 }
 
-.tescmd-section-health small {
+.tescmd-section-health small,
+.tescmd-read-summary small,
+.tescmd-read-summary p {
   color: var(--color-muted-foreground);
+}
+
+.tescmd-read-summary p {
+  margin: 0.15rem 0;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.tescmd-read-summary-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
 }
 
 .tescmd-section-health ul {
@@ -1208,6 +1232,7 @@
   .tescmd-identity-card,
   .tescmd-target-context,
   .tescmd-read-context,
+  .tescmd-read-summary,
   .tescmd-nav-guard,
   .tescmd-scope-readiness,
   .tescmd-command-privacy,

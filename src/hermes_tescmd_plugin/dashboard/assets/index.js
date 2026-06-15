@@ -43,7 +43,7 @@
       h("div", null,
         h("span", { className: "tescmd-widget-label" }, "Local debug payload"),
         h("strong", null, hasPayload ? "Redacted payload is visible" : "No payload retained"),
-        h("small", null, "The panel renders sanitized display_payload data for troubleshooting. Clearing it only removes dashboard-local display state; it does not call Tesla or the plugin.")
+        h("small", null, "The panel renders sanitized display_payload data for troubleshooting, including redacted driver personal details. Clearing it only removes dashboard-local display state; it does not call Tesla or the plugin.")
       ),
       h(Button, { onClick: clearPayload, disabled: !hasPayload }, "Clear payload panel")
     );
@@ -682,6 +682,75 @@
     );
   }
 
+  function displayPayload(detail) {
+    return detail && detail.display_payload ? detail.display_payload : (detail || {});
+  }
+
+  function nestedPayload(detail) {
+    const payload = displayPayload(detail);
+    return payload.response || payload.data || payload.service || payload.mobile_access || payload;
+  }
+
+  function arrayCount(payload, keys) {
+    for (const key of keys) {
+      const value = payload && payload[key];
+      if (Array.isArray(value)) return value.length;
+      if (Number.isFinite(Number(value))) return Number(value);
+    }
+    return null;
+  }
+
+  function booleanLabel(value) {
+    if (value === true || value === "true" || value === "enabled") return "enabled";
+    if (value === false || value === "false" || value === "disabled") return "disabled";
+    return "unknown";
+  }
+
+  function DashboardReadSummary({ detail, lastReadKind }) {
+    if (!detail || !lastReadKind) return null;
+    const payload = nestedPayload(detail);
+    let title = "Last read summary";
+    let body = "Read completed. Use the redacted payload below for troubleshooting details.";
+    let badges = [];
+    let note = "Visible read summaries omit VINs, Fleet IDs, tokens, destinations, and precise coordinates.";
+
+    if (lastReadKind === "drivers") {
+      const driverCount = arrayCount(payload, ["drivers", "users", "people", "members", "vehicle_drivers"]);
+      const inviteCount = arrayCount(payload, ["invites", "invitations", "pending_invites"]);
+      title = "Access summary";
+      body = "Driver/account access data is summarized as counts and coarse status only; names, emails, phone numbers, invite links, and private IDs stay out of the dashboard copy.";
+      badges = [
+        `${driverCount == null ? "unknown" : driverCount} driver/user record${driverCount === 1 ? "" : "s"}`,
+        `${inviteCount == null ? "unknown" : inviteCount} pending invite${inviteCount === 1 ? "" : "s"}`,
+      ];
+    } else if (lastReadKind === "service") {
+      const visitCount = arrayCount(payload, ["appointments", "service_visits", "visits"]);
+      const status = sanitizeDashboardText(firstDefined(payload.status, payload.service_status, payload.state, "status unknown"), "status unknown");
+      title = "Service summary";
+      body = "Service data is summarized without private appointment IDs, raw booking URLs, vehicle identifiers, or extra visit payload details.";
+      badges = [status, `${visitCount == null ? "unknown" : visitCount} visit${visitCount === 1 ? "" : "s"}`];
+    } else if (lastReadKind === "mobile-access") {
+      const access = booleanLabel(firstDefined(payload.enabled, payload.mobile_access_enabled, payload.allow_mobile_access));
+      title = "Mobile access summary";
+      body = "Mobile access is shown as an enabled/disabled/unknown state so operators can quickly see whether app access appears available.";
+      badges = [`mobile access ${access}`];
+    } else {
+      return null;
+    }
+
+    return h("div", { className: "tescmd-read-summary", role: "status", "aria-live": "polite" },
+      h("div", null,
+        h("span", { className: "tescmd-widget-label" }, "Read result"),
+        h("strong", null, title),
+        h("p", null, body),
+        h("small", null, note)
+      ),
+      h("div", { className: "tescmd-read-summary-badges" },
+        badges.map((badge) => h(Badge, { key: badge }, sanitizeDashboardText(badge, "summary")))
+      )
+    );
+  }
+
   function vehicleAvailability(overview) {
     const vehicle = selectedVehicle(overview);
     const state = String((vehicle && vehicle.state) || "").toLowerCase();
@@ -1045,6 +1114,7 @@
     const [vehicles, setVehicles] = hooks.useState([]);
     const [overview, setOverview] = hooks.useState(null);
     const [detail, setDetail] = hooks.useState(null);
+    const [lastReadKind, setLastReadKind] = hooks.useState("");
     const [loading, setLoading] = hooks.useState(false);
     const [loadingMode, setLoadingMode] = hooks.useState("");
     const [error, setError] = hooks.useState("");
@@ -1160,6 +1230,7 @@
       try {
         const payload = await api(`/read/${kind}?${query(true)}`);
         setDetail(payload);
+        setLastReadKind(kind);
         if (["charge", "location", "drive", "climate", "closures", "security"].includes(kind)) {
           await refresh();
         }
@@ -1282,6 +1353,7 @@
           body: JSON.stringify(actionBody(action)),
         });
         setDetail(payload);
+        setLastReadKind("");
         setConfirm(false);
         if (navigationAction) clearNavigationFields(action);
         setLastActionStatus(dashboardActionStatus(payload, action, navigationAction));
@@ -1407,8 +1479,9 @@
           h(Card, { className: "tescmd-payload-card" },
             h(CardHeader, null, h(CardTitle, null, "Redacted last payload")),
             h(CardContent, null,
-              h(PayloadPrivacyToolbar, { hasPayload: Boolean(detail), clearPayload: () => setDetail(null) }),
-              h("p", { className: "tescmd-muted" }, "Debug view hides full vehicle identifiers, tokens, navigation destinations, and precise coordinates."),
+              h(PayloadPrivacyToolbar, { hasPayload: Boolean(detail), clearPayload: () => { setDetail(null); setLastReadKind(""); } }),
+              h("p", { className: "tescmd-muted" }, "Debug view hides full vehicle identifiers, tokens, driver contact details, navigation destinations, and precise coordinates."),
+              h(DashboardReadSummary, { detail, lastReadKind }),
               detail ? h(JsonBlock, { data: detail }) : h(EmptyState, {
                 title: "No payload selected",
                 body: "Run a read or a confirm-gated quick action to inspect the latest redacted plugin response here.",
