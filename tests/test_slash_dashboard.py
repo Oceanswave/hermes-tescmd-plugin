@@ -917,7 +917,7 @@ def test_dashboard_payload_panel_has_local_clear_privacy_control() -> None:
     assert "does not call Tesla or the plugin" in body
     assert "disabled: !hasPayload" in body
     assert (
-        "h(PayloadPrivacyToolbar, { hasPayload: Boolean(detail), clearPayload: () => setDetail(null) })"
+        'h(PayloadPrivacyToolbar, { hasPayload: Boolean(detail), clearPayload: () => { setDetail(null); setLastReadKind(""); } })'
         in asset
     )
     assert ".tescmd-payload-privacy" in style
@@ -2095,6 +2095,16 @@ def test_dashboard_redacts_visible_debug_payload_privacy_fields() -> None:
             "display_name": "seaQuest",
             "state": "online",
         },
+        "drivers": [
+            {
+                "name": "Alice Driver",
+                "email": "alice@example.com",
+                "phone_number": "+15555551234",
+                "driver_id": "driver-1234567890",
+                "share_user_id": "share-0987654321",
+                "invite_url": "https://tesla.example/invite/secret-token",
+            }
+        ],
         "drive_state": {"latitude": 37.33182, "longitude": -122.03118},
         "navigation": {
             "destination": "1 Infinite Loop, Cupertino",
@@ -2136,6 +2146,12 @@ def test_dashboard_redacts_visible_debug_payload_privacy_fields() -> None:
     assert redacted["vehicle"]["vehicle_id"] == "…6543"
     assert redacted["vehicle"]["display_name"] == "seaQuest"
     assert redacted["vehicle"]["state"] == "online"
+    assert redacted["drivers"][0]["name"] == "[REDACTED_PERSONAL]"
+    assert redacted["drivers"][0]["email"] == "[REDACTED_PERSONAL]"
+    assert redacted["drivers"][0]["phone_number"] == "[REDACTED_PERSONAL]"
+    assert redacted["drivers"][0]["driver_id"] == "[REDACTED_PERSONAL]"
+    assert redacted["drivers"][0]["share_user_id"] == "[REDACTED_PERSONAL]"
+    assert redacted["drivers"][0]["invite_url"] == "[REDACTED_PERSONAL]"
     assert redacted["drive_state"]["latitude"] == "[REDACTED_LOCATION]"
     assert redacted["drive_state"]["longitude"] == "[REDACTED_LOCATION]"
     assert redacted["navigation"]["destination"] == "[REDACTED_LOCATION]"
@@ -2165,6 +2181,12 @@ def test_dashboard_redacts_visible_debug_payload_privacy_fields() -> None:
     assert "12345678901234567" not in rendered
     assert "12345678901234568" not in rendered
     assert "98765432109876543" not in rendered
+    assert "Alice Driver" not in rendered
+    assert "alice@example.com" not in rendered
+    assert "+15555551234" not in rendered
+    assert "driver-1234567890" not in rendered
+    assert "share-0987654321" not in rendered
+    assert "tesla.example/invite" not in rendered
     assert "secret...3456" not in rendered
     assert "refresh-token-123456" not in rendered
     assert "id-token-123456" not in rendered
@@ -2905,6 +2927,43 @@ def test_dashboard_empty_states_give_actionable_safe_guidance() -> None:
     assert "No payload yet." not in asset
     assert "Refresh to load charge, climate, security, and map widgets." not in asset
     assert "No vehicle coordinates yet" not in asset
+
+
+def test_dashboard_last_read_summary_surfaces_access_service_mobile_reads_privately() -> (
+    None
+):
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+    body = asset.split("function DashboardReadSummary", 1)[1].split(
+        "function vehicleAvailability", 1
+    )[0]
+
+    assert "function DashboardReadSummary" in asset
+    assert "Access summary" in body
+    assert "Service summary" in body
+    assert "Mobile access summary" in body
+    assert "names, emails, phone numbers, invite links" in body
+    assert "private appointment IDs" in body
+    assert "mobile access ${access}" in body
+    assert (
+        "Visible read summaries omit VINs, Fleet IDs, tokens, destinations, and precise coordinates"
+        in body
+    )
+    assert 'lastReadKind === "drivers"' in body
+    assert 'lastReadKind === "service"' in body
+    assert 'lastReadKind === "mobile-access"' in body
+    assert "arrayCount(payload" in body
+    assert "sanitizeDashboardText(badge" in body
+    assert "setLastReadKind(kind)" in asset
+    assert 'setLastReadKind("")' in asset
+    assert "h(DashboardReadSummary, { detail, lastReadKind })" in asset
+    assert ".tescmd-read-summary" in style
+    assert ".tescmd-read-summary-badges" in style
+    assert "payload.email" not in body
+    assert "payload.phone" not in body
+    assert "payload.name" not in body
+    assert "appointment_id" not in body
+    assert "invite_url" not in body
 
 
 def test_dashboard_read_passes_wake_confirm_no_cache_and_units(monkeypatch) -> None:
