@@ -706,6 +706,34 @@
     return "unknown";
   }
 
+  function chargerSites(payload, key) {
+    const sites = payload && (payload.sites || payload.nearby_chargers || payload.chargers || payload);
+    const value = sites && sites[key];
+    return Array.isArray(value) ? value : [];
+  }
+
+  function chargerDistanceLabel(site) {
+    if (!site || typeof site !== "object") return "";
+    if (site.distance_miles != null) return `${Number(site.distance_miles).toFixed(1).replace(/\\.0$/, "")} mi`;
+    if (site.distance_mi != null) return `${Number(site.distance_mi).toFixed(1).replace(/\\.0$/, "")} mi`;
+    if (site.distance_km != null) return `${Number(site.distance_km).toFixed(1).replace(/\\.0$/, "")} km`;
+    return "distance hidden";
+  }
+
+  function chargerStallLabel(site) {
+    if (!site || typeof site !== "object") return "availability unknown";
+    const available = firstDefined(site.available_stalls, site.available, site.stalls_available);
+    const total = firstDefined(site.total_stalls, site.total, site.stall_count);
+    if (available != null && total != null) return `${available}/${total} stalls`;
+    if (available != null) return `${available} stalls available`;
+    return "availability unknown";
+  }
+
+  function chargerSafeName(site, fallback) {
+    const name = site && (site.name || site.site_name || site.location_name || site.title);
+    return sanitizeDashboardText(name || fallback, fallback);
+  }
+
   function DashboardReadSummary({ detail, lastReadKind }) {
     if (!detail || !lastReadKind) return null;
     const payload = nestedPayload(detail);
@@ -734,6 +762,18 @@
       title = "Mobile access summary";
       body = "Mobile access is shown as an enabled/disabled/unknown state so operators can quickly see whether app access appears available.";
       badges = [`mobile access ${access}`];
+    } else if (lastReadKind === "nearby-chargers") {
+      const superchargers = chargerSites(payload, "superchargers");
+      const destinationChargers = chargerSites(payload, "destination_charging");
+      const topSupercharger = superchargers[0];
+      title = "Nearby chargers summary";
+      body = topSupercharger
+        ? `Top Supercharger #1 ${chargerSafeName(topSupercharger, "Supercharger")} · ${chargerStallLabel(topSupercharger)} · ${chargerDistanceLabel(topSupercharger)}. Use tescmd_navigation_supercharger order=N confirm=true from the numbered list; coordinates stay hidden.`
+        : "Nearby charging data returned without a Supercharger list. Use the redacted payload below for troubleshooting while coordinates stay hidden.";
+      badges = [
+        `${superchargers.length} Supercharger${superchargers.length === 1 ? "" : "s"}`,
+        `${destinationChargers.length} destination charger${destinationChargers.length === 1 ? "" : "s"}`,
+      ];
     } else {
       return null;
     }
