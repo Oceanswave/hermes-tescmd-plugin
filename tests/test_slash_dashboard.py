@@ -935,14 +935,14 @@ def test_dashboard_nearby_chargers_read_summary_is_useful_and_private() -> None:
     assert "function chargerOrderLabel(site, fallback, order)" in asset
     assert 'lastReadKind === "nearby-chargers"' in body
     assert "Nearby chargers summary" in body
-    assert "Top ${chargerOrderLabel(topSupercharger, \"Supercharger\", 1)}" in body
+    assert 'Top ${chargerOrderLabel(topSupercharger, "Supercharger", 1)}' in body
     assert "tescmd_navigation_supercharger order=N confirm=true" in body
     assert "charger names and coordinates stay hidden" in body
     assert "destination charger" in body
     assert "nearby_superchargers" in body
     assert "destination_chargers" in body
     assert "numericValue(site.distance_miles" in asset
-    assert ".replace(/\\.0$/, \"\")" in asset
+    assert '.replace(/\\.0$/, "")' in asset
     assert "chargerOrderLabel(topSupercharger" in body
     assert "chargerStallLabel(topSupercharger)" in body
     assert "chargerDistanceLabel(topSupercharger)" in body
