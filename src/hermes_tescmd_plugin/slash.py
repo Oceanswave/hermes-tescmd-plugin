@@ -1080,6 +1080,70 @@ def _summarize_alerts(payload: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _driver_role_status(driver: Any) -> tuple[str | None, str | None]:
+    """Return non-identifying role/status hints for driver slash summaries.
+
+    Tesla driver payloads can contain names, emails, phone numbers, ids, and
+    invite links. The quick slash surface is meant for operator orientation, not
+    contact export, so show only aggregate state and coarse capability/role
+    labels while keeping personal details out of chat logs.
+    """
+
+    if not isinstance(driver, dict):
+        return None, None
+    role = _first_present(
+        driver,
+        "role",
+        "access_level",
+        "permission_level",
+        "relationship",
+        "driver_type",
+    )
+    status = _first_present(
+        driver,
+        "status",
+        "state",
+        "invite_status",
+        "access_status",
+    )
+    return (
+        _redact_slash_text(role) if role is not None else None,
+        _redact_slash_text(status) if status is not None else None,
+    )
+
+
+def _summarize_drivers(payload: dict[str, Any]) -> list[str]:
+    drivers = _collection_from_payload(payload, "drivers", "vehicle_drivers")
+    if not drivers:
+        return ["Drivers: no associated drivers returned."]
+
+    lines = [f"Drivers: {len(drivers)} associated driver(s) returned."]
+    status_counts: dict[str, int] = {}
+    labels: list[str] = []
+    for idx, driver in enumerate(drivers[:3], 1):
+        role, status = _driver_role_status(driver)
+        if status:
+            status_counts[status] = status_counts.get(status, 0) + 1
+        bits = []
+        if role:
+            bits.append(f"role {role}")
+        if status:
+            bits.append(f"status {status}")
+        labels.append(f"#{idx} " + (", ".join(bits) if bits else "details redacted"))
+
+    if status_counts:
+        status_summary = ", ".join(
+            f"{status} {count}" for status, count in sorted(status_counts.items())
+        )
+        lines.append("Driver statuses: " + status_summary)
+    if labels:
+        lines.append("Top drivers: " + "; ".join(labels))
+    lines.append(
+        "Privacy: names, emails, phone numbers, invites, and ids are redacted."
+    )
+    return lines
+
+
 def _summarize_mobile_access(payload: dict[str, Any]) -> list[str]:
     if "mobile_access_enabled" not in payload:
         return ["Mobile access: status not returned."]
@@ -1486,6 +1550,9 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     if name == "tescmd-alerts":
         lines.extend(_summarize_alerts(payload))
 
+    if name == "tescmd-drivers":
+        lines.extend(_summarize_drivers(payload))
+
     if name == "tescmd-mobile-access":
         lines.extend(_summarize_mobile_access(payload))
 
@@ -1533,6 +1600,9 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
                 "Config:",
                 "GUI:",
                 "Alerts:",
+                "Drivers:",
+                "Driver statuses:",
+                "Privacy:",
                 "Mobile access:",
                 "Energy products:",
                 "Energy:",
@@ -1711,6 +1781,13 @@ _COMMANDS: dict[str, tuple[str, str, Callable[[dict[str, Any]], str]]] = {
         "[vin]",
         lambda ctx: _format_command(
             "tescmd-alerts", _run_tool("tescmd_vehicle_alerts", ctx["raw_args"])
+        ),
+    ),
+    "tescmd-drivers": (
+        "List drivers associated with the selected vehicle.",
+        "[vin]",
+        lambda ctx: _format_command(
+            "tescmd-drivers", _run_tool("tescmd_vehicle_drivers", ctx["raw_args"])
         ),
     ),
     "tescmd-release-notes": (
