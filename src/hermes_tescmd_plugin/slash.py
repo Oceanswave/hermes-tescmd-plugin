@@ -1055,6 +1055,8 @@ def _alert_label(alert: Any) -> str:
         or alert.get("level")
         or alert.get("alert_type")
         or alert.get("type")
+        or alert.get("status")
+        or alert.get("state")
     )
     message = (
         alert.get("message")
@@ -1069,13 +1071,48 @@ def _alert_label(alert: Any) -> str:
     return _redact_slash_text(message)
 
 
+def _alert_count_summary(alerts: list[Any]) -> str | None:
+    """Return coarse alert severity/status counts without exposing alert data."""
+
+    counts: dict[str, int] = {}
+    for alert in alerts:
+        if not isinstance(alert, dict):
+            continue
+        value = _first_present(
+            alert,
+            "severity",
+            "audience",
+            "level",
+            "alert_type",
+            "type",
+            "status",
+            "state",
+        )
+        if value is None:
+            continue
+        label = _redact_slash_text(value).strip().lower().replace("_", " ")
+        if not label:
+            continue
+        counts[label] = counts.get(label, 0) + 1
+
+    if not counts:
+        return None
+    return ", ".join(f"{label} {count}" for label, count in sorted(counts.items())[:5])
+
+
 def _summarize_alerts(payload: dict[str, Any]) -> list[str]:
     alerts = _collection_from_payload(payload, "alerts", "recent_alerts")
     if not alerts:
         return ["Alerts: no recent vehicle alerts returned."]
     lines = [f"Alerts: {len(alerts)} recent alert(s)"]
+    count_summary = _alert_count_summary(alerts)
+    if count_summary:
+        lines.append("Alert types/statuses: " + count_summary)
     lines.append(
-        "Top alerts: " + "; ".join(_alert_label(alert) for alert in alerts[:3])
+        "Top alerts: "
+        + "; ".join(
+            f"#{idx} {_alert_label(alert)}" for idx, alert in enumerate(alerts[:3], 1)
+        )
     )
     return lines
 

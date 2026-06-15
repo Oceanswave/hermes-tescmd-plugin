@@ -1142,6 +1142,51 @@ def test_mobile_access_slash_summary_is_human_readable() -> None:
     assert "{" not in output
 
 
+def test_alerts_slash_summary_counts_statuses_and_numbers_redacted_top_alerts() -> None:
+    output = slash._format_command(
+        "tescmd-alerts",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "alerts": [
+                {
+                    "severity": "warning",
+                    "message": "Low tire pressure on vehicle 5YJ3E1EA7JF000001",
+                    "latitude": 30.267153,
+                    "longitude": -97.743057,
+                },
+                {
+                    "level": "warning",
+                    "description": "Navigation alert lat=30.267153 lng=-97.743057",
+                },
+                {
+                    "status": "active",
+                    "title": "Service required for Fleet ID 12345678901234567",
+                    "callback": "https://cars.example/callback?code=secret-code&state=secret-state",
+                },
+            ],
+        },
+    )
+
+    assert output.startswith("/tescmd-alerts: success")
+    assert "Alerts: 3 recent alert(s)" in output
+    assert "Alert types/statuses: active 1, warning 2" in output
+    assert "#1 warning: Low tire pressure on vehicle …0001" in output
+    assert (
+        "#2 warning: Navigation alert lat=[coordinates redacted] lng=[coordinates redacted]"
+        in output
+    )
+    assert "#3 active: Service required for Fleet ID …4567" in output
+    assert "Result: command accepted" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "12345678901234567" not in output
+    assert "30.267153" not in output
+    assert "-97.743057" not in output
+    assert "secret-code" not in output
+    assert "secret-state" not in output
+    assert "{" not in output
+
+
 def test_drivers_slash_summary_counts_without_personal_details_or_raw_payload() -> None:
     output = slash._format_command(  # noqa: SLF001
         "tescmd-drivers",
@@ -2037,7 +2082,7 @@ def test_alerts_slash_summary_reports_top_alerts_without_ids_or_raw_json() -> No
     assert output.startswith("/tescmd-alerts: success")
     assert "Alerts: 2 recent alert(s)" in output
     assert (
-        "Top alerts: critical: Tire pressure low on …0001; info: Software update ready"
+        "Top alerts: #1 critical: Tire pressure low on …0001; #2 info: Software update ready"
     ) in output
     assert "Result: command accepted" not in output
     assert "5YJ3E1EA7JF000001" not in output
