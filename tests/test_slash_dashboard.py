@@ -192,6 +192,7 @@ def test_registers_tescmd_slash_commands_and_status_handler(
         "tescmd-software",
         "tescmd-nearby-chargers",
         "tescmd-alerts",
+        "tescmd-drivers",
         "tescmd-release-notes",
         "tescmd-mobile-access",
         "tescmd-energy",
@@ -1139,6 +1140,50 @@ def test_mobile_access_slash_summary_is_human_readable() -> None:
     assert "Result: command accepted" not in output
     assert "5YJ3E1EA7JF000001" not in output
     assert "{" not in output
+
+
+def test_drivers_slash_summary_counts_without_personal_details_or_raw_payload() -> None:
+    output = slash._format_command(  # noqa: SLF001
+        "tescmd-drivers",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "drivers": [
+                {
+                    "name": "Alice Driver",
+                    "email": "alice@example.com",
+                    "phone_number": "+155****4567",
+                    "driver_id": "driver-1234567890",
+                    "role": "owner",
+                    "status": "active",
+                    "invite_url": "https://tesla.example/invite/secret-token",
+                },
+                {
+                    "display_name": "Bob Pending",
+                    "email_address": "bob@example.com",
+                    "user_id": "user-0987654321",
+                    "access_level": "driver",
+                    "invite_status": "pending",
+                },
+            ],
+        },
+    )
+
+    assert output.startswith("/tescmd-drivers: success")
+    assert "Drivers: 2 associated driver(s) returned." in output
+    assert "Driver statuses: active 1, pending 1" in output
+    assert "#1 role owner, status active" in output
+    assert "#2 role driver, status pending" in output
+    assert "names, emails, phone numbers, invites, and ids are redacted" in output
+    assert "Result: command accepted" not in output
+    assert "{" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "Alice" not in output
+    assert "Bob" not in output
+    assert "alice@example.com" not in output
+    assert "+155****4567" not in output
+    assert "driver-1234567890" not in output
+    assert "secret-token" not in output
 
 
 def test_energy_slash_summary_lists_products_without_raw_payload() -> None:
