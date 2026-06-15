@@ -923,6 +923,32 @@ def test_dashboard_payload_panel_has_local_clear_privacy_control() -> None:
     assert ".tescmd-payload-privacy" in style
 
 
+def test_dashboard_nearby_chargers_read_summary_is_useful_and_private() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    body = asset.split("function DashboardReadSummary", 1)[1].split(
+        "function vehicleAvailability", 1
+    )[0]
+
+    assert "function chargerSites(payload, key)" in asset
+    assert "function chargerDistanceLabel(site)" in asset
+    assert "function chargerStallLabel(site)" in asset
+    assert "function chargerSafeName(site, fallback)" in asset
+    assert 'lastReadKind === "nearby-chargers"' in body
+    assert "Nearby chargers summary" in body
+    assert "Top Supercharger #1" in body
+    assert "tescmd_navigation_supercharger order=N confirm=true" in body
+    assert "coordinates stay hidden" in body
+    assert "destination charger" in body
+    assert "chargerSafeName(topSupercharger" in body
+    assert "chargerStallLabel(topSupercharger)" in body
+    assert "chargerDistanceLabel(topSupercharger)" in body
+    assert "latitude" not in body
+    assert "longitude" not in body
+    assert "site.lat" not in body
+    assert "site.lng" not in body
+    assert "5YJ3E1EA7JF000001" not in body
+
+
 def test_vehicle_list_redacts_identifiers() -> None:
     output = slash._format_vehicles(
         {
