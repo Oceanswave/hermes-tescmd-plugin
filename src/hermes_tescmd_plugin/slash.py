@@ -1365,13 +1365,40 @@ def _release_note_title(note: Any) -> str:
     return _redact_slash_text(title)
 
 
+def _release_note_collection(
+    payload: dict[str, Any], response: dict[str, Any]
+) -> list[Any]:
+    """Extract release-note section lists across common Fleet wrapper shapes."""
+
+    for container in (payload, response):
+        notes = _collection_from_payload(
+            container, "release_notes", "notes", "sections", "release_notes_list"
+        )
+        if notes:
+            return notes
+
+        release_notes = container.get("release_notes")
+        if isinstance(release_notes, dict):
+            nested = _collection_from_payload(
+                release_notes,
+                "release_notes",
+                "notes",
+                "sections",
+                "release_notes_list",
+            )
+            if nested:
+                return nested
+    return []
+
+
 def _summarize_release_notes(payload: dict[str, Any]) -> list[str]:
     response = _first_dict(
         payload.get("response"), payload.get("data"), payload.get("release_notes")
     )
-    notes = _collection_from_payload(
-        payload, "release_notes", "notes", "sections", "release_notes_list"
-    )
+    nested_release_notes = response.get("release_notes")
+    if isinstance(nested_release_notes, dict):
+        response = _first_dict(nested_release_notes, response)
+    notes = _release_note_collection(payload, response)
     version = _first_present(response, "version", "car_version", "release_version")
     status = _first_present(response, "status", "state")
 

@@ -1675,6 +1675,47 @@ def test_release_notes_slash_summary_is_human_readable_and_privacy_safe() -> Non
     assert "{" not in output
 
 
+def test_release_notes_slash_summary_handles_nested_wrappers_privately() -> None:
+    output = slash._format_command(
+        "tescmd-release-notes",
+        {
+            "ok": True,
+            "response": {
+                "release_notes": {
+                    "car_version": "2026.20.1",
+                    "state": "installed",
+                    "sections": [
+                        {
+                            "subtitle": "Road trip improvements for VIN 5YJ3E1EA7JF000003",
+                            "description": "Navigate to 456 Example Ave at 37.7749295,-122.4194155",
+                            "url": "https://cars.example.com/release?code=secret-code&state=secret-state",
+                        },
+                        {
+                            "name": "Charging refinements",
+                            "content": "Private route target ChIJsecretPlaceId123",
+                        },
+                    ],
+                }
+            },
+        },
+    )
+
+    assert "Release notes: 2 note(s) — version 2026.20.1, status installed" in output
+    assert (
+        "Top notes: #1 Road trip improvements for VIN …0003; #2 Charging refinements"
+        in output
+    )
+    assert "Result: command accepted" not in output
+    assert "5YJ3E1EA7JF000003" not in output
+    assert "456 Example Ave" not in output
+    assert "37.7749295" not in output
+    assert "-122.4194155" not in output
+    assert "secret-code" not in output
+    assert "secret-state" not in output
+    assert "ChIJsecretPlaceId123" not in output
+    assert "{" not in output
+
+
 def test_climate_slash_summary_is_human_readable_and_privacy_safe() -> None:
     output = slash._format_command(
         "tescmd-climate",
