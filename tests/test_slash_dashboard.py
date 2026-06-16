@@ -998,6 +998,44 @@ def test_dashboard_release_notes_read_summary_is_useful_and_private() -> None:
     assert "5YJ3E1EA7JF000001" not in body
 
 
+def test_dashboard_warranty_read_summary_is_available_useful_and_private() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    body = asset.split("function DashboardReadSummary", 1)[1].split(
+        "function vehicleAvailability", 1
+    )[0]
+
+    assert '["warranty", "Warranty"]' in asset
+    assert "function warrantyContainers(payload)" in asset
+    assert "function warrantyTerms(payload)" in asset
+    assert "function warrantyMeta(payload, ...keys)" in asset
+    assert "function warrantyTermLabel(term, fallback)" in asset
+    assert 'lastReadKind === "warranty"' in body
+    assert "Warranty summary" in body
+    assert "Warranty ${status} · as of ${asOf}" in body
+    assert "Top terms: ${topTerms.join" in body
+    assert (
+        "Agreement IDs, URLs, vehicle identifiers, and raw coverage payload details stay in the redacted payload"
+        in body
+    )
+    assert "Warranty data returned without term labels" in body
+    assert '["warranties", "warranty_terms", "terms", "coverages", "items"]' in asset
+    assert "term.end_date" in asset
+    assert "term.odometer_limit_miles" in asset
+    assert "term.odometer_limit_km" in asset
+    assert "term.mileage_limit" in asset
+    assert "payload && payload.warranty" in asset
+    assert (
+        "tescmd_vehicle_warranty"
+        in Path("src/hermes_tescmd_plugin/dashboard/plugin_api.py").read_text()
+    )
+    assert "agreement_id" not in body
+    assert "contract_id" not in body
+    assert "term.url" not in asset
+    assert "latitude" not in body
+    assert "longitude" not in body
+    assert "5YJ3E1EA7JF000001" not in body
+
+
 def test_vehicle_list_redacts_identifiers() -> None:
     output = slash._format_vehicles(
         {
@@ -2451,6 +2489,7 @@ def test_dashboard_catalog_includes_expanded_reads_and_actions() -> None:
     assert catalog["reads"]["onboarding"] == "tescmd_onboarding_status"
     assert catalog["reads"]["software"] == "tescmd_software_status"
     assert catalog["reads"]["nearby-chargers"] == "tescmd_vehicle_nearby_chargers"
+    assert catalog["reads"]["warranty"] == "tescmd_vehicle_warranty"
     assert catalog["quick_actions"]["unlock"] == "tescmd_unlock"
     assert catalog["quick_actions"]["honk"] == "tescmd_honk"
     assert catalog["quick_actions"]["charge-limit"] == "tescmd_charge_limit"
@@ -3220,6 +3259,44 @@ def test_dashboard_read_passes_wake_confirm_no_cache_and_units(monkeypatch) -> N
                 "confirm": True,
                 "no_cache": True,
                 "units": "metric",
+            },
+        )
+    ]
+
+
+def test_dashboard_read_supports_warranty_without_wake_confirm_flags(
+    monkeypatch,
+) -> None:
+    calls: list[tuple[str, dict]] = []
+
+    def fake_run(tool_name, args=None):
+        calls.append((tool_name, args or {}))
+        return {"ok": True, "warranty": {"status": "active"}}
+
+    monkeypatch.setattr("hermes_tescmd_plugin.dashboard.plugin_api._run", fake_run)
+
+    payload = read(
+        "warranty",
+        vin="5YJ3E1EA7JF000001",
+        profile="daily",
+        region="eu",
+        wake=True,
+        confirm=True,
+        no_cache=True,
+    )
+
+    assert payload == {
+        "ok": True,
+        "warranty": {"status": "active"},
+        "display_payload": {"ok": True, "warranty": {"status": "active"}},
+    }
+    assert calls == [
+        (
+            "tescmd_vehicle_warranty",
+            {
+                "profile": "daily",
+                "vin": "5YJ3E1EA7JF000001",
+                "region": "eu",
             },
         )
     ]

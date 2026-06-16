@@ -84,6 +84,7 @@ _READ_TOOLS = {
     "alerts": "tescmd_vehicle_alerts",
     "drivers": "tescmd_vehicle_drivers",
     "release-notes": "tescmd_vehicle_release_notes",
+    "warranty": "tescmd_vehicle_warranty",
     "service": "tescmd_vehicle_service",
     "mobile-access": "tescmd_vehicle_mobile_access",
     "charge-schedule": "tescmd_vehicle_charge_schedule_status",
