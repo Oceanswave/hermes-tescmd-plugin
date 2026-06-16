@@ -1305,6 +1305,107 @@ def _summarize_service_data(payload: dict[str, Any]) -> list[str]:
     return ["Service: data available (details redacted/summary-only)."]
 
 
+def _warranty_terms(payload: dict[str, Any]) -> list[Any]:
+    """Extract warranty term lists across common Fleet wrapper shapes."""
+
+    for container in (
+        payload,
+        payload.get("warranty") if isinstance(payload.get("warranty"), dict) else None,
+        payload.get("response") if isinstance(payload.get("response"), dict) else None,
+        payload.get("data") if isinstance(payload.get("data"), dict) else None,
+    ):
+        if not isinstance(container, dict):
+            continue
+        terms = _collection_from_payload(
+            container,
+            "warranties",
+            "warranty_terms",
+            "terms",
+            "coverages",
+            "items",
+        )
+        if terms:
+            return terms
+        warranty = container.get("warranty")
+        if isinstance(warranty, dict):
+            nested = _collection_from_payload(
+                warranty,
+                "warranties",
+                "warranty_terms",
+                "terms",
+                "coverages",
+                "items",
+            )
+            if nested:
+                return nested
+    return []
+
+
+def _warranty_term_label(term: Any) -> str:
+    if not isinstance(term, dict):
+        return _redact_slash_text(term)
+
+    name = _first_present(
+        term,
+        "name",
+        "title",
+        "warranty_type",
+        "coverage_type",
+        "type",
+        "product",
+    )
+    bits = [_redact_slash_text(name or "Warranty term")]
+    status = _first_present(term, "status", "state", "eligibility", "coverage_status")
+    if status is not None:
+        bits.append(f"status {_redact_slash_text(status)}")
+    end_date = _first_present(term, "end_date", "expires_at", "expiration_date")
+    if end_date is not None:
+        bits.append(f"ends {_redact_slash_text(end_date)}")
+    for key, label in (
+        ("odometer_limit_miles", "mi limit"),
+        ("mileage_limit", "mi limit"),
+        ("odometer_limit_km", "km limit"),
+    ):
+        value = _first_present(term, key)
+        if value is not None:
+            bits.append(f"{label} {_redact_slash_text(value)}")
+            break
+    return bits[0] if len(bits) == 1 else f"{bits[0]} (" + ", ".join(bits[1:]) + ")"
+
+
+def _summarize_warranty(payload: dict[str, Any]) -> list[str]:
+    terms = _warranty_terms(payload)
+    wrapper = _first_dict(
+        payload.get("warranty"), payload.get("response"), payload.get("data")
+    )
+
+    details: list[str] = []
+    status = _first_present(wrapper, "status", "state", "eligibility")
+    if status is not None:
+        details.append(f"status {_redact_slash_text(status)}")
+    as_of = _first_present(wrapper, "as_of", "generated_at", "effective_date")
+    if as_of is not None:
+        details.append(f"as of {_redact_slash_text(as_of)}")
+
+    if terms:
+        line = f"Warranty: {len(terms)} term{'s' if len(terms) != 1 else ''} returned"
+        if details:
+            line += " — " + ", ".join(details)
+        return [
+            line,
+            "Top terms: "
+            + "; ".join(
+                f"#{idx} {_warranty_term_label(term)}"
+                for idx, term in enumerate(terms[:3], 1)
+            ),
+            "Warranty: identifiers, URLs, and raw payload details stay out of slash summaries.",
+        ]
+
+    if details:
+        return ["Warranty: " + ", ".join(details)]
+    return ["Warranty: data available (details redacted/summary-only)."]
+
+
 def _service_center_detail(appointment: dict[str, Any]) -> str | None:
     """Return a concise public service-center hint for service summaries.
 
@@ -1626,6 +1727,9 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     if name == "tescmd-service":
         lines.extend(_summarize_service_data(payload))
 
+    if name == "tescmd-warranty":
+        lines.extend(_summarize_warranty(payload))
+
     if name == "tescmd-release-notes":
         lines.extend(_summarize_release_notes(payload))
 
@@ -1671,6 +1775,8 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
                 "Energy products:",
                 "Energy:",
                 "Service:",
+                "Warranty:",
+                "Top terms:",
                 "Release notes:",
                 "Body action:",
                 "Navigation action:",
@@ -1882,6 +1988,13 @@ _COMMANDS: dict[str, tuple[str, str, Callable[[dict[str, Any]], str]]] = {
         "[vin]",
         lambda ctx: _format_command(
             "tescmd-service", _run_tool("tescmd_vehicle_service", ctx["raw_args"])
+        ),
+    ),
+    "tescmd-warranty": (
+        "Fetch warranty information for the selected vehicle/account.",
+        "[vin]",
+        lambda ctx: _format_command(
+            "tescmd-warranty", _run_tool("tescmd_vehicle_warranty", ctx["raw_args"])
         ),
     ),
     "tescmd-climate": (
