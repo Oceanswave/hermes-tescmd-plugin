@@ -197,6 +197,7 @@ def test_registers_tescmd_slash_commands_and_status_handler(
         "tescmd-mobile-access",
         "tescmd-energy",
         "tescmd-service",
+        "tescmd-warranty",
         "tescmd-charge",
         "tescmd-climate",
         "tescmd-location",
@@ -1456,6 +1457,67 @@ def test_service_slash_summary_handles_nested_public_center_details_without_urls
     assert "secret-token-123456" not in output
     assert "another-secret" not in output
     assert "APT-SECRET-789" not in output
+
+
+def test_warranty_slash_summary_registers_useful_private_read_surface() -> None:
+    commands = slash.command_definitions()
+
+    assert "tescmd-warranty" in commands
+    assert commands["tescmd-warranty"]["args_hint"] == "[vin]"
+
+
+def test_warranty_slash_summary_redacts_ids_urls_and_raw_payload() -> None:
+    output = slash._format_command(
+        "tescmd-warranty",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "response": {
+                "status": "active for vehicle 5YJ3E1EA7JF000002",
+                "generated_at": "2026-06-16T12:00:00Z",
+                "warranty": {
+                    "warranty_terms": [
+                        {
+                            "name": "Basic Vehicle Limited Warranty",
+                            "coverage_status": "active",
+                            "end_date": "2028-06-01",
+                            "odometer_limit_miles": 50000,
+                            "agreement_id": "WRN-SECRET-123",
+                            "details_url": "https://cars.example.com/callback?code=secret-token-123456&state=secret-state",
+                        },
+                        {
+                            "warranty_type": "Battery and Drive Unit",
+                            "status": "active",
+                            "expiration_date": "2032-06-01",
+                            "odometer_limit_km": 192000,
+                        },
+                    ]
+                },
+            },
+        },
+    )
+
+    assert output.startswith("/tescmd-warranty: success")
+    assert "Warranty: 2 terms returned" in output
+    assert "status active for vehicle …0002" in output
+    assert "as of 2026-06-16T12:00:00Z" in output
+    assert (
+        "#1 Basic Vehicle Limited Warranty (status active, ends 2028-06-01, "
+        "mi limit 50000)" in output
+    )
+    assert (
+        "#2 Battery and Drive Unit (status active, ends 2032-06-01, km limit 192000)"
+        in output
+    )
+    assert "identifiers, URLs, and raw payload details stay out" in output
+    assert "Result: command accepted" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "5YJ3E1EA7JF000002" not in output
+    assert "WRN-SECRET-123" not in output
+    assert "cars.example.com" not in output
+    assert "secret-token-123456" not in output
+    assert "secret-state" not in output
+    assert "details_url" not in output
     assert "{" not in output
 
 
