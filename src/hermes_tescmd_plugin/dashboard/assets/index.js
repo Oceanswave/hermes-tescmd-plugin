@@ -21,7 +21,7 @@
   const READ_GROUPS = [
     ["Core", [["vehicle-status", "Vehicle"], ["drive", "Drive"], ["closures", "Closures"], ["charge", "Charge"], ["climate", "Climate"], ["location", "Location"]]],
     ["Diagnostics", [["security", "Security"], ["software", "Software"], ["config", "Config"], ["gui", "GUI"], ["alerts", "Alerts"], ["release-notes", "Release notes"]]],
-    ["Services", [["nearby-chargers", "Nearby chargers"], ["mobile-access", "Mobile access"], ["drivers", "Drivers"], ["service", "Service"], ["charge-schedule", "Charge schedules"], ["preconditioning-schedule", "Preconditioning"]]],
+    ["Services", [["nearby-chargers", "Nearby chargers"], ["mobile-access", "Mobile access"], ["drivers", "Drivers"], ["service", "Service"], ["warranty", "Warranty"], ["charge-schedule", "Charge schedules"], ["preconditioning-schedule", "Preconditioning"]]],
     ["Admin", [["auth-status", "Auth"], ["onboarding", "Onboarding"], ["key-show", "Key"], ["key-validate", "Validate key"], ["cache-status", "Cache"]]],
   ];
 
@@ -791,6 +791,61 @@
     return sanitizeDashboardText(firstDefined(item.title, item.heading, item.subtitle, item.name, item.header, fallback), fallback);
   }
 
+  function warrantyContainers(payload) {
+    const warranty = payload && payload.warranty;
+    return [
+      payload,
+      warranty,
+      payload && payload.response,
+      payload && payload.data,
+      warranty && warranty.response,
+      warranty && warranty.data,
+    ].filter((item) => item && typeof item === "object" && !Array.isArray(item));
+  }
+
+  function warrantyTerms(payload) {
+    const keys = ["warranties", "warranty_terms", "terms", "coverages", "items"];
+    for (const container of warrantyContainers(payload)) {
+      for (const key of keys) {
+        if (Array.isArray(container[key])) return container[key];
+      }
+    }
+    return [];
+  }
+
+  function warrantyMeta(payload, ...keys) {
+    for (const container of warrantyContainers(payload)) {
+      for (const key of keys) {
+        if (container[key] != null && String(container[key]).trim() !== "") {
+          return sanitizeDashboardText(container[key], "unknown");
+        }
+      }
+    }
+    return "unknown";
+  }
+
+  function warrantyTermLabel(term, fallback) {
+    if (!term || typeof term !== "object") return sanitizeDashboardText(term, fallback);
+    const name = sanitizeDashboardText(firstDefined(term.name, term.title, term.warranty_type, term.coverage_type, term.type, term.product, fallback), fallback);
+    const status = firstDefined(term.status, term.state, term.eligibility, term.coverage_status);
+    const end = firstDefined(term.end_date, term.expires_at, term.expiration_date, term.end_time);
+    const details = [];
+    if (status != null) details.push(`status ${sanitizeDashboardText(status, "unknown")}`);
+    if (end != null) details.push(`ends ${sanitizeDashboardText(end, "date hidden")}`);
+    for (const [value, label] of [
+      [term.odometer_limit_miles, "mi limit"],
+      [term.mileage_limit, "mi limit"],
+      [term.end_mileage, "mi limit"],
+      [term.odometer_limit_km, "km limit"],
+    ]) {
+      if (value != null) {
+        details.push(`${label} ${sanitizeDashboardText(value, "mileage hidden")}`);
+        break;
+      }
+    }
+    return details.length ? `${name} (${details.join(", ")})` : name;
+  }
+
   function DashboardReadSummary({ detail, lastReadKind }) {
     if (!detail || !lastReadKind) return null;
     const payload = nestedPayload(detail);
@@ -844,6 +899,20 @@
         `${notes.length} note section${notes.length === 1 ? "" : "s"}`,
         version,
         status,
+      ];
+    } else if (lastReadKind === "warranty") {
+      const terms = warrantyTerms(payload);
+      const status = warrantyMeta(payload, "status", "state", "eligibility", "coverage_status");
+      const asOf = warrantyMeta(payload, "as_of", "asOf", "generated_at", "last_updated");
+      const topTerms = terms.slice(0, 3).map((term, index) => warrantyTermLabel(term, `term ${index + 1}`));
+      title = "Warranty summary";
+      body = topTerms.length
+        ? `Warranty ${status} · as of ${asOf}. Top terms: ${topTerms.join("; ")}. Agreement IDs, URLs, vehicle identifiers, and raw coverage payload details stay in the redacted payload.`
+        : `Warranty ${status} · as of ${asOf}. Warranty data returned without term labels; use the redacted payload for troubleshooting without exposing agreement IDs or URLs.`;
+      badges = [
+        `${terms.length} warranty term${terms.length === 1 ? "" : "s"}`,
+        status,
+        `as of ${asOf}`,
       ];
     } else {
       return null;
