@@ -956,6 +956,47 @@ def test_dashboard_nearby_chargers_read_summary_is_useful_and_private() -> None:
     assert "5YJ3E1EA7JF000001" not in body
 
 
+def test_dashboard_release_notes_read_summary_is_useful_and_private() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    body = asset.split("function DashboardReadSummary", 1)[1].split(
+        "function vehicleAvailability", 1
+    )[0]
+
+    assert "function releaseNoteContainers(payload)" in asset
+    assert "function releaseNoteItems(payload)" in asset
+    assert "function releaseNoteVersion(payload)" in asset
+    assert "function releaseNoteStatus(payload)" in asset
+    assert "function releaseNoteTitle(item, fallback)" in asset
+    assert 'lastReadKind === "release-notes"' in body
+    assert "Release notes summary" in body
+    assert "Firmware ${version} · ${status}" in body
+    assert "Top sections: ${topTitles.join" in body
+    assert (
+        "Note bodies, URLs, route text, vehicle identifiers, and coordinates stay in the redacted payload"
+        in body
+    )
+    assert "Release-note metadata returned without section titles" in body
+    assert "payload && payload.release_notes" in asset
+    assert "releaseNotes && releaseNotes.release_notes" in asset
+    assert "releaseNotes && releaseNotes.sections" in asset
+    assert "releaseNotes && releaseNotes.notes" in asset
+    assert "releaseNotes && releaseNotes.release_notes_list" in asset
+    assert "payload && payload.release_notes_list" in asset
+    assert "payload && payload.release_note_sections" in asset
+    assert "releaseNotes.car_version" in asset
+    assert "item.subtitle" in asset
+    assert "note section" in body
+    assert "item.body" not in asset
+    assert "item.content" not in asset
+    assert "item.description" not in asset
+    assert "item.url" not in asset
+    assert "latitude" not in body
+    assert "longitude" not in body
+    assert "destination=" not in body
+    assert "place_id" not in body
+    assert "5YJ3E1EA7JF000001" not in body
+
+
 def test_vehicle_list_redacts_identifiers() -> None:
     output = slash._format_vehicles(
         {

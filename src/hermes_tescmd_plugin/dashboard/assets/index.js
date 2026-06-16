@@ -739,6 +739,58 @@
     return `${safeHint} #${order}`;
   }
 
+  function releaseNoteContainers(payload) {
+    const releaseNotes = payload && payload.release_notes;
+    return [
+      releaseNotes,
+      releaseNotes && releaseNotes.release_notes,
+      releaseNotes && releaseNotes.sections,
+      releaseNotes && releaseNotes.notes,
+      releaseNotes && releaseNotes.release_notes_list,
+      payload && payload.sections,
+      payload && payload.notes,
+      payload && payload.release_notes_list,
+      payload && payload.release_note_sections,
+    ];
+  }
+
+  function releaseNoteItems(payload) {
+    for (const candidate of releaseNoteContainers(payload)) {
+      if (Array.isArray(candidate)) return candidate;
+    }
+    return [];
+  }
+
+  function releaseNoteVersion(payload) {
+    const releaseNotes = payload && payload.release_notes && typeof payload.release_notes === "object" ? payload.release_notes : {};
+    return sanitizeDashboardText(firstDefined(
+      payload && payload.version,
+      payload && payload.release_version,
+      payload && payload.firmware_version,
+      releaseNotes.version,
+      releaseNotes.release_version,
+      releaseNotes.car_version,
+      payload && payload.car_version,
+      "version unknown"
+    ), "version unknown");
+  }
+
+  function releaseNoteStatus(payload) {
+    const releaseNotes = payload && payload.release_notes && typeof payload.release_notes === "object" ? payload.release_notes : {};
+    return sanitizeDashboardText(firstDefined(
+      payload && payload.status,
+      payload && payload.state,
+      releaseNotes.status,
+      releaseNotes.state,
+      "status unknown"
+    ), "status unknown");
+  }
+
+  function releaseNoteTitle(item, fallback) {
+    if (!item || typeof item !== "object") return fallback;
+    return sanitizeDashboardText(firstDefined(item.title, item.heading, item.subtitle, item.name, item.header, fallback), fallback);
+  }
+
   function DashboardReadSummary({ detail, lastReadKind }) {
     if (!detail || !lastReadKind) return null;
     const payload = nestedPayload(detail);
@@ -778,6 +830,20 @@
       badges = [
         `${superchargers.length} Supercharger${superchargers.length === 1 ? "" : "s"}`,
         `${destinationChargers.length} destination charger${destinationChargers.length === 1 ? "" : "s"}`,
+      ];
+    } else if (lastReadKind === "release-notes") {
+      const notes = releaseNoteItems(payload);
+      const version = releaseNoteVersion(payload);
+      const status = releaseNoteStatus(payload);
+      const topTitles = notes.slice(0, 3).map((item, index) => releaseNoteTitle(item, `note ${index + 1}`));
+      title = "Release notes summary";
+      body = topTitles.length
+        ? `Firmware ${version} · ${status}. Top sections: ${topTitles.join(", ")}. Note bodies, URLs, route text, vehicle identifiers, and coordinates stay in the redacted payload.`
+        : `Firmware ${version} · ${status}. Release-note metadata returned without section titles; use the redacted payload for troubleshooting without exposing note bodies or URLs.`;
+      badges = [
+        `${notes.length} note section${notes.length === 1 ? "" : "s"}`,
+        version,
+        status,
       ];
     } else {
       return null;
