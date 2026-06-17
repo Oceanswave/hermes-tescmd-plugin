@@ -747,7 +747,7 @@
         if (value && typeof value === "object" && !Array.isArray(value)) return value;
       }
     }
-    return payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
+    return {};
   }
 
   function scheduleEntries(sectionPayload, ...keys) {
@@ -764,7 +764,7 @@
   }
 
   function scheduleEntryLabel(entry, fallback) {
-    if (!entry || typeof entry !== "object") return sanitizeDashboardText(entry, fallback);
+    if (!entry || typeof entry !== "object") return fallback;
     const parts = [];
     const enabled = firstDefined(entry.enabled, entry.start_enabled, entry.end_enabled, entry.preconditioning_enabled);
     if (enabled !== undefined) parts.push(`enabled ${String(enabled)}`);
