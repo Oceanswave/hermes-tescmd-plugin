@@ -188,6 +188,8 @@ def test_registers_tescmd_slash_commands_and_status_handler(
         "tescmd-closures",
         "tescmd-config",
         "tescmd-gui",
+        "tescmd-charge-schedule",
+        "tescmd-preconditioning-schedule",
         "tescmd-security-status",
         "tescmd-software",
         "tescmd-nearby-chargers",
@@ -1855,6 +1857,73 @@ def test_release_notes_slash_summary_handles_nested_wrappers_privately() -> None
     assert "secret-state" not in output
     assert "ChIJsecretPlaceId123" not in output
     assert "{" not in output
+
+
+def test_schedule_slash_summaries_are_human_readable_and_privacy_safe() -> None:
+    charge_output = slash._format_command(
+        "tescmd-charge-schedule",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "charge_schedule": {
+                "enabled": True,
+                "next_start_time": 0,
+                "schedules": [
+                    {
+                        "id": "98765432109876543",
+                        "enabled": True,
+                        "start_time": 0,
+                        "end_time": 360,
+                        "days_of_week": ["monday", "tuesday"],
+                        "latitude": 37.7749295,
+                        "longitude": -122.4194155,
+                    }
+                ],
+            },
+        },
+    )
+    preconditioning_output = slash._format_command(
+        "tescmd-preconditioning-schedule",
+        {
+            "ok": True,
+            "response": {
+                "preconditioning_schedule_data": {
+                    "scheduled_departure_enabled": False,
+                    "preconditioning_schedules": [
+                        {
+                            "schedule_id": "5YJ3E1EA7JF000002",
+                            "preconditioning_enabled": False,
+                            "departure_time": "07:30",
+                            "location": "123 Main St",
+                        }
+                    ],
+                }
+            },
+        },
+    )
+
+    assert charge_output.startswith("/tescmd-charge-schedule: success")
+    assert "Charge schedule: 1 entry returned — enabled, next/start 0" in charge_output
+    assert "Top schedules: #1 id …6543, enabled yes, start 0, end 360" in charge_output
+    assert "Result: command accepted" not in charge_output
+    assert "5YJ3E1EA7JF000001" not in charge_output
+    assert "98765432109876543" not in charge_output
+    assert "37.7749295" not in charge_output
+    assert "-122.4194155" not in charge_output
+    assert "{" not in charge_output
+
+    assert preconditioning_output.startswith(
+        "/tescmd-preconditioning-schedule: success"
+    )
+    assert (
+        "Preconditioning schedule: 1 entry returned — disabled"
+        in preconditioning_output
+    )
+    assert "preconditioning enabled no" in preconditioning_output
+    assert "depart 07:30" in preconditioning_output
+    assert "5YJ3E1EA7JF000002" not in preconditioning_output
+    assert "123 Main St" not in preconditioning_output
+    assert "{" not in preconditioning_output
 
 
 def test_climate_slash_summary_is_human_readable_and_privacy_safe() -> None:
