@@ -969,8 +969,13 @@ def test_dashboard_schedule_read_summaries_are_useful_and_private() -> None:
     assert "function scheduleEntries(sectionPayload, ...keys)" in asset
     assert "function scheduleEntryLabel(entry, fallback)" in asset
     assert "function scheduleSummaryData(payload, sectionKeys, entryKeys)" in asset
-    assert "return {};" in asset.split("function scheduleSection", 1)[1].split("function scheduleEntries", 1)[0]
-    assert "if (!entry || typeof entry !== \"object\") return fallback;" in asset
+    assert (
+        "return {};"
+        in asset.split("function scheduleSection", 1)[1].split(
+            "function scheduleEntries", 1
+        )[0]
+    )
+    assert 'if (!entry || typeof entry !== "object") return fallback;' in asset
     assert 'lastReadKind === "charge-schedule"' in body
     assert 'lastReadKind === "preconditioning-schedule"' in body
     assert "Charge schedule summary" in body
