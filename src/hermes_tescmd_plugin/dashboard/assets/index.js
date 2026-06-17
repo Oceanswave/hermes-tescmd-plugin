@@ -739,6 +739,63 @@
     return `${safeHint} #${order}`;
   }
 
+  function scheduleSection(payload, ...keys) {
+    for (const candidate of [payload, payload && payload.response, payload && payload.data]) {
+      if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) continue;
+      for (const key of keys) {
+        const value = candidate[key];
+        if (value && typeof value === "object" && !Array.isArray(value)) return value;
+      }
+    }
+    return payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
+  }
+
+  function scheduleEntries(sectionPayload, ...keys) {
+    for (const key of ["schedules", "entries", "items", ...keys]) {
+      const value = sectionPayload && sectionPayload[key];
+      if (Array.isArray(value)) return value;
+      if (value && typeof value === "object") {
+        for (const nestedKey of ["schedules", "entries", "items", "charge_schedules", "preconditioning_schedules"]) {
+          if (Array.isArray(value[nestedKey])) return value[nestedKey];
+        }
+      }
+    }
+    return [];
+  }
+
+  function scheduleEntryLabel(entry, fallback) {
+    if (!entry || typeof entry !== "object") return sanitizeDashboardText(entry, fallback);
+    const parts = [];
+    const enabled = firstDefined(entry.enabled, entry.start_enabled, entry.end_enabled, entry.preconditioning_enabled);
+    if (enabled !== undefined) parts.push(`enabled ${String(enabled)}`);
+    for (const [value, label] of [
+      [entry.start_time, "start"],
+      [entry.end_time, "end"],
+      [entry.departure_time, "depart"],
+      [entry.time, "time"],
+      [entry.minute_of_day, "minute"],
+    ]) {
+      if (value !== undefined && value !== null && value !== "") parts.push(`${label} ${sanitizeDashboardText(value, "time hidden")}`);
+    }
+    const days = firstDefined(entry.days_of_week, entry.days, entry.week_days);
+    if (Array.isArray(days) && days.length) parts.push(`days ${days.slice(0, 7).map((day) => sanitizeDashboardText(day, "day")).join("/")}`);
+    else if (days) parts.push(`days ${sanitizeDashboardText(days, "days hidden")}`);
+    return parts.length ? parts.slice(0, 4).join(", ") : fallback;
+  }
+
+  function scheduleSummaryData(payload, sectionKeys, entryKeys) {
+    const sectionPayload = scheduleSection(payload, ...sectionKeys);
+    const entries = scheduleEntries(sectionPayload, ...entryKeys);
+    const enabled = firstDefined(sectionPayload.enabled, sectionPayload.scheduled_charging_enabled, sectionPayload.scheduled_departure_enabled, sectionPayload.preconditioning_enabled);
+    const nextStart = firstDefined(sectionPayload.next_start_time, sectionPayload.start_time, sectionPayload.departure_time);
+    return {
+      entries,
+      enabled: enabled === undefined ? "unknown" : String(enabled),
+      nextStart: nextStart === undefined ? "unknown" : sanitizeDashboardText(nextStart, "time hidden"),
+      topEntries: entries.slice(0, 3).map((entry, index) => scheduleEntryLabel(entry, `schedule ${index + 1}`)),
+    };
+  }
+
   function releaseNoteContainers(payload) {
     const releaseNotes = payload && payload.release_notes;
     return [
@@ -885,6 +942,28 @@
       badges = [
         `${superchargers.length} Supercharger${superchargers.length === 1 ? "" : "s"}`,
         `${destinationChargers.length} destination charger${destinationChargers.length === 1 ? "" : "s"}`,
+      ];
+    } else if (lastReadKind === "charge-schedule") {
+      const summary = scheduleSummaryData(payload, ["charge_schedule", "charge_schedule_data"], ["charge_schedules", "charge_schedule"]);
+      title = "Charge schedule summary";
+      body = summary.topEntries.length
+        ? `Charge scheduling returned ${summary.entries.length} entr${summary.entries.length === 1 ? "y" : "ies"}. Top schedules: ${summary.topEntries.join("; ")}. Schedule IDs, vehicle identifiers, raw location fields, and precise coordinates stay out of the visible summary.`
+        : "Charge scheduling returned without individual schedule entries. Use the redacted payload for troubleshooting; schedule IDs and vehicle identifiers stay hidden.";
+      badges = [
+        `${summary.entries.length} schedule${summary.entries.length === 1 ? "" : "s"}`,
+        `enabled ${summary.enabled}`,
+        `next/start ${summary.nextStart}`,
+      ];
+    } else if (lastReadKind === "preconditioning-schedule") {
+      const summary = scheduleSummaryData(payload, ["preconditioning_schedule", "preconditioning_schedule_data"], ["preconditioning_schedules", "preconditioning_schedule"]);
+      title = "Preconditioning schedule summary";
+      body = summary.topEntries.length
+        ? `Preconditioning scheduling returned ${summary.entries.length} entr${summary.entries.length === 1 ? "y" : "ies"}. Top schedules: ${summary.topEntries.join("; ")}. Schedule IDs, vehicle identifiers, cabin/location details, and precise coordinates stay out of the visible summary.`
+        : "Preconditioning scheduling returned without individual schedule entries. Use the redacted payload for troubleshooting; schedule IDs and vehicle identifiers stay hidden.";
+      badges = [
+        `${summary.entries.length} schedule${summary.entries.length === 1 ? "" : "s"}`,
+        `enabled ${summary.enabled}`,
+        `next/start ${summary.nextStart}`,
       ];
     } else if (lastReadKind === "release-notes") {
       const notes = releaseNoteItems(payload);

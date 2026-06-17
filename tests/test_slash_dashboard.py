@@ -959,6 +959,38 @@ def test_dashboard_nearby_chargers_read_summary_is_useful_and_private() -> None:
     assert "5YJ3E1EA7JF000001" not in body
 
 
+def test_dashboard_schedule_read_summaries_are_useful_and_private() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    body = asset.split("function DashboardReadSummary", 1)[1].split(
+        "function vehicleAvailability", 1
+    )[0]
+
+    assert "function scheduleSection(payload, ...keys)" in asset
+    assert "function scheduleEntries(sectionPayload, ...keys)" in asset
+    assert "function scheduleEntryLabel(entry, fallback)" in asset
+    assert "function scheduleSummaryData(payload, sectionKeys, entryKeys)" in asset
+    assert 'lastReadKind === "charge-schedule"' in body
+    assert 'lastReadKind === "preconditioning-schedule"' in body
+    assert "Charge schedule summary" in body
+    assert "Preconditioning schedule summary" in body
+    assert "Top schedules: ${summary.topEntries.join" in body
+    assert "enabled ${summary.enabled}" in body
+    assert "next/start ${summary.nextStart}" in body
+    assert '"charge_schedule", "charge_schedule_data"' in body
+    assert '"preconditioning_schedule", "preconditioning_schedule_data"' in body
+    assert "entry.minute_of_day" in asset
+    assert "entry.departure_time" in asset
+    assert "entry.days_of_week" in asset
+    assert "value !== undefined && value !== null" in asset
+    assert "Schedule IDs, vehicle identifiers" in body
+    assert "precise coordinates stay out of the visible summary" in body
+    assert "schedule_id" not in body
+    assert "entry.id" not in body
+    assert "latitude" not in body
+    assert "longitude" not in body
+    assert "5YJ3E1EA7JF000001" not in body
+
+
 def test_dashboard_release_notes_read_summary_is_useful_and_private() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     body = asset.split("function DashboardReadSummary", 1)[1].split(
