@@ -485,6 +485,7 @@ def _payload_section(payload: dict[str, Any], *keys: str) -> dict[str, Any]:
     for container in (
         payload,
         payload.get("data") if isinstance(payload.get("data"), dict) else None,
+        payload.get("response") if isinstance(payload.get("response"), dict) else None,
     ):
         if not isinstance(container, dict):
             continue
@@ -1528,6 +1529,129 @@ def _summarize_release_notes(payload: dict[str, Any]) -> list[str]:
     return ["Release notes: no release-note details returned."]
 
 
+def _schedule_entries(container: dict[str, Any], *keys: str) -> list[Any]:
+    """Extract schedule entries across common Tesla wrapper shapes."""
+
+    entries = _collection_from_payload(container, *keys)
+    if entries:
+        return entries
+    for key in keys:
+        value = container.get(key)
+        if isinstance(value, dict):
+            nested = _collection_from_payload(
+                value,
+                "schedules",
+                "entries",
+                "items",
+                "charge_schedules",
+                "preconditioning_schedules",
+            )
+            if nested:
+                return nested
+    return []
+
+
+def _schedule_entry_label(entry: Any) -> str:
+    if not isinstance(entry, dict):
+        return _redact_slash_text(entry)
+
+    parts: list[str] = []
+    schedule_id = _first_present(entry, "id", "schedule_id")
+    if schedule_id is not None:
+        parts.append(
+            f"id {_redact_vehicle_identifier(schedule_id) or _redact_slash_text(schedule_id)}"
+        )
+    for key, label in (
+        ("enabled", "enabled"),
+        ("start_enabled", "start enabled"),
+        ("end_enabled", "end enabled"),
+        ("preconditioning_enabled", "preconditioning enabled"),
+    ):
+        value = _first_present(entry, key)
+        if value is not None:
+            parts.append(f"{label} {_stringify(value)}")
+    for key, label in (
+        ("start_time", "start"),
+        ("end_time", "end"),
+        ("departure_time", "depart"),
+        ("time", "time"),
+        ("minute_of_day", "minute"),
+    ):
+        value = _first_present(entry, key)
+        if value is not None:
+            parts.append(f"{label} {_redact_slash_text(value)}")
+    days = _first_present(entry, "days_of_week", "days", "week_days")
+    if days:
+        if isinstance(days, list):
+            parts.append(
+                "days " + "/".join(_redact_slash_text(day) for day in days[:7])
+            )
+        else:
+            parts.append(f"days {_redact_slash_text(days)}")
+    if not parts:
+        return "schedule returned"
+    return ", ".join(parts[:5])
+
+
+def _summarize_schedules(name: str, payload: dict[str, Any]) -> list[str]:
+    if name == "tescmd-charge-schedule":
+        section = _payload_section(payload, "charge_schedule", "charge_schedule_data")
+        entries = _schedule_entries(
+            section or payload,
+            "schedules",
+            "entries",
+            "items",
+            "charge_schedules",
+            "charge_schedule",
+        )
+        label = "Charge schedule"
+    elif name == "tescmd-preconditioning-schedule":
+        section = _payload_section(
+            payload, "preconditioning_schedule", "preconditioning_schedule_data"
+        )
+        entries = _schedule_entries(
+            section or payload,
+            "schedules",
+            "entries",
+            "items",
+            "preconditioning_schedules",
+            "preconditioning_schedule",
+        )
+        label = "Preconditioning schedule"
+    else:
+        return []
+
+    details: list[str] = []
+    enabled = _first_present(
+        section, "enabled", "scheduled_charging_enabled", "scheduled_departure_enabled"
+    )
+    if enabled is not None:
+        details.append("enabled" if bool(enabled) else "disabled")
+    next_start = _first_present(
+        section, "next_start_time", "start_time", "departure_time"
+    )
+    if next_start is not None:
+        details.append(f"next/start {_redact_slash_text(next_start)}")
+
+    prefix = (
+        f"{label}: {len(entries)} entr{'y' if len(entries) == 1 else 'ies'} returned"
+    )
+    if details:
+        prefix += " — " + ", ".join(details)
+    lines = [prefix]
+    if entries:
+        lines.append(
+            "Top schedules: "
+            + "; ".join(
+                f"#{idx} {_schedule_entry_label(entry)}"
+                for idx, entry in enumerate(entries[:3], 1)
+            )
+        )
+    else:
+        lines.append("No schedule entries were returned.")
+    return lines
+
+
 def _state_flag(value: Any, *, true_text: str, false_text: str) -> str | None:
     if value is None:
         return None
@@ -1733,6 +1857,9 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     if name == "tescmd-release-notes":
         lines.extend(_summarize_release_notes(payload))
 
+    if name in {"tescmd-charge-schedule", "tescmd-preconditioning-schedule"}:
+        lines.extend(_summarize_schedules(name, payload))
+
     lines.extend(_navigation_search_summary(name, payload))
 
     response = _first_dict(
@@ -1778,6 +1905,9 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
                 "Warranty:",
                 "Top terms:",
                 "Release notes:",
+                "Charge schedule:",
+                "Preconditioning schedule:",
+                "Top schedules:",
                 "Body action:",
                 "Navigation action:",
                 "Navigation search:",
@@ -1921,6 +2051,24 @@ _COMMANDS: dict[str, tuple[str, str, Callable[[dict[str, Any]], str]]] = {
         "[vin] [wake=true confirm=true]",
         lambda ctx: _format_command(
             "tescmd-gui", _run_tool("tescmd_vehicle_gui_settings", ctx["raw_args"])
+        ),
+    ),
+    "tescmd-charge-schedule": (
+        "Fetch configured charge schedules for the selected vehicle.",
+        "[vin] [wake=true confirm=true]",
+        lambda ctx: _format_command(
+            "tescmd-charge-schedule",
+            _run_tool("tescmd_vehicle_charge_schedule_status", ctx["raw_args"]),
+        ),
+    ),
+    "tescmd-preconditioning-schedule": (
+        "Fetch configured climate preconditioning schedules for the selected vehicle.",
+        "[vin] [wake=true confirm=true]",
+        lambda ctx: _format_command(
+            "tescmd-preconditioning-schedule",
+            _run_tool(
+                "tescmd_vehicle_preconditioning_schedule_status", ctx["raw_args"]
+            ),
         ),
     ),
     "tescmd-security-status": (
