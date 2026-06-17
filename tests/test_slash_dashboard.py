@@ -316,6 +316,7 @@ def test_key_show_slash_output_summarizes_readiness_without_paths_or_urls() -> N
     assert output.startswith("/tescmd-key-show: success")
     assert "Vehicle-command key: found" in output
     assert "private key present" in output
+    assert "public key present" in output
     assert "fingerprint SHA256:abc123" in output
     assert "public-key URL configured" in output
     assert "enrollment URL available" in output
@@ -350,6 +351,32 @@ def test_key_validate_slash_output_summarizes_hosting_without_url_leak() -> None
     assert "cars.example.com" not in output
     assert "public-key.pem" not in output
     assert "5YJ3E1EA7JF000001" not in output
+    assert "{" not in output
+
+
+def test_key_slash_output_suppresses_path_or_url_messages() -> None:
+    output = slash._format_command(  # noqa: SLF001
+        "tescmd-key-validate",
+        {
+            "ok": True,
+            "profile": "default",
+            "accessible": True,
+            "matches_local_key": True,
+            "local_fingerprint": "SHA256:local",
+            "remote_fingerprint": "SHA256:remote",
+            "message": (
+                "Fetched /tmp/hermes/plugins/hermes-tescmd-plugin/keys/default/public.pem "
+                "from https://cars.example.com/.well-known/appspecific/com.tesla.3p.public-key.pem"
+            ),
+        },
+    )
+
+    assert "Vehicle-command key hosting: hosted key reachable" in output
+    assert "matches local key" in output
+    assert "Result:" not in output
+    assert "/tmp/hermes" not in output
+    assert "cars.example.com" not in output
+    assert "public-key.pem" not in output
     assert "{" not in output
 
 
