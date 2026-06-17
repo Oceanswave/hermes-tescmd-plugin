@@ -570,6 +570,8 @@ def _key_detail_parts(name: str, payload: dict[str, Any]) -> list[str]:
                     if payload.get("private_key_present")
                     else "private key missing"
                 )
+            if payload.get("public_key_path"):
+                parts.append("public key present")
             fingerprint = payload.get("fingerprint")
             if fingerprint:
                 parts.append(f"fingerprint {_redact_slash_text(fingerprint)}")
@@ -601,6 +603,28 @@ def _key_detail_parts(name: str, payload: dict[str, Any]) -> list[str]:
         return ["Vehicle-command key hosting: " + ", ".join(parts) + "."]
 
     return []
+
+
+_SUMMARY_ONLY_COMMANDS = {
+    "tescmd-cache-status",
+    "tescmd-cache-clear",
+    "tescmd-key-show",
+    "tescmd-key-validate",
+}
+
+
+def _should_show_result_line(name: str, result: Any) -> bool:
+    """Decide whether a generic Result line adds safe operator value.
+
+    Cache and vehicle-command-key diagnostics already emit purpose-built
+    summaries. Their raw ``message``/``result`` fields can include local paths,
+    public-key hosting URLs, or enrollment links, so avoid echoing them in the
+    generic result fallback.
+    """
+
+    if name in _SUMMARY_ONLY_COMMANDS:
+        return False
+    return result is not None
 
 
 def _collection_from_payload(payload: dict[str, Any], *keys: str) -> list[Any]:
@@ -1868,7 +1892,7 @@ def _summarize_success(name: str, payload: dict[str, Any]) -> list[str]:
     result = _first_present(response, "result", "reason", "message")
     if result is None:
         result = _first_present(payload, "message")
-    if result is not None:
+    if _should_show_result_line(name, result):
         if result is True and charge_action:
             lines.append("Result: Tesla accepted the charging command.")
         elif result is True and climate_action:
