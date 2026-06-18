@@ -982,6 +982,52 @@ def test_dashboard_payload_panel_has_local_clear_privacy_control() -> None:
     assert ".tescmd-payload-privacy" in style
 
 
+def test_dashboard_admin_read_summaries_are_useful_and_private() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    body = asset.split("function DashboardReadSummary", 1)[1].split(
+        "function vehicleAvailability", 1
+    )[0]
+
+    assert "function yesNoUnknown(value)" in asset
+    assert "function setupReadinessValue(payload, key)" in asset
+    assert "function cacheModeLabel(payload)" in asset
+    assert 'lastReadKind === "auth-status"' in body
+    assert 'lastReadKind === "onboarding"' in body
+    assert 'lastReadKind === "key-show" || lastReadKind === "key-validate"' in body
+    assert 'lastReadKind === "cache-status"' in body
+    assert 'lastReadKind === "config" || lastReadKind === "gui"' in body
+    assert "Auth readiness summary" in body
+    assert "Onboarding summary" in body
+    assert "Vehicle-command key summary" in body
+    assert "Key hosting validation summary" in body
+    assert "Cache summary" in body
+    assert "Vehicle config summary" in body
+    assert "GUI settings summary" in body
+    assert (
+        "tokens, callback URLs, client IDs, vehicle identifiers, and key paths stay"
+        in body
+    )
+    assert (
+        "without exposing OAuth values, domains, client IDs, or vehicle identifiers"
+        in body
+    )
+    assert (
+        "local key paths, public-key URLs, fingerprints, domains, and enrollment links"
+        in body
+    )
+    assert "local cache paths or cached vehicle snapshots" in body
+    assert (
+        "without echoing raw option values, identifiers, location hints, or account details"
+        in body
+    )
+    assert "access_token" not in body
+    assert "refresh_token" not in body
+    assert "client_secret" not in body
+    assert "public-key.pem" not in body
+    assert "5YJ3E1EA7JF000001" not in body
+    assert "12345678901234567" not in body
+
+
 def test_dashboard_nearby_chargers_read_summary_is_useful_and_private() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     body = asset.split("function DashboardReadSummary", 1)[1].split(
