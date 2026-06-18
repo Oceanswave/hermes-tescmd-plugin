@@ -706,6 +706,25 @@
     return "unknown";
   }
 
+  function yesNoUnknown(value) {
+    if (value === true || value === "true" || value === "yes" || value === "ready") return "yes";
+    if (value === false || value === "false" || value === "no" || value === "missing") return "no";
+    return "unknown";
+  }
+
+  function setupReadinessValue(payload, key) {
+    const bootstrap = (payload && payload.bootstrap) || {};
+    const readiness = (payload && payload.readiness) || {};
+    return firstDefined(payload && payload[key], bootstrap[key], readiness[key]);
+  }
+
+  function cacheModeLabel(payload) {
+    const enabled = yesNoUnknown(firstDefined(payload && payload.enabled, payload && payload.cache_enabled));
+    const entries = firstDefined(payload && payload.entries, payload && payload.entry_count, payload && payload.count, "unknown");
+    const expired = firstDefined(payload && payload.expired_entries, payload && payload.expired_count, 0);
+    return `cache ${enabled}, ${sanitizeDashboardText(entries, "unknown")} entries, ${sanitizeDashboardText(expired, "0")} expired`;
+  }
+
   function chargerSites(payload, key, ...aliases) {
     const sites = payload && (payload.sites || payload.nearby_chargers || payload.chargers || payload);
     for (const candidate of [key, ...aliases]) {
@@ -911,7 +930,50 @@
     let badges = [];
     let note = "Visible read summaries omit VINs, Fleet IDs, tokens, destinations, and precise coordinates.";
 
-    if (lastReadKind === "drivers") {
+    if (lastReadKind === "auth-status") {
+      const configured = yesNoUnknown(firstDefined(payload && payload.configured, setupReadinessValue(payload, "app_configured")));
+      const authenticated = yesNoUnknown(firstDefined(payload && payload.authenticated, setupReadinessValue(payload, "authenticated")));
+      const reads = yesNoUnknown(setupReadinessValue(payload, "ready_for_vehicle_reads"));
+      const commands = yesNoUnknown(setupReadinessValue(payload, "ready_for_vehicle_commands"));
+      title = "Auth readiness summary";
+      body = "Authentication details are summarized as coarse readiness states; tokens, callback URLs, client IDs, vehicle identifiers, and key paths stay in the redacted payload.";
+      badges = [
+        `configured ${configured}`,
+        `authenticated ${authenticated}`,
+        `reads ${reads}`,
+        `commands ${commands}`,
+      ];
+    } else if (lastReadKind === "onboarding") {
+      const phase = sanitizeDashboardText(firstDefined(payload && payload.phase, payload && payload.next_action, "setup phase unknown"), "setup phase unknown");
+      const nextTool = sanitizeDashboardText(firstDefined(payload && payload.next_tool, payload && payload.next_action, "next step unknown"), "next step unknown");
+      const missing = Array.isArray(payload && payload.missing_prerequisites) ? payload.missing_prerequisites.length : 0;
+      title = "Onboarding summary";
+      body = "Setup guidance is condensed into the current phase, next safe tool, and missing-prerequisite count without exposing OAuth values, domains, client IDs, or vehicle identifiers.";
+      badges = [phase, `next ${nextTool}`, `${missing} missing prerequisite${missing === 1 ? "" : "s"}`];
+    } else if (lastReadKind === "key-show" || lastReadKind === "key-validate") {
+      const status = sanitizeDashboardText(firstDefined(payload && payload.status, payload && payload.accessible, "key status unknown"), "key status unknown");
+      const privateKey = yesNoUnknown(payload && payload.private_key_present);
+      const publicKey = yesNoUnknown(firstDefined(payload && payload.public_key_present, payload && payload.accessible));
+      const matches = yesNoUnknown(payload && payload.matches_local_key);
+      title = lastReadKind === "key-show" ? "Vehicle-command key summary" : "Key hosting validation summary";
+      body = "Key diagnostics show readiness and match state only; local key paths, public-key URLs, fingerprints, domains, and enrollment links stay out of visible dashboard copy.";
+      badges = [
+        `status ${status}`,
+        `private key ${privateKey}`,
+        `public key ${publicKey}`,
+        `matches local ${matches}`,
+      ];
+    } else if (lastReadKind === "cache-status") {
+      title = "Cache summary";
+      body = "Cache diagnostics are summarized as counts and mode hints so operators can verify read freshness without exposing local cache paths or cached vehicle snapshots.";
+      badges = [cacheModeLabel(payload)];
+    } else if (lastReadKind === "config" || lastReadKind === "gui") {
+      const container = objectAt(payload, lastReadKind === "config" ? ["vehicle_config", "config"] : ["gui_settings", "gui"]);
+      const count = Object.keys(container).length;
+      title = lastReadKind === "config" ? "Vehicle config summary" : "GUI settings summary";
+      body = "Vehicle configuration reads are treated as operator context; the dashboard reports payload shape without echoing raw option values, identifiers, location hints, or account details.";
+      badges = [`${count} visible field${count === 1 ? "" : "s"}`, "raw values in payload panel"];
+    } else if (lastReadKind === "drivers") {
       const driverCount = arrayCount(payload, ["drivers", "users", "people", "members", "vehicle_drivers"]);
       const inviteCount = arrayCount(payload, ["invites", "invitations", "pending_invites"]);
       title = "Access summary";
