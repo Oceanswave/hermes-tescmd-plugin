@@ -1398,6 +1398,24 @@ def test_mobile_access_slash_summary_is_human_readable() -> None:
     assert "{" not in output
 
 
+def test_mobile_access_slash_summary_handles_nested_response_shapes() -> None:
+    cases = (
+        ({"response": {"mobile_access_enabled": False}}, "disabled"),
+        ({"data": {"mobile_access_enabled": True}}, "enabled"),
+        ({"response": {"vehicle_state": {"mobile_access_enabled": True}}}, "enabled"),
+    )
+    for wrapper, expected_state in cases:
+        payload = {"ok": True, "vin": "5YJ3E1EA7JF000001", **wrapper}
+
+        output = slash._format_command("tescmd-mobile-access", payload)
+
+        assert output.startswith("/tescmd-mobile-access: success")
+        assert f"Mobile access: {expected_state}." in output
+        assert "status not returned" not in output
+        assert "5YJ3E1EA7JF000001" not in output
+        assert "{" not in output
+
+
 def test_alerts_slash_summary_counts_statuses_and_numbers_redacted_top_alerts() -> None:
     output = slash._format_command(
         "tescmd-alerts",

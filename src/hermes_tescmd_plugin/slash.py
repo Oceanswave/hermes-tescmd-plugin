@@ -1225,10 +1225,29 @@ def _summarize_drivers(payload: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _mobile_access_value(payload: dict[str, Any]) -> Any:
+    """Return mobile-access state across common Fleet wrapper shapes.
+
+    Fleet read handlers may return the boolean directly at top level or nested
+    under response/data/vehicle_state. Preserve falsey ``False`` values; they
+    are the most important status to report accurately.
+    """
+
+    for container in (
+        payload,
+        payload.get("response") if isinstance(payload.get("response"), dict) else None,
+        payload.get("data") if isinstance(payload.get("data"), dict) else None,
+        _payload_section(payload, "vehicle_state"),
+    ):
+        if isinstance(container, dict) and "mobile_access_enabled" in container:
+            return container.get("mobile_access_enabled")
+    return None
+
+
 def _summarize_mobile_access(payload: dict[str, Any]) -> list[str]:
-    if "mobile_access_enabled" not in payload:
+    enabled = _mobile_access_value(payload)
+    if enabled is None:
         return ["Mobile access: status not returned."]
-    enabled = payload.get("mobile_access_enabled")
     if enabled is True:
         return ["Mobile access: enabled."]
     if enabled is False:
