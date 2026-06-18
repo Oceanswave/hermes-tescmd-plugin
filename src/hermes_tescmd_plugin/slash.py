@@ -12,6 +12,10 @@ _TRUE_VALUES = {"1", "true", "yes", "y", "on"}
 _FALSE_VALUES = {"0", "false", "no", "n", "off"}
 
 
+class SlashArgumentError(ValueError):
+    """Raised when terse slash-command arguments cannot be parsed safely."""
+
+
 def _coerce_cli_value(value: str) -> Any:
     lowered = value.strip().lower()
     if lowered in _TRUE_VALUES:
@@ -43,7 +47,14 @@ def parse_args(raw_args: str, *, positional_name: str = "vin") -> dict[str, Any]
     args: dict[str, Any] = {}
     if not raw_args.strip():
         return args
-    for token in shlex.split(raw_args):
+    try:
+        tokens = shlex.split(raw_args)
+    except ValueError as exc:
+        raise SlashArgumentError(
+            "Could not parse slash-command arguments. Check for balanced quotes "
+            "and use key=value tokens where needed."
+        ) from exc
+    for token in tokens:
         key: str | None = None
         value: str | None = None
         if "=" in token:
@@ -79,7 +90,15 @@ def _run_tool(
 ) -> dict[str, Any]:
     specs = _tool_specs_by_name()
     spec = specs[tool_name]
-    args = parse_args(raw_args, positional_name=positional_name)
+    try:
+        args = parse_args(raw_args, positional_name=positional_name)
+    except SlashArgumentError as exc:
+        return {
+            "ok": False,
+            "operation": spec.operation,
+            "error": str(exc),
+            "retry_command": "Re-run the slash command with balanced quotes and key=value arguments.",
+        }
     if positional_name != "vin" and args.get("extra") and positional_name in args:
         extra = args.pop("extra")
         if isinstance(extra, list):

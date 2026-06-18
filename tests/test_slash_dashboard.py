@@ -44,6 +44,35 @@ def test_slash_args_parse_key_values_arrays_and_bare_vin() -> None:
     assert args["percent"] == 80
 
 
+def test_malformed_slash_args_return_friendly_error_without_running_tool(
+    monkeypatch,
+) -> None:
+    spec = slash.runtime.ToolSpec(
+        name="tescmd_navigation_send",
+        description="Send navigation destination.",
+        operation="navigation_send",
+    )
+
+    def fail_handler(_args: dict) -> str:
+        raise AssertionError("malformed slash arguments should not run tool handlers")
+
+    monkeypatch.setattr(slash.runtime, "list_tool_specs", lambda: [spec])
+    monkeypatch.setattr(slash.runtime, "make_handler", lambda _spec: fail_handler)
+
+    result = slash._run_tool(  # noqa: SLF001
+        "tescmd_navigation_send",
+        "'123 Main St confirm=true",
+        positional_name="destination",
+    )
+    output = slash._format_command("tescmd-nav", result)  # noqa: SLF001
+
+    assert result["ok"] is False
+    assert "Could not parse slash-command arguments" in output
+    assert "balanced quotes" in output
+    assert "Try: Re-run the slash command" in output
+    assert "123 Main" not in output
+
+
 def test_navigation_slash_commands_treat_bare_text_as_destination_or_query(
     monkeypatch,
 ) -> None:
