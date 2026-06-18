@@ -725,6 +725,29 @@
     return `cache ${enabled}, ${sanitizeDashboardText(entries, "unknown")} entries, ${sanitizeDashboardText(expired, "0")} expired`;
   }
 
+  function serviceAppointments(payload) {
+    const containers = [payload, payload && payload.response, payload && payload.data, payload && payload.service];
+    for (const container of containers) {
+      if (!container || typeof container !== "object") continue;
+      for (const key of ["appointments", "service_visits", "visits", "service_appointments", "upcoming_appointments"]) {
+        if (Array.isArray(container[key])) return container[key];
+      }
+    }
+    return [];
+  }
+
+  function serviceAppointmentLabel(appointment, fallback) {
+    if (!appointment || typeof appointment !== "object") return sanitizeDashboardText(appointment, fallback);
+    const state = firstDefined(appointment.status, appointment.state, appointment.appointment_status, appointment.service_status);
+    const serviceType = firstDefined(appointment.service_type, appointment.type, appointment.category, appointment.concern_type);
+    const startsAt = firstDefined(appointment.start_time, appointment.appointment_time, appointment.scheduled_at, appointment.arrival_time, appointment.date);
+    const parts = [];
+    if (state != null) parts.push(`status ${sanitizeDashboardText(state, "unknown")}`);
+    if (serviceType != null) parts.push(`type ${sanitizeDashboardText(String(serviceType).replace(/_/g, " "), "service")}`);
+    if (startsAt != null) parts.push(`time ${sanitizeDashboardText(startsAt, "time hidden")}`);
+    return parts.length ? parts.slice(0, 3).join(", ") : fallback;
+  }
+
   function chargerSites(payload, key, ...aliases) {
     const sites = payload && (payload.sites || payload.nearby_chargers || payload.chargers || payload);
     for (const candidate of [key, ...aliases]) {
@@ -983,10 +1006,14 @@
         `${inviteCount == null ? "unknown" : inviteCount} pending invite${inviteCount === 1 ? "" : "s"}`,
       ];
     } else if (lastReadKind === "service") {
-      const visitCount = arrayCount(payload, ["appointments", "service_visits", "visits"]);
+      const appointments = serviceAppointments(payload);
+      const visitCount = appointments.length || arrayCount(payload, ["appointments", "service_visits", "visits", "service_appointments", "upcoming_appointments"]);
       const status = sanitizeDashboardText(firstDefined(payload.status, payload.service_status, payload.state, "status unknown"), "status unknown");
+      const topVisits = appointments.slice(0, 3).map((appointment, index) => serviceAppointmentLabel(appointment, `visit ${index + 1}`));
       title = "Service summary";
-      body = "Service data is summarized without private appointment IDs, raw booking URLs, vehicle identifiers, or extra visit payload details.";
+      body = topVisits.length
+        ? `Service ${status}. Top visits: ${topVisits.join("; ")}. Appointment IDs, service-center addresses, raw booking URLs, vehicle identifiers, and customer contact details stay in the redacted payload.`
+        : "Service data returned without visit rows. The dashboard shows status/count hints while appointment IDs, service-center addresses, booking URLs, vehicle identifiers, and customer contact details stay hidden.";
       badges = [status, `${visitCount == null ? "unknown" : visitCount} visit${visitCount === 1 ? "" : "s"}`];
     } else if (lastReadKind === "mobile-access") {
       const access = booleanLabel(firstDefined(payload.enabled, payload.mobile_access_enabled, payload.allow_mobile_access));

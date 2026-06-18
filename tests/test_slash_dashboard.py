@@ -3427,22 +3427,36 @@ def test_dashboard_last_read_summary_surfaces_access_service_mobile_reads_privat
         "function vehicleAvailability", 1
     )[0]
 
-    assert "function DashboardReadSummary" in asset
+    assert "function serviceAppointments(payload)" in asset
+    assert "function serviceAppointmentLabel(appointment, fallback)" in asset
+    assert 'lastReadKind === "mobile-access"' in body
+    assert 'lastReadKind === "drivers"' in body
+    assert 'lastReadKind === "service"' in body
     assert "Access summary" in body
     assert "Service summary" in body
+    assert "Top visits: ${topVisits.join" in body
+    assert "service_appointments" in body
+    assert "upcoming_appointments" in body
+    assert "Appointment IDs, service-center addresses, raw booking URLs" in body
+    assert "customer contact details stay" in body
     assert "Mobile access summary" in body
     assert "names, emails, phone numbers, invite links" in body
-    assert "private appointment IDs" in body
     assert "mobile access ${access}" in body
+    assert "arrayCount(payload" in body
+    assert "sanitizeDashboardText(badge" in body
     assert (
         "Visible read summaries omit VINs, Fleet IDs, tokens, destinations, and precise coordinates"
         in body
     )
-    assert 'lastReadKind === "drivers"' in body
-    assert 'lastReadKind === "service"' in body
-    assert 'lastReadKind === "mobile-access"' in body
-    assert "arrayCount(payload" in body
-    assert "sanitizeDashboardText(badge" in body
+    assert "private appointment IDs" not in body
+    assert "appointment.id" not in asset
+    assert "appointment.url" not in asset
+    assert "appointment.address" not in asset
+    assert "appointment.email" not in asset
+    assert "appointment.phone" not in asset
+    assert "5YJ3E1EA7JF000001" not in body
+    assert "lat" not in body
+    assert "longitude" not in body
     assert "setLastReadKind(kind)" in asset
     assert 'setLastReadKind("")' in asset
     assert "h(DashboardReadSummary, { detail, lastReadKind })" in asset
