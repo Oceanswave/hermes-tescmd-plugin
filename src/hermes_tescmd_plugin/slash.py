@@ -344,7 +344,11 @@ def _format_audit_log(payload: dict[str, Any]) -> str:
     events = payload.get("events") or []
     if not isinstance(events, list):
         return _format_command("tescmd-audit-log", payload)
-    lines = [f"Tesla command audit log: {len(events)} event(s)"]
+    limit = payload.get("limit")
+    limit_hint = ""
+    if isinstance(limit, int) and limit > 0:
+        limit_hint = f" (showing up to the last {limit})"
+    lines = [f"Tesla command audit log: {len(events)} event(s){limit_hint}"]
     if not events:
         lines.append("No wake or vehicle-control attempts are recorded yet.")
         return "\n".join(lines)

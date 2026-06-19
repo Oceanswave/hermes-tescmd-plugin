@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from hermes_tescmd_plugin import config, slash
+from hermes_tescmd_plugin import config, slash, tools as tescmd_tools
 from hermes_tescmd_plugin.dashboard import ensure_dashboard_installed
 from hermes_tescmd_plugin.dashboard.plugin_api import (
     DefaultVehicleBody,
@@ -1318,6 +1318,7 @@ def test_audit_log_slash_output_is_human_readable_and_redacted() -> None:
         {
             "ok": True,
             "path": "/tmp/hermes/plugins/hermes-tescmd-plugin/audit/commands.jsonl",
+            "limit": 20,
             "events": [
                 {
                     "tool": "tescmd_security_lock",
@@ -1335,7 +1336,7 @@ def test_audit_log_slash_output_is_human_readable_and_redacted() -> None:
         }
     )
 
-    assert output.startswith("Tesla command audit log: 1 event(s)")
+    assert output.startswith("Tesla command audit log: 1 event(s) (showing up to the last 20)")
     assert "tescmd_security_lock result failed" in output
     assert "command=door_lock" in output
     assert "target=…0001" in output
@@ -1356,6 +1357,51 @@ def test_audit_log_slash_output_handles_empty_log() -> None:
         "Tesla command audit log: 0 event(s)\n"
         "No wake or vehicle-control attempts are recorded yet."
     )
+
+
+def test_audit_log_tool_reports_validated_limit(monkeypatch) -> None:
+    captured_limit = None
+
+    def fake_recent_command_events(limit: int) -> list[dict[str, object]]:
+        nonlocal captured_limit
+        captured_limit = limit
+        return [{"tool": "tescmd_wake", "stage": "attempt"}]
+
+    monkeypatch.setattr(
+        tescmd_tools.audit,
+        "audit_log_path",
+        lambda: "/private/audit/commands.jsonl",
+    )
+    monkeypatch.setattr(
+        tescmd_tools.audit,
+        "recent_command_events",
+        fake_recent_command_events,
+    )
+
+    payload = tescmd_tools.handle_audit_log({"limit": "7"})
+
+    assert payload["limit"] == 7
+    assert captured_limit == 7
+    assert payload["events"] == [{"tool": "tescmd_wake", "stage": "attempt"}]
+
+
+def test_audit_log_slash_output_uses_limit_context_without_exposing_path() -> None:
+    output = slash._format_audit_log(  # noqa: SLF001
+        {
+            "ok": True,
+            "path": "/home/user/.hermes/plugins/hermes-tescmd-plugin/audit/commands.jsonl",
+            "limit": 3,
+            "events": [
+                {"tool": "tescmd_wake", "stage": "attempt", "ok": None},
+                {"tool": "tescmd_security_lock", "stage": "result", "ok": True},
+            ],
+        }
+    )
+
+    assert output.startswith("Tesla command audit log: 2 event(s) (showing up to the last 3)")
+    assert "tescmd_wake attempt attempted" in output
+    assert "tescmd_security_lock result succeeded" in output
+    assert "commands.jsonl" not in output
 
 
 def test_read_slash_command_success_summarizes_vehicle_data() -> None:
