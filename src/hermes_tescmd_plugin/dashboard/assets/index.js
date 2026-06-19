@@ -725,6 +725,27 @@
     return `cache ${enabled}, ${sanitizeDashboardText(entries, "unknown")} entries, ${sanitizeDashboardText(expired, "0")} expired`;
   }
 
+  function readStatusObject(payload, ...keys) {
+    for (const candidate of [payload, payload && payload.response, payload && payload.data]) {
+      if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) continue;
+      for (const key of keys) {
+        const value = candidate[key];
+        if (value && typeof value === "object" && !Array.isArray(value)) return value;
+      }
+    }
+    return {};
+  }
+
+  function percentBadge(label, value) {
+    const number = numericValue(value);
+    return number == null ? `${label} unknown` : `${label} ${number}%`;
+  }
+
+  function temperatureBadge(label, value) {
+    const number = numericValue(value);
+    return number == null ? `${label} unknown` : `${label} ${number.toFixed(1).replace(/\.0$/, "")}°`;
+  }
+
   function alertItems(payload) {
     for (const candidate of [payload, payload && payload.response, payload && payload.data, payload && payload.vehicle_alerts]) {
       if (!candidate || typeof candidate !== "object") continue;
@@ -1037,6 +1058,39 @@
       title = "Cache summary";
       body = "Cache diagnostics are summarized as counts and mode hints so operators can verify read freshness without exposing local cache paths or cached vehicle snapshots.";
       badges = [cacheModeLabel(payload)];
+    } else if (lastReadKind === "charge") {
+      const charge = readStatusObject(payload, "charge_state", "charge", "battery");
+      const level = firstDefined(charge.battery_level, charge.usable_battery_level, charge.soc, charge.battery_soc);
+      const limit = firstDefined(charge.charge_limit_soc, charge.charge_limit_soc_std, charge.charge_limit_soc_min);
+      const state = sanitizeDashboardText(firstDefined(charge.charging_state, charge.charge_state, charge.conn_charge_cable, "charge state unknown"), "charge state unknown");
+      const range = numericValue(charge.battery_range, charge.est_battery_range, charge.ideal_battery_range);
+      const rangeLabel = range == null ? "range unknown" : `range ${range.toFixed(0)} mi`;
+      const plugged = yesNoUnknown(firstDefined(charge.plugged_in, charge.charge_port_door_open, charge.conn_charge_cable));
+      title = "Charge read summary";
+      body = "Charging state is condensed into battery level, limit, plug/charging state, and coarse range hints. Charge-port locations, vehicle identifiers, raw charger metadata, and account details stay in the redacted payload.";
+      badges = [
+        percentBadge("battery", level),
+        percentBadge("limit", limit),
+        `state ${state}`,
+        rangeLabel,
+        `plug/cable ${plugged}`,
+      ];
+    } else if (lastReadKind === "climate") {
+      const climate = readStatusObject(payload, "climate_state", "climate", "hvac_state");
+      const cabin = temperatureBadge("cabin", firstDefined(climate.inside_temp, climate.cabin_temp));
+      const outside = temperatureBadge("outside", firstDefined(climate.outside_temp, climate.ambient_temp));
+      const target = temperatureBadge("target", firstDefined(climate.driver_temp_setting, climate.passenger_temp_setting, climate.left_temp_direction, climate.right_temp_direction));
+      const active = booleanLabel(firstDefined(climate.is_climate_on, climate.auto_seat_climate_left, climate.climate_keeper_mode && climate.climate_keeper_mode !== "off"));
+      const defrost = booleanLabel(firstDefined(climate.is_front_defroster_on, climate.is_rear_defroster_on, climate.defrost_mode));
+      title = "Climate read summary";
+      body = "Cabin climate is summarized as coarse temperature and HVAC states for quick operator triage. Precise location context, vehicle identifiers, driver-specific personal data, and raw climate payload details stay in the redacted payload.";
+      badges = [
+        cabin,
+        outside,
+        target,
+        `HVAC ${active}`,
+        `defrost ${defrost}`,
+      ];
     } else if (lastReadKind === "config" || lastReadKind === "gui") {
       const container = objectAt(payload, lastReadKind === "config" ? ["vehicle_config", "config"] : ["gui_settings", "gui"]);
       const count = Object.keys(container).length;
