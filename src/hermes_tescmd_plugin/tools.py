@@ -2097,6 +2097,7 @@ def handle_audit_log(args: dict[str, Any]) -> dict[str, Any]:
     return {
         "ok": True,
         "path": str(audit.audit_log_path()),
+        "limit": limit,
         "events": audit.recent_command_events(limit),
         "message": "Redacted JSONL audit log for side-effecting vehicle commands and wake attempts.",
     }
