@@ -725,6 +725,53 @@
     return `cache ${enabled}, ${sanitizeDashboardText(entries, "unknown")} entries, ${sanitizeDashboardText(expired, "0")} expired`;
   }
 
+  function alertItems(payload) {
+    for (const candidate of [payload, payload && payload.response, payload && payload.data, payload && payload.vehicle_alerts]) {
+      if (!candidate || typeof candidate !== "object") continue;
+      for (const key of ["alerts", "vehicle_alerts", "notifications", "messages", "active_alerts", "items"]) {
+        if (Array.isArray(candidate[key])) return candidate[key];
+      }
+    }
+    return [];
+  }
+
+  function alertStatusLabel(alert, fallback) {
+    if (!alert || typeof alert !== "object") return sanitizeDashboardText(alert, fallback);
+    const severity = firstDefined(alert.severity, alert.level, alert.status, alert.state, alert.type, fallback);
+    return sanitizeDashboardText(String(severity).replace(/_/g, " "), fallback);
+  }
+
+  function softwareMeta(payload, ...keys) {
+    const response = payload && payload.response;
+    const data = payload && payload.data;
+    const software = firstDefined(
+      payload && payload.software,
+      response && response.software,
+      data && data.software
+    );
+    const vehicleState = firstDefined(
+      payload && payload.vehicle_state,
+      response && response.vehicle_state,
+      data && data.vehicle_state
+    );
+    const softwareUpdate = firstDefined(
+      payload && payload.software_update,
+      software && software.software_update,
+      vehicleState && vehicleState.software_update,
+      response && response.software_update,
+      data && data.software_update
+    );
+    for (const candidate of [payload, software, softwareUpdate, vehicleState, response, data]) {
+      if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) continue;
+      for (const key of keys) {
+        if (candidate[key] != null && String(candidate[key]).trim() !== "") {
+          return sanitizeDashboardText(candidate[key], "unknown");
+        }
+      }
+    }
+    return "unknown";
+  }
+
   function serviceAppointments(payload) {
     const containers = [payload, payload && payload.response, payload && payload.data, payload && payload.service];
     for (const container of containers) {
@@ -996,6 +1043,28 @@
       title = lastReadKind === "config" ? "Vehicle config summary" : "GUI settings summary";
       body = "Vehicle configuration reads are treated as operator context; the dashboard reports payload shape without echoing raw option values, identifiers, location hints, or account details.";
       badges = [`${count} visible field${count === 1 ? "" : "s"}`, "raw values in payload panel"];
+    } else if (lastReadKind === "software") {
+      const version = softwareMeta(payload, "version", "car_version", "current_version", "firmware_version");
+      const status = softwareMeta(payload, "status", "state", "download_status", "install_status");
+      const estimate = softwareMeta(payload, "expected_duration_sec", "expected_duration_seconds", "install_duration", "eta", "scheduled_time");
+      title = "Software summary";
+      body = "Software status is condensed into version, update state, and timing hints so operators can spot update readiness without exposing vehicle identifiers, release-note URLs, account fields, or raw diagnostic payloads.";
+      badges = [
+        `version ${version}`,
+        `status ${status}`,
+        `timing ${estimate}`,
+      ];
+    } else if (lastReadKind === "alerts") {
+      const alerts = alertItems(payload);
+      const topStatuses = alerts.slice(0, 3).map((alert, index) => alertStatusLabel(alert, `alert ${index + 1}`));
+      title = "Alerts summary";
+      body = topStatuses.length
+        ? `Recent vehicle alerts returned ${alerts.length} item${alerts.length === 1 ? "" : "s"}. Top statuses: ${topStatuses.join(", ")}. Alert messages, driver/location hints, callback URLs, and vehicle identifiers stay in the redacted payload.`
+        : "Alert read returned without individual alert rows. Use the redacted payload for troubleshooting while message text, coordinates, URLs, and identifiers stay hidden.";
+      badges = [
+        `${alerts.length} alert${alerts.length === 1 ? "" : "s"}`,
+        ...topStatuses.slice(0, 2),
+      ];
     } else if (lastReadKind === "drivers") {
       const driverCount = arrayCount(payload, ["drivers", "users", "people", "members", "vehicle_drivers"]);
       const inviteCount = arrayCount(payload, ["invites", "invitations", "pending_invites"]);

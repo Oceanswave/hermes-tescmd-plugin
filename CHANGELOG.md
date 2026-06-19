@@ -2,6 +2,7 @@
 
 ## 0.5.0a22
 
+- Added privacy-safe `/tescmd` dashboard summaries for software and alert reads so operators see version/update state and alert counts/statuses without exposing messages, identifiers, URLs, or coordinates.
 - Removed the OpenClaw bridge compatibility command from the native Hermes tool surface.
 - Added shorter native vehicle-command aliases such as `tescmd_honk`, `tescmd_security_honk`, `tescmd_flash`, `tescmd_lock`, and `tescmd_sentry` so common controls do not require fallback routing through verbose names.
 - Registered non-secret Tesla app/profile defaults with Hermes' plugin config support so dashboard config editors can surface `client_id`, `region`, `domain`, `oauth_redirect_uri`, `default_vin`, and `scopes` without exposing secrets.

@@ -1028,6 +1028,46 @@ def test_dashboard_admin_read_summaries_are_useful_and_private() -> None:
     assert "12345678901234567" not in body
 
 
+def test_dashboard_software_and_alert_summaries_are_useful_and_private() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    body = asset.split("function DashboardReadSummary", 1)[1].split(
+        "function vehicleAvailability", 1
+    )[0]
+
+    assert "function softwareMeta(payload, ...keys)" in asset
+    assert "function alertItems(payload)" in asset
+    assert "function alertStatusLabel(alert, fallback)" in asset
+    assert 'lastReadKind === "software"' in body
+    assert 'lastReadKind === "alerts"' in body
+    assert "Software summary" in body
+    assert "version ${version}" in body
+    assert "status ${status}" in body
+    assert "timing ${estimate}" in body
+    assert (
+        "without exposing vehicle identifiers, release-note URLs, account fields, or raw diagnostic payloads"
+        in body
+    )
+    assert "Alerts summary" in body
+    assert "Top statuses: ${topStatuses.join" in body
+    assert (
+        "Alert messages, driver/location hints, callback URLs, and vehicle identifiers stay in the redacted payload"
+        in body
+    )
+    assert "vehicle_alerts" in asset
+    assert "active_alerts" in asset
+    assert "software_update" in asset
+    assert "vehicle_state" in asset
+    assert "payload && payload.software" in asset
+    assert "vehicleState && vehicleState.software_update" in asset
+    assert "alert.message" not in asset
+    assert "alert.description" not in asset
+    assert "release_note_url" not in body
+    assert "latitude" not in body
+    assert "longitude" not in body
+    assert "5YJ3E1EA7JF000001" not in body
+    assert "12345678901234567" not in body
+
+
 def test_dashboard_nearby_chargers_read_summary_is_useful_and_private() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     body = asset.split("function DashboardReadSummary", 1)[1].split(
