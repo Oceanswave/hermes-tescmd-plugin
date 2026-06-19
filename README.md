@@ -195,7 +195,7 @@ Hermes also registers a broader quick-command surface for frequent reads and gua
 Side-effecting slash commands require `confirm=true`. Read commands that wake a sleeping vehicle require both `wake=true` and `confirm=true`.
 For `/tescmd-nav` and `/tescmd-nav-search`, the bare or quoted positional text is treated as the destination/query. If you also need to target a specific vehicle, pass it explicitly as `vin=...`; a bare first token is not interpreted as a vehicle identifier for those navigation commands.
 
-Arguments use terse shell-style tokens: `key=value`, `key:value`, booleans like `confirm=true`, comma-separated lists like `endpoints=charge_state,drive_state`, and one bare positional vehicle identifier for most vehicle-targeting commands.
+Arguments use terse shell-style tokens: `key=value`, `key:value`, double-dash booleans like `--confirm`, `--wake`, and `--no-cache`, booleans like `confirm=true`, comma-separated lists like `endpoints=charge_state,drive_state`, and one bare positional vehicle identifier for most vehicle-targeting commands.
 
 The Hermes web dashboard gets a native Tesla tab at `/tescmd`. It uses the same existing native tool handlers as Hermes tools, so confirm-gated actions still fail closed when `confirm=true` is missing. The dashboard now includes grouped read panels, wake/no-cache/unit read options, status/auth/key/cache panels, and guarded control groups for security, climate, charging, body, media, and navigation. Non-secret plugin settings are registered for Hermes' normal dashboard config editor when supported. Higher-risk flows such as remote start, speed-limit PINs, valet/PIN-to-drive, erase-user-data, and raw Fleet API calls remain tool-only.
 

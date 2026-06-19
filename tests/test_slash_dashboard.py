@@ -44,6 +44,33 @@ def test_slash_args_parse_key_values_arrays_and_bare_vin() -> None:
     assert args["percent"] == 80
 
 
+def test_slash_args_parse_double_dash_flags_without_positional_confusion() -> None:
+    args = slash.parse_args(
+        "--confirm --wake --no-cache --region=na --percent:80",
+    )
+
+    assert args == {
+        "confirm": True,
+        "wake": True,
+        "no_cache": True,
+        "region": "na",
+        "percent": 80,
+    }
+
+
+def test_slash_args_preserve_destination_when_double_dash_flags_are_present() -> None:
+    args = slash.parse_args(
+        "'123 Main St' --confirm --order=replace",
+        positional_name="destination",
+    )
+
+    assert args == {
+        "destination": "123 Main St",
+        "confirm": True,
+        "order": "replace",
+    }
+
+
 def test_malformed_slash_args_return_friendly_error_without_running_tool(
     monkeypatch,
 ) -> None:
