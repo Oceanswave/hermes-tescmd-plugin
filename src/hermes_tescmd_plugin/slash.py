@@ -57,7 +57,15 @@ def parse_args(raw_args: str, *, positional_name: str = "vin") -> dict[str, Any]
     for token in tokens:
         key: str | None = None
         value: str | None = None
-        if "=" in token:
+        if token.startswith("--") and len(token) > 2:
+            flag = token[2:]
+            if "=" in flag:
+                key, value = flag.split("=", 1)
+            elif ":" in flag:
+                key, value = flag.split(":", 1)
+            else:
+                key, value = flag, "true"
+        elif "=" in token:
             key, value = token.split("=", 1)
         elif ":" in token and not token.startswith(("http://", "https://")):
             key, value = token.split(":", 1)
