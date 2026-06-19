@@ -1055,6 +1055,50 @@ def test_dashboard_admin_read_summaries_are_useful_and_private() -> None:
     assert "12345678901234567" not in body
 
 
+def test_dashboard_charge_and_climate_read_summaries_are_useful_and_private() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    body = asset.split("function DashboardReadSummary", 1)[1].split(
+        "function vehicleAvailability", 1
+    )[0]
+
+    assert "function readStatusObject(payload, ...keys)" in asset
+    assert "function percentBadge(label, value)" in asset
+    assert "function temperatureBadge(label, value)" in asset
+    assert 'lastReadKind === "charge"' in body
+    assert 'lastReadKind === "climate"' in body
+    assert "Charge read summary" in body
+    assert "Climate read summary" in body
+    assert 'readStatusObject(payload, "charge_state", "charge", "battery")' in body
+    assert 'readStatusObject(payload, "climate_state", "climate", "hvac_state")' in body
+    assert 'percentBadge("battery", level)' in body
+    assert 'percentBadge("limit", limit)' in body
+    assert 'temperatureBadge("cabin"' in body
+    assert 'temperatureBadge("outside"' in body
+    assert 'temperatureBadge("target"' in body
+    assert (
+        "Charge-port locations, vehicle identifiers, raw charger metadata, and account details stay in the redacted payload"
+        in body
+    )
+    assert (
+        "Precise location context, vehicle identifiers, driver-specific personal data, and raw climate payload details stay in the redacted payload"
+        in body
+    )
+    assert "battery_range" in body
+    assert "est_battery_range" in body
+    assert "ideal_battery_range" in body
+    assert "inside_temp" in body
+    assert "outside_temp" in body
+    assert "driver_temp_setting" in body
+    assert "passenger_temp_setting" in body
+    read_block = body.split('lastReadKind === "charge"', 1)[1].split(
+        'lastReadKind === "config"', 1
+    )[0]
+    assert "latitude" not in read_block
+    assert "longitude" not in read_block
+    assert "5YJ3E1EA7JF000001" not in body
+    assert "12345678901234567" not in body
+
+
 def test_dashboard_software_and_alert_summaries_are_useful_and_private() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     body = asset.split("function DashboardReadSummary", 1)[1].split(
