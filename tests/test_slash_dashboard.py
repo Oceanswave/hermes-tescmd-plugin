@@ -1336,7 +1336,9 @@ def test_audit_log_slash_output_is_human_readable_and_redacted() -> None:
         }
     )
 
-    assert output.startswith("Tesla command audit log: 1 event(s) (showing up to the last 20)")
+    assert output.startswith(
+        "Tesla command audit log: 1 event(s) (showing up to the last 20)"
+    )
     assert "tescmd_security_lock result failed" in output
     assert "command=door_lock" in output
     assert "target=…0001" in output
@@ -1398,7 +1400,9 @@ def test_audit_log_slash_output_uses_limit_context_without_exposing_path() -> No
         }
     )
 
-    assert output.startswith("Tesla command audit log: 2 event(s) (showing up to the last 3)")
+    assert output.startswith(
+        "Tesla command audit log: 2 event(s) (showing up to the last 3)"
+    )
     assert "tescmd_wake attempt attempted" in output
     assert "tescmd_security_lock result succeeded" in output
     assert "commands.jsonl" not in output
