@@ -793,6 +793,51 @@
     return "unknown";
   }
 
+  function accessContainers(payload) {
+    return [
+      payload,
+      payload && payload.response,
+      payload && payload.data,
+      payload && payload.drivers,
+      payload && payload.vehicle_drivers,
+      payload && payload.access,
+    ].filter((item) => item && typeof item === "object" && !Array.isArray(item));
+  }
+
+  function accessRows(payload, keys) {
+    for (const container of accessContainers(payload)) {
+      for (const key of keys) {
+        if (Array.isArray(container[key])) return container[key];
+      }
+    }
+    return [];
+  }
+
+  function accessCount(payload, keys) {
+    const rows = accessRows(payload, keys);
+    if (rows.length) return rows.length;
+    return arrayCount(payload, keys);
+  }
+
+  function accessFacetCounts(rows, keys, fallback) {
+    const counts = new Map();
+    rows.forEach((row) => {
+      if (!row || typeof row !== "object") return;
+      for (const key of keys) {
+        const value = row[key];
+        if (value != null && String(value).trim() !== "") {
+          const label = sanitizeDashboardText(String(value).replace(/_/g, " "), fallback);
+          counts.set(label, (counts.get(label) || 0) + 1);
+          return;
+        }
+      }
+    });
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 3)
+      .map(([label, count]) => `${label} ${count}`);
+  }
+
   function serviceAppointments(payload) {
     const containers = [payload, payload && payload.response, payload && payload.data, payload && payload.service];
     for (const container of containers) {
@@ -1120,13 +1165,22 @@
         ...topStatuses.slice(0, 2),
       ];
     } else if (lastReadKind === "drivers") {
-      const driverCount = arrayCount(payload, ["drivers", "users", "people", "members", "vehicle_drivers"]);
-      const inviteCount = arrayCount(payload, ["invites", "invitations", "pending_invites"]);
+      const driverRows = accessRows(payload, ["drivers", "users", "people", "members", "vehicle_drivers"]);
+      const inviteRows = accessRows(payload, ["invites", "invitations", "pending_invites"]);
+      const driverCount = driverRows.length || accessCount(payload, ["drivers", "users", "people", "members", "vehicle_drivers"]);
+      const inviteCount = inviteRows.length || accessCount(payload, ["invites", "invitations", "pending_invites"]);
+      const roleFacets = accessFacetCounts(driverRows, ["role", "permission", "access_level", "access_type", "type"], "role");
+      const driverStatuses = accessFacetCounts(driverRows, ["status", "state", "account_status", "access_status"], "status");
+      const inviteStatuses = accessFacetCounts(inviteRows, ["status", "state", "invite_status"], "invite");
+      const accessHints = [...roleFacets, ...driverStatuses, ...inviteStatuses].slice(0, 4);
       title = "Access summary";
-      body = "Driver/account access data is summarized as counts and coarse status only; names, emails, phone numbers, invite links, and private IDs stay out of the dashboard copy.";
+      body = accessHints.length
+        ? `Driver/account access returned ${driverCount == null ? "unknown" : driverCount} driver/user record${driverCount === 1 ? "" : "s"} and ${inviteCount == null ? "unknown" : inviteCount} pending invite${inviteCount === 1 ? "" : "s"}. Top role/status hints: ${accessHints.join(", ")}. Names, emails, phone numbers, invite links, private IDs, and raw permission payloads stay in the redacted payload.`
+        : "Driver/account access data is summarized as counts and coarse status only; names, emails, phone numbers, invite links, private IDs, and raw permission payloads stay out of the dashboard copy.";
       badges = [
         `${driverCount == null ? "unknown" : driverCount} driver/user record${driverCount === 1 ? "" : "s"}`,
         `${inviteCount == null ? "unknown" : inviteCount} pending invite${inviteCount === 1 ? "" : "s"}`,
+        ...accessHints.slice(0, 3),
       ];
     } else if (lastReadKind === "service") {
       const appointments = serviceAppointments(payload);
