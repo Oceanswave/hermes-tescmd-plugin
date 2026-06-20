@@ -11,6 +11,27 @@ from . import runtime
 _TRUE_VALUES = {"1", "true", "yes", "y", "on"}
 _FALSE_VALUES = {"0", "false", "no", "n", "off"}
 _NEGATED_BOOLEAN_FLAGS = {"confirm", "wake"}
+_BOOLEAN_FLAGS = {"confirm", "wake", "no_cache", "enabled"}
+_SEPARATED_VALUE_FLAGS = {
+    "amps",
+    "destination",
+    "driver_temp",
+    "endpoints",
+    "lat",
+    "limit",
+    "lon",
+    "order",
+    "passenger_temp",
+    "percent",
+    "place_ids",
+    "profile",
+    "query",
+    "region",
+    "scopes",
+    "vin",
+    "vins",
+    "volume",
+}
 
 
 class SlashArgumentError(ValueError):
@@ -55,7 +76,10 @@ def parse_args(raw_args: str, *, positional_name: str = "vin") -> dict[str, Any]
             "Could not parse slash-command arguments. Check for balanced quotes "
             "and use key=value tokens where needed."
         ) from exc
-    for token in tokens:
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        index += 1
         key: str | None = None
         value: str | None = None
         if token.startswith("--") and len(token) > 2:
@@ -70,7 +94,24 @@ def parse_args(raw_args: str, *, positional_name: str = "vin") -> dict[str, Any]
             ):
                 key, value = flag[3:], "false"
             else:
-                key, value = flag, "true"
+                normalized_flag = flag.replace("-", "_")
+                next_token = tokens[index] if index < len(tokens) else None
+                if (
+                    next_token is not None
+                    and not next_token.startswith("--")
+                    and (
+                        normalized_flag in _SEPARATED_VALUE_FLAGS
+                        or (
+                            normalized_flag in _BOOLEAN_FLAGS
+                            and next_token.strip().lower()
+                            in (_TRUE_VALUES | _FALSE_VALUES)
+                        )
+                    )
+                ):
+                    key, value = flag, next_token
+                    index += 1
+                else:
+                    key, value = flag, "true"
         elif "=" in token:
             key, value = token.split("=", 1)
         elif ":" in token and not token.startswith(("http://", "https://")):

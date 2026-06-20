@@ -71,6 +71,32 @@ def test_slash_args_parse_negated_double_dash_booleans() -> None:
     }
 
 
+def test_slash_args_parse_separated_double_dash_option_values() -> None:
+    args = slash.parse_args(
+        "5YJ3E1EA7JF000001 --percent 80 --driver-temp 70 --passenger-temp 71 "
+        "--endpoints charge_state,drive_state --confirm false",
+    )
+
+    assert args == {
+        "vin": "5YJ3E1EA7JF000001",
+        "percent": 80,
+        "driver_temp": 70,
+        "passenger_temp": 71,
+        "endpoints": ["charge_state", "drive_state"],
+        "confirm": False,
+    }
+
+
+def test_slash_args_separated_booleans_do_not_consume_positional_vin() -> None:
+    args = slash.parse_args("--confirm 5YJ3E1EA7JF000001 --wake")
+
+    assert args == {
+        "confirm": True,
+        "vin": "5YJ3E1EA7JF000001",
+        "wake": True,
+    }
+
+
 def test_slash_args_preserve_destination_when_double_dash_flags_are_present() -> None:
     args = slash.parse_args(
         "'123 Main St' --confirm --order=replace",
@@ -231,6 +257,37 @@ def test_run_tool_navigation_keeps_explicit_vin_and_joins_unquoted_destination(
         "vin": "5YJ3E1EA7JF000001",
         "destination": "123 Main St",
         "confirm": True,
+    }
+
+
+def test_run_tool_navigation_keeps_destination_when_separated_options_follow(
+    monkeypatch,
+) -> None:
+    captured: dict = {}
+    spec = slash.runtime.ToolSpec(
+        name="tescmd_navigation_place_search",
+        description="Search navigation places.",
+        operation="navigation_place_search",
+    )
+
+    def fake_handler(args: dict) -> str:
+        captured.update(args)
+        return json.dumps({"ok": True, "places": []})
+
+    monkeypatch.setattr(slash.runtime, "list_tool_specs", lambda: [spec])
+    monkeypatch.setattr(slash.runtime, "make_handler", lambda _spec: fake_handler)
+
+    result = slash._run_tool(
+        "tescmd_navigation_place_search",
+        "coffee shop --limit 3 --region na",
+        positional_name="query",
+    )
+
+    assert result["ok"] is True
+    assert captured == {
+        "query": "coffee shop",
+        "limit": 3,
+        "region": "na",
     }
 
 
