@@ -1265,6 +1265,41 @@ def test_dashboard_release_notes_read_summary_is_useful_and_private() -> None:
     assert "5YJ3E1EA7JF000001" not in body
 
 
+def test_dashboard_drivers_read_summary_is_useful_and_private() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    body = asset.split("function DashboardReadSummary", 1)[1].split(
+        "function vehicleAvailability", 1
+    )[0]
+
+    assert "function accessContainers(payload)" in asset
+    assert "function accessRows(payload, keys)" in asset
+    assert "function accessCount(payload, keys)" in asset
+    assert "function accessFacetCounts(rows, keys, fallback)" in asset
+    assert 'lastReadKind === "drivers"' in body
+    assert "Access summary" in body
+    assert "Top role/status hints: ${accessHints.join" in body
+    assert (
+        'accessRows(payload, ["drivers", "users", "people", "members", "vehicle_drivers"])'
+        in body
+    )
+    assert 'accessRows(payload, ["invites", "invitations", "pending_invites"])' in body
+    assert '["role", "permission", "access_level", "access_type", "type"]' in body
+    assert '["status", "state", "account_status", "access_status"]' in body
+    assert '["status", "state", "invite_status"]' in body
+    assert "raw permission payloads stay" in body
+    assert "...accessHints.slice(0, 3)" in body
+    assert "payload && payload.access" in asset
+    assert "invite links, private IDs" in body
+    assert "row.email" not in asset
+    assert "row.name" not in asset
+    assert "phone" not in body.split('lastReadKind === "drivers"', 1)[1].split(
+        'lastReadKind === "service"', 1
+    )[0].lower().replace("phone numbers", "")
+    assert "invite_url" not in body
+    assert "5YJ3E1EA7JF000001" not in body
+    assert "12345678901234567" not in body
+
+
 def test_dashboard_warranty_read_summary_is_available_useful_and_private() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     body = asset.split("function DashboardReadSummary", 1)[1].split(
