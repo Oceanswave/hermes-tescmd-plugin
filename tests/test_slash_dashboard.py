@@ -58,6 +58,19 @@ def test_slash_args_parse_double_dash_flags_without_positional_confusion() -> No
     }
 
 
+def test_slash_args_parse_negated_double_dash_booleans() -> None:
+    args = slash.parse_args(
+        "--no-confirm --no-wake --no-cache --region=na",
+    )
+
+    assert args == {
+        "confirm": False,
+        "wake": False,
+        "no_cache": True,
+        "region": "na",
+    }
+
+
 def test_slash_args_preserve_destination_when_double_dash_flags_are_present() -> None:
     args = slash.parse_args(
         "'123 Main St' --confirm --order=replace",

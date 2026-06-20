@@ -10,6 +10,7 @@ from . import runtime
 
 _TRUE_VALUES = {"1", "true", "yes", "y", "on"}
 _FALSE_VALUES = {"0", "false", "no", "n", "off"}
+_NEGATED_BOOLEAN_FLAGS = {"confirm", "wake"}
 
 
 class SlashArgumentError(ValueError):
@@ -63,6 +64,11 @@ def parse_args(raw_args: str, *, positional_name: str = "vin") -> dict[str, Any]
                 key, value = flag.split("=", 1)
             elif ":" in flag:
                 key, value = flag.split(":", 1)
+            elif (
+                flag.startswith("no-")
+                and flag[3:].replace("-", "_") in _NEGATED_BOOLEAN_FLAGS
+            ):
+                key, value = flag[3:], "false"
             else:
                 key, value = flag, "true"
         elif "=" in token:
