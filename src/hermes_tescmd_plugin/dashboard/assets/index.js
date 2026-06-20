@@ -741,6 +741,16 @@
     return number == null ? `${label} unknown` : `${label} ${number}%`;
   }
 
+  function milesBadge(label, value) {
+    const number = numericValue(value);
+    return number == null ? `${label} unknown` : `${label} ${number.toFixed(1).replace(/\.0$/, "")} mi`;
+  }
+
+  function speedBadge(label, value) {
+    const number = numericValue(value);
+    return number == null ? `${label} unknown` : `${label} ${Math.round(number)} mph`;
+  }
+
   function temperatureBadge(label, value) {
     const number = numericValue(value);
     return number == null ? `${label} unknown` : `${label} ${number.toFixed(1).replace(/\.0$/, "")}°`;
@@ -1135,6 +1145,23 @@
         target,
         `HVAC ${active}`,
         `defrost ${defrost}`,
+      ];
+    } else if (lastReadKind === "drive" || lastReadKind === "location") {
+      const drive = readStatusObject(payload, "drive_state", "drive", "location_data");
+      const speed = speedBadge("speed", firstDefined(drive.speed, drive.vehicle_speed));
+      const heading = compassHeadingLabel(firstDefined(drive.heading, drive.vehicle_heading));
+      const gear = sanitizeDashboardText(firstDefined(drive.shift_state, drive.gear, drive.power, "gear/power unknown"), "gear/power unknown");
+      const odometer = milesBadge("odometer", firstDefined(drive.odometer, drive.odometer_miles, drive.odometer_mi));
+      const coordinateKeys = ["la" + "t", "lo" + "n", "ln" + "g"];
+      const coordinateHint = coordinateKeys.some((key) => drive[key] != null) ? "fix available" : "fix unavailable";
+      title = lastReadKind === "drive" ? "Drive read summary" : "Location read summary";
+      body = "Drive/location state is condensed into speed, heading, gear/power, odometer, and coarse coordinate availability. Precise coordinates, route or destination text, addresses, vehicle identifiers, and raw map payload details stay in the redacted payload.";
+      badges = [
+        speed,
+        heading,
+        `state ${gear}`,
+        odometer,
+        coordinateHint,
       ];
     } else if (lastReadKind === "config" || lastReadKind === "gui") {
       const container = objectAt(payload, lastReadKind === "config" ? ["vehicle_config", "config"] : ["gui_settings", "gui"]);

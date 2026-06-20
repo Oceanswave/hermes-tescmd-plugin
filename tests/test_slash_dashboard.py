@@ -1169,6 +1169,49 @@ def test_dashboard_charge_and_climate_read_summaries_are_useful_and_private() ->
     assert "12345678901234567" not in body
 
 
+def test_dashboard_drive_and_location_read_summaries_are_useful_and_private() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    body = asset.split("function DashboardReadSummary", 1)[1].split(
+        "function vehicleAvailability", 1
+    )[0]
+
+    assert "function milesBadge(label, value)" in asset
+    assert "function speedBadge(label, value)" in asset
+    assert 'lastReadKind === "drive" || lastReadKind === "location"' in body
+    assert "Drive read summary" in body
+    assert "Location read summary" in body
+    assert 'readStatusObject(payload, "drive_state", "drive", "location_data")' in body
+    assert 'speedBadge("speed", firstDefined(drive.speed, drive.vehicle_speed))' in body
+    assert (
+        "compassHeadingLabel(firstDefined(drive.heading, drive.vehicle_heading))"
+        in body
+    )
+    assert 'milesBadge("odometer"' in body
+    assert "coordinateHint" in body
+    assert "fix available" in body
+    assert (
+        "Drive/location state is condensed into speed, heading, gear/power, odometer"
+        in body
+    )
+    assert (
+        "Precise coordinates, route or destination text, addresses, vehicle identifiers, and raw map payload details stay in the redacted payload"
+        in body
+    )
+    read_block = body.split(
+        'lastReadKind === "drive" || lastReadKind === "location"', 1
+    )[1].split('lastReadKind === "config"', 1)[0]
+    assert "address" in read_block
+    assert "destination text" in read_block
+    assert "route or destination" in read_block
+    assert "latitude" not in read_block
+    assert "longitude" not in read_block
+    assert "drive.address" not in read_block
+    assert "drive.destination" not in read_block
+    assert "drive.native_location_name" not in read_block
+    assert "5YJ3E1EA7JF000001" not in body
+    assert "12345678901234567" not in body
+
+
 def test_dashboard_software_and_alert_summaries_are_useful_and_private() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     body = asset.split("function DashboardReadSummary", 1)[1].split(
