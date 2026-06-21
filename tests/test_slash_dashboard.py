@@ -906,6 +906,9 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
     assert "function ActionRequirementsPanel" in asset
     assert "Action readiness" in asset
     assert "Quick action readiness checklist" in asset
+    assert "Why some buttons are disabled" in asset
+    assert "tescmd-action-blockers" in asset
+    assert "aria-describedby" in asset
     assert (
         "Disabled-button reasons are shown here without echoing destinations, coordinates, place IDs, VINs, or Fleet IDs."
         in asset
@@ -919,6 +922,8 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
     assert ".tescmd-action-requirements" in style
     assert ".tescmd-action-requirements-warn" in style
     assert ".tescmd-action-requirement-list" in style
+    assert ".tescmd-action-blockers" in style
+    assert "border-left: 3px solid" in style
     assert "Route fields were cleared; physical actions are locked again." in asset
     assert (
         "route fields were cleared and confirmation is locked off after the request"

@@ -368,23 +368,33 @@
   }
 
   function ActionGroup({ title, actions, runAction, loading, confirm, actionDisabledReason }) {
+    const actionStates = actions.map(([action, label]) => {
+      const reason = actionDisabledReason ? actionDisabledReason(action) : "";
+      return { action, label, reason, disabled: loading || !confirm || Boolean(reason) };
+    });
+    const blockedActions = actionStates.filter((item) => item.reason);
     return h("div", { className: "tescmd-group" },
       h("div", { className: "tescmd-action-group-heading" },
         h("h3", null, title),
         h("small", null, actionGroupSafetyNote(title))
       ),
       h("div", { className: "tescmd-actions" },
-        actions.map(([action, label]) => {
-          const reason = actionDisabledReason ? actionDisabledReason(action) : "";
-          const disabled = loading || !confirm || Boolean(reason);
-          return h(Button, {
+        actionStates.map(({ action, label, reason, disabled }) =>
+          h(Button, {
             key: action,
             onClick: () => runAction(action),
             disabled,
             title: reason || (!confirm ? "Turn on confirmation before physical Tesla actions." : undefined),
-          }, label);
-        })
-      )
+            "aria-describedby": reason ? `tescmd-action-blocker-${action}` : undefined,
+          }, label)
+        )
+      ),
+      blockedActions.length
+        ? h("div", { className: "tescmd-action-blockers", role: "note", "aria-label": `${title} disabled action reasons` },
+          h("span", { className: "tescmd-widget-label" }, "Why some buttons are disabled"),
+          blockedActions.map(({ action, label, reason }) => h("small", { key: action, id: `tescmd-action-blocker-${action}` }, `${label}: ${reason}`))
+        )
+        : null
     );
   }
 
