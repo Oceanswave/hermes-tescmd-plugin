@@ -89,6 +89,19 @@
   line-height: 1.3;
 }
 
+.tescmd-action-blockers {
+  display: grid;
+  gap: 0.22rem;
+  border-left: 3px solid color-mix(in srgb, var(--tescmd-amber) 55%, var(--color-border));
+  padding: 0.18rem 0 0.18rem 0.6rem;
+}
+
+.tescmd-action-blockers small {
+  color: var(--color-muted-foreground);
+  font-size: 0.76rem;
+  line-height: 1.28;
+}
+
 .tescmd-field {
   display: grid;
   gap: 0.25rem;
