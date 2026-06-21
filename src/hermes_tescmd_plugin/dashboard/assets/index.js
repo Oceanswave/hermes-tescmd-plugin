@@ -736,6 +736,25 @@
     return {};
   }
 
+  function readObjectWithFields(payload, fieldKeys, ...nestedKeys) {
+    const nested = readStatusObject(payload, ...nestedKeys);
+    if (Object.keys(nested).some((key) => fieldKeys.includes(key))) return nested;
+    for (const candidate of [payload, payload && payload.response, payload && payload.data]) {
+      if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) continue;
+      if (fieldKeys.some((key) => candidate[key] !== undefined && candidate[key] !== null)) return candidate;
+    }
+    return nested;
+  }
+
+  function closureSummaryData(payload) {
+    const closures = readObjectWithFields(payload, Object.keys(closureLabels), "closures_state", "vehicle_state", "closures");
+    const openLabels = Object.entries(closureLabels)
+      .filter(([key]) => closureIsOpen(closures[key]))
+      .map(([, label]) => label);
+    const knownCount = Object.keys(closureLabels).filter((key) => closures[key] !== undefined && closures[key] !== null).length;
+    return { closures, openLabels, knownCount };
+  }
+
   function percentBadge(label, value) {
     const number = numericValue(value);
     return number == null ? `${label} unknown` : `${label} ${number}%`;
@@ -1155,6 +1174,54 @@
       title = "Cache summary";
       body = "Cache diagnostics are summarized as counts and mode hints so operators can verify read freshness without exposing local cache paths or cached vehicle snapshots.";
       badges = [cacheModeLabel(payload)];
+    } else if (lastReadKind === "vehicle-status") {
+      const vehicleState = readObjectWithFields(payload, ["vehicle_name", "car_version", "locked", "is_user_present", "sentry_mode"], "vehicle_state", "vehicle_status", "state");
+      const drive = readStatusObject(payload, "drive_state", "drive", "location_data");
+      const charge = readStatusObject(payload, "charge_state", "charge", "battery");
+      const climate = readStatusObject(payload, "climate_state", "climate", "hvac_state");
+      const vehicleMode = sanitizeDashboardText(firstDefined(vehicleState.car_version, vehicleState.api_version, vehicleState.state, "status returned"), "status returned");
+      const userPresent = yesNoUnknown(firstDefined(vehicleState.is_user_present, vehicleState.user_present));
+      const locked = booleanLabel(firstDefined(vehicleState.locked, vehicleState.vehicle_locked));
+      const sentry = booleanLabel(firstDefined(vehicleState.sentry_mode, vehicleState.sentry_mode_available && vehicleState.sentry_mode));
+      title = "Vehicle status summary";
+      body = "Vehicle status is condensed into coarse firmware/state, occupancy, lock/Sentry, charge, climate, and drive hints. Vehicle names, VINs, Fleet IDs, exact coordinates, addresses, route text, and raw diagnostic fields stay in the redacted payload.";
+      badges = [
+        `state ${vehicleMode}`,
+        `user present ${userPresent}`,
+        `locked ${locked}`,
+        `Sentry ${sentry}`,
+        percentBadge("battery", firstDefined(charge.battery_level, charge.usable_battery_level, charge.soc)),
+        temperatureBadge("cabin", firstDefined(climate.inside_temp, climate.cabin_temp)),
+        speedBadge("speed", firstDefined(drive.speed, drive.vehicle_speed)),
+      ];
+    } else if (lastReadKind === "closures") {
+      const summary = closureSummaryData(payload);
+      const locked = booleanLabel(firstDefined(summary.closures.locked, summary.closures.vehicle_locked));
+      title = "Closures summary";
+      body = summary.openLabels.length
+        ? `Closures reported ${summary.openLabels.length} open item${summary.openLabels.length === 1 ? "" : "s"}: ${summary.openLabels.slice(0, 4).join(", ")}${summary.openLabels.length > 4 ? " and more" : ""}. Raw closure codes, vehicle identifiers, and location fields stay in the redacted payload.`
+        : "No open closures were reported in the visible closure fields. The dashboard shows count/status hints while raw closure codes, vehicle identifiers, and location fields stay hidden.";
+      badges = [
+        `${summary.openLabels.length} open closure${summary.openLabels.length === 1 ? "" : "s"}`,
+        `${summary.knownCount} closure field${summary.knownCount === 1 ? "" : "s"} checked`,
+        `locked ${locked}`,
+      ];
+    } else if (lastReadKind === "security") {
+      const security = readObjectWithFields(payload, ["locked", "sentry_mode", "valet_mode", "notifications_supported"], "vehicle_state", "security_state");
+      const closureSummary = closureSummaryData(payload);
+      const locked = booleanLabel(firstDefined(security.locked, closureSummary.closures.locked));
+      const sentry = booleanLabel(firstDefined(security.sentry_mode, security.sentry_mode_available && security.sentry_mode));
+      const valet = booleanLabel(firstDefined(security.valet_mode, security.valet_pin_needed));
+      title = "Security summary";
+      body = closureSummary.openLabels.length
+        ? `Security returned lock/Sentry/valet state plus ${closureSummary.openLabels.length} open closure hint${closureSummary.openLabels.length === 1 ? "" : "s"}. Open items: ${closureSummary.openLabels.slice(0, 3).join(", ")}. Raw alarm details, private identifiers, and exact location fields stay in the redacted payload.`
+        : "Security returned lock/Sentry/valet state without open closure hints. Raw alarm details, private identifiers, and exact location fields stay in the redacted payload.";
+      badges = [
+        `locked ${locked}`,
+        `Sentry ${sentry}`,
+        `valet ${valet}`,
+        `${closureSummary.openLabels.length} open closure${closureSummary.openLabels.length === 1 ? "" : "s"}`,
+      ];
     } else if (lastReadKind === "charge") {
       const charge = readStatusObject(payload, "charge_state", "charge", "battery");
       const level = firstDefined(charge.battery_level, charge.usable_battery_level, charge.soc, charge.battery_soc);

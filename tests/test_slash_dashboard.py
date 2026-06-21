@@ -1125,6 +1125,52 @@ def test_dashboard_admin_read_summaries_are_useful_and_private() -> None:
     assert "12345678901234567" not in body
 
 
+def test_dashboard_core_status_read_summaries_are_useful_and_private() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    body = asset.split("function DashboardReadSummary", 1)[1].split(
+        "function vehicleAvailability", 1
+    )[0]
+
+    assert "function readObjectWithFields(payload, fieldKeys, ...nestedKeys)" in asset
+    assert "function closureSummaryData(payload)" in asset
+    assert 'lastReadKind === "vehicle-status"' in body
+    assert 'lastReadKind === "closures"' in body
+    assert 'lastReadKind === "security"' in body
+    assert "Vehicle status summary" in body
+    assert "Closures summary" in body
+    assert "Security summary" in body
+    assert (
+        "coarse firmware/state, occupancy, lock/Sentry, charge, climate, and drive hints"
+        in body
+    )
+    assert (
+        "Vehicle names, VINs, Fleet IDs, exact coordinates, addresses, route text"
+        in body
+    )
+    assert 'percentBadge("battery", firstDefined(charge.battery_level' in body
+    assert 'temperatureBadge("cabin", firstDefined(climate.inside_temp' in body
+    assert 'speedBadge("speed", firstDefined(drive.speed' in body
+    assert "Object.entries(closureLabels)" in asset
+    assert "summary.openLabels.slice(0, 4).join" in body
+    assert "Raw closure codes, vehicle identifiers, and location fields" in body
+    assert (
+        'readObjectWithFields(payload, ["locked", "sentry_mode", "valet_mode"' in body
+    )
+    assert "Security returned lock/Sentry/valet state" in body
+    assert "Raw alarm details, private identifiers, and exact location fields" in body
+    core_block = body.split('lastReadKind === "vehicle-status"', 1)[1].split(
+        'lastReadKind === "charge"', 1
+    )[0]
+    assert "vehicle_name" in core_block
+    assert "address" in core_block
+    assert "route text" in core_block
+    assert "latitude" not in core_block
+    assert "longitude" not in core_block
+    assert "destination=" not in core_block
+    assert "5YJ3E1EA7JF000001" not in body
+    assert "12345678901234567" not in body
+
+
 def test_dashboard_charge_and_climate_read_summaries_are_useful_and_private() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     body = asset.split("function DashboardReadSummary", 1)[1].split(
