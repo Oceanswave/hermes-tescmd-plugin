@@ -1092,7 +1092,8 @@ def test_dashboard_admin_read_summaries_are_useful_and_private() -> None:
     assert 'lastReadKind === "onboarding"' in body
     assert 'lastReadKind === "key-show" || lastReadKind === "key-validate"' in body
     assert 'lastReadKind === "cache-status"' in body
-    assert 'lastReadKind === "config" || lastReadKind === "gui"' in body
+    assert 'lastReadKind === "config"' in body
+    assert 'lastReadKind === "gui"' in body
     assert "Auth readiness summary" in body
     assert "Onboarding summary" in body
     assert "Vehicle-command key summary" in body
@@ -1100,6 +1101,22 @@ def test_dashboard_admin_read_summaries_are_useful_and_private() -> None:
     assert "Cache summary" in body
     assert "Vehicle config summary" in body
     assert "GUI settings summary" in body
+    assert "function configGuiBadge(label, ...values)" in asset
+    assert "function configGuiBooleanBadge(label, ...values)" in asset
+    assert "coarse model, capability, and unit hints" in body
+    assert (
+        'configGuiBadge("model", config.car_type, config.model, config.trim_badging)'
+        in body
+    )
+    assert (
+        'configGuiBooleanBadge("navigation", config.can_accept_navigation_requests'
+        in body
+    )
+    assert "coarse unit and display preferences" in body
+    assert (
+        'configGuiBadge("distance", gui.gui_distance_units, gui.distance_units)' in body
+    )
+    assert 'configGuiBadge("temperature", gui.gui_temperature_units' in body
     assert (
         "tokens, callback URLs, client IDs, vehicle identifiers, and key paths stay"
         in body
@@ -1114,7 +1131,7 @@ def test_dashboard_admin_read_summaries_are_useful_and_private() -> None:
     )
     assert "local cache paths or cached vehicle snapshots" in body
     assert (
-        "without echoing raw option values, identifiers, location hints, or account details"
+        "without echoing raw option values, identifiers, precise location hints, or account details"
         in body
     )
     assert "access_token" not in body

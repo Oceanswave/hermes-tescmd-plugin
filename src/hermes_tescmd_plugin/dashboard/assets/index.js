@@ -1129,6 +1129,16 @@
     return number == null ? `${label} unknown` : `${label} ${number.toFixed(1).replace(/\.0$/, "")} kW`;
   }
 
+  function configGuiBadge(label, ...values) {
+    const value = firstDefined(...values);
+    if (value === undefined) return `${label} unknown`;
+    return `${label} ${sanitizeDashboardText(String(value).replace(/_/g, " "), "unknown")}`;
+  }
+
+  function configGuiBooleanBadge(label, ...values) {
+    return `${label} ${yesNoUnknown(firstDefined(...values))}`;
+  }
+
   function DashboardReadSummary({ detail, lastReadKind }) {
     if (!detail || !lastReadKind) return null;
     const payload = nestedPayload(detail);
@@ -1272,12 +1282,30 @@
         odometer,
         coordinateHint,
       ];
-    } else if (lastReadKind === "config" || lastReadKind === "gui") {
-      const container = objectAt(payload, lastReadKind === "config" ? ["vehicle_config", "config"] : ["gui_settings", "gui"]);
-      const count = Object.keys(container).length;
-      title = lastReadKind === "config" ? "Vehicle config summary" : "GUI settings summary";
-      body = "Vehicle configuration reads are treated as operator context; the dashboard reports payload shape without echoing raw option values, identifiers, location hints, or account details.";
-      badges = [`${count} visible field${count === 1 ? "" : "s"}`, "raw values in payload panel"];
+    } else if (lastReadKind === "config") {
+      const config = objectAt(payload, ["vehicle_config", "config"]);
+      const count = Object.keys(config).length;
+      title = "Vehicle config summary";
+      body = "Vehicle configuration reads are summarized as coarse model, capability, and unit hints so operators can identify the vehicle context without echoing raw option values, identifiers, precise location hints, or account details.";
+      badges = [
+        `${count} visible field${count === 1 ? "" : "s"}`,
+        configGuiBadge("model", config.car_type, config.model, config.trim_badging),
+        configGuiBadge("trim", config.trim_badging, config.badging),
+        configGuiBooleanBadge("navigation", config.can_accept_navigation_requests, config.navigation_request_supported),
+        configGuiBooleanBadge("calendar", config.calendar_supported),
+      ];
+    } else if (lastReadKind === "gui") {
+      const gui = objectAt(payload, ["gui_settings", "gui"]);
+      const count = Object.keys(gui).length;
+      title = "GUI settings summary";
+      body = "GUI settings are summarized as coarse unit and display preferences so operators can interpret temperatures, distances, and charging units without exposing vehicle identifiers, location hints, or account details.";
+      badges = [
+        `${count} visible field${count === 1 ? "" : "s"}`,
+        configGuiBadge("distance", gui.gui_distance_units, gui.distance_units),
+        configGuiBadge("temperature", gui.gui_temperature_units, gui.temperature_units),
+        configGuiBadge("charge rate", gui.gui_charge_rate_units, gui.charge_rate_units),
+        configGuiBadge("time", gui.gui_24_hour_time, gui.time_format),
+      ];
     } else if (lastReadKind === "software") {
       const version = softwareMeta(payload, "version", "car_version", "current_version", "firmware_version");
       const status = softwareMeta(payload, "status", "state", "download_status", "install_status");
