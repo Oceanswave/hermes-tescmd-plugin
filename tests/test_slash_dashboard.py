@@ -1438,6 +1438,48 @@ def test_dashboard_warranty_read_summary_is_available_useful_and_private() -> No
     assert "5YJ3E1EA7JF000001" not in body
 
 
+def test_dashboard_energy_read_summary_is_useful_and_private() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    body = asset.split("function DashboardReadSummary", 1)[1].split(
+        "function vehicleAvailability", 1
+    )[0]
+
+    assert "/tescmd-energy" in Path("README.md").read_text()
+    assert "function energyContainers(payload)" in asset
+    assert "function energyProducts(payload)" in asset
+    assert "function energyMeta(payload, ...keys)" in asset
+    assert "function energyPowerBadge(label, value)" in asset
+    assert 'lastReadKind === "energy"' in body
+    assert "Energy summary" in body
+    assert "Energy returned ${products.length} product/site record" in body
+    assert "Live power and backup hints are summarized" in body
+    assert (
+        '["products", "energy_products", "sites", "energy_sites", "resources"]' in asset
+    )
+    assert (
+        'energyMeta(payload, "status", "state", "operation_mode", "site_status", "grid_status")'
+        in body
+    )
+    assert (
+        'energyMeta(payload, "backup_reserve_percent", "backup_reserve", "reserve_percent", "battery_backup_reserve")'
+        in body
+    )
+    assert 'energyPowerBadge("solar", solarPower)' in body
+    assert 'energyPowerBadge("grid", gridPower)' in body
+    assert "Site IDs, addresses, coordinates, vehicle identifiers" in body
+    assert "account/customer details" in body
+    assert "raw telemetry rows" in body
+    assert "payload && payload.energy" in asset
+    assert "payload && payload.energy_site" in asset
+    assert "site_id" not in body
+    assert "address" in body
+    assert "latitude" not in body
+    assert "longitude" not in body
+    assert "customer_name" not in body
+    assert "account_id" not in body
+    assert "5YJ3E1EA7JF000001" not in body
+
+
 def test_vehicle_list_redacts_identifiers() -> None:
     output = slash._format_vehicles(
         {

@@ -1068,6 +1068,48 @@
     return details.length ? `${name} (${details.join(", ")})` : name;
   }
 
+  function energyContainers(payload) {
+    const energy = payload && payload.energy;
+    const energySite = payload && payload.energy_site;
+    return [
+      payload,
+      energy,
+      energySite,
+      payload && payload.response,
+      payload && payload.data,
+      energy && energy.response,
+      energy && energy.data,
+      energySite && energySite.response,
+      energySite && energySite.data,
+    ].filter((item) => item && typeof item === "object" && !Array.isArray(item));
+  }
+
+  function energyProducts(payload) {
+    const keys = ["products", "energy_products", "sites", "energy_sites", "resources"];
+    for (const container of energyContainers(payload)) {
+      for (const key of keys) {
+        if (Array.isArray(container[key])) return container[key];
+      }
+    }
+    return [];
+  }
+
+  function energyMeta(payload, ...keys) {
+    for (const container of energyContainers(payload)) {
+      for (const key of keys) {
+        if (container[key] != null && String(container[key]).trim() !== "") {
+          return sanitizeDashboardText(container[key], "unknown");
+        }
+      }
+    }
+    return "unknown";
+  }
+
+  function energyPowerBadge(label, value) {
+    const number = numericValue(value);
+    return number == null ? `${label} unknown` : `${label} ${number.toFixed(1).replace(/\.0$/, "")} kW`;
+  }
+
   function DashboardReadSummary({ detail, lastReadKind }) {
     if (!detail || !lastReadKind) return null;
     const payload = nestedPayload(detail);
@@ -1285,6 +1327,23 @@
         `${terms.length} warranty term${terms.length === 1 ? "" : "s"}`,
         status,
         `as of ${asOf}`,
+      ];
+    } else if (lastReadKind === "energy") {
+      const products = energyProducts(payload);
+      const status = energyMeta(payload, "status", "state", "operation_mode", "site_status", "grid_status");
+      const backup = energyMeta(payload, "backup_reserve_percent", "backup_reserve", "reserve_percent", "battery_backup_reserve");
+      const solarPower = firstDefined(payload.solar_power, payload.solar_power_kw, payload.solar_power_w, payload.response && payload.response.solar_power, payload.data && payload.data.solar_power);
+      const gridPower = firstDefined(payload.grid_power, payload.grid_power_kw, payload.grid_power_w, payload.response && payload.response.grid_power, payload.data && payload.data.grid_power);
+      title = "Energy summary";
+      body = products.length
+        ? `Energy returned ${products.length} product/site record${products.length === 1 ? "" : "s"}. Status ${status}. Site IDs, addresses, coordinates, vehicle identifiers, account/customer details, and raw telemetry rows stay in the redacted payload.`
+        : `Energy status ${status}. Live power and backup hints are summarized without exposing site IDs, addresses, coordinates, vehicle identifiers, account/customer details, or raw telemetry rows.`;
+      badges = [
+        `${products.length} energy product${products.length === 1 ? "" : "s"}`,
+        `status ${status}`,
+        `backup ${backup}`,
+        energyPowerBadge("solar", solarPower),
+        energyPowerBadge("grid", gridPower),
       ];
     } else {
       return null;
