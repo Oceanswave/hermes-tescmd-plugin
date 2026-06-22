@@ -3869,6 +3869,9 @@ def test_dashboard_last_read_summary_surfaces_access_service_mobile_reads_privat
 
     assert "function serviceAppointments(payload)" in asset
     assert "function serviceAppointmentLabel(appointment, fallback)" in asset
+    assert "function mobileAccessContainers(payload)" in asset
+    assert "function mobileAccessValue(payload, ...keys)" in asset
+    assert "function mobileAccessBadge(label, payload, ...keys)" in asset
     assert 'lastReadKind === "mobile-access"' in body
     assert 'lastReadKind === "drivers"' in body
     assert 'lastReadKind === "service"' in body
@@ -3880,8 +3883,16 @@ def test_dashboard_last_read_summary_surfaces_access_service_mobile_reads_privat
     assert "Appointment IDs, service-center addresses, raw booking URLs" in body
     assert "customer contact details stay" in body
     assert "Mobile access summary" in body
+    assert "remote access, read, command, status, and source hints" in body
+    assert "account contact fields, tokens, callback values" in body
+    assert "ready_for_vehicle_reads" in body
+    assert "ready_for_vehicle_commands" in body
+    assert "mobileAccessValue(payload" in body
     assert "names, emails, phone numbers, invite links" in body
     assert "mobile access ${access}" in body
+    assert "reads ${yesNoUnknown" in body
+    assert "commands ${yesNoUnknown" in body
+    assert "source = mobileAccessBadge" in body
     assert "arrayCount(payload" in body
     assert "sanitizeDashboardText(badge" in body
     assert (
