@@ -84,7 +84,9 @@ def test_slash_args_parse_valued_negated_double_dash_booleans() -> None:
     }
 
 
-def test_slash_args_parse_false_valued_negated_double_dash_booleans_as_enabled() -> None:
+def test_slash_args_parse_false_valued_negated_double_dash_booleans_as_enabled() -> (
+    None
+):
     args = slash.parse_args("--no-confirm=false --no-wake:false")
 
     assert args == {"confirm": True, "wake": True}
