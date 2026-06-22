@@ -52,6 +52,31 @@ def test_safe_arg_summary_redacts_location_search_and_unknown_strings() -> None:
     assert "place-id" not in serialized
 
 
+def test_safe_error_redacts_sensitive_runtime_details() -> None:
+    error = (
+        "Fleet API rejected VIN 5YJ3E1EA7JF000001 for driver@example.com "
+        "near 37.4219999,-122.0840575 after callback "
+        "https://cars.example.com/callback?code=oauth-code-123&state=state-456 "
+        "with Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+    )
+
+    safe = audit._safe_error(error)  # noqa: SLF001
+
+    assert safe is not None
+    assert "[REDACTED_VIN]" in safe
+    assert "[REDACTED_EMAIL]" in safe
+    assert "[REDACTED_COORDS]" in safe
+    assert "code=[REDACTED]" in safe
+    assert "state=[REDACTED]" in safe
+    assert "Bearer [REDACTED]" in safe
+    assert "5YJ3E1EA7JF000001" not in safe
+    assert "driver@example.com" not in safe
+    assert "37.4219999" not in safe
+    assert "oauth-code-123" not in safe
+    assert "state-456" not in safe
+    assert "eyJhbGci" not in safe
+
+
 def test_append_command_event_does_not_write_unknown_arg_values(
     tmp_path, monkeypatch
 ) -> None:
