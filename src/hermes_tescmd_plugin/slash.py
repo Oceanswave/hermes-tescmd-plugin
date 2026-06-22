@@ -86,8 +86,24 @@ def parse_args(raw_args: str, *, positional_name: str = "vin") -> dict[str, Any]
             flag = token[2:]
             if "=" in flag:
                 key, value = flag.split("=", 1)
+                normalized_key = key.replace("-", "_")
+                if (
+                    normalized_key.startswith("no_")
+                    and normalized_key[3:] in _NEGATED_BOOLEAN_FLAGS
+                ):
+                    negated_value = _coerce_cli_value(value.strip())
+                    key = normalized_key[3:]
+                    value = "false" if negated_value is not False else "true"
             elif ":" in flag:
                 key, value = flag.split(":", 1)
+                normalized_key = key.replace("-", "_")
+                if (
+                    normalized_key.startswith("no_")
+                    and normalized_key[3:] in _NEGATED_BOOLEAN_FLAGS
+                ):
+                    negated_value = _coerce_cli_value(value.strip())
+                    key = normalized_key[3:]
+                    value = "false" if negated_value is not False else "true"
             elif (
                 flag.startswith("no-")
                 and flag[3:].replace("-", "_") in _NEGATED_BOOLEAN_FLAGS

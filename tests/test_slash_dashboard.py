@@ -71,6 +71,25 @@ def test_slash_args_parse_negated_double_dash_booleans() -> None:
     }
 
 
+def test_slash_args_parse_valued_negated_double_dash_booleans() -> None:
+    args = slash.parse_args(
+        "--no-confirm=true --no-wake:true --no-cache=true --region=na",
+    )
+
+    assert args == {
+        "confirm": False,
+        "wake": False,
+        "no_cache": True,
+        "region": "na",
+    }
+
+
+def test_slash_args_parse_false_valued_negated_double_dash_booleans_as_enabled() -> None:
+    args = slash.parse_args("--no-confirm=false --no-wake:false")
+
+    assert args == {"confirm": True, "wake": True}
+
+
 def test_slash_args_parse_separated_double_dash_option_values() -> None:
     args = slash.parse_args(
         "5YJ3E1EA7JF000001 --percent 80 --driver-temp 70 --passenger-temp 71 "
