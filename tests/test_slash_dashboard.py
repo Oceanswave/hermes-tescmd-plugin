@@ -1489,6 +1489,38 @@ def test_dashboard_drivers_read_summary_is_useful_and_private() -> None:
     assert "12345678901234567" not in body
 
 
+def test_dashboard_service_read_summary_handles_nested_status_privately() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    body = asset.split("function DashboardReadSummary", 1)[1].split(
+        "function vehicleAvailability", 1
+    )[0]
+
+    assert "function serviceContainers(payload)" in asset
+    assert "function serviceValue(payload, ...keys)" in asset
+    assert "response && response.service" in asset
+    assert "data && data.service" in asset
+    assert "service && service.response" in asset
+    assert 'lastReadKind === "service"' in body
+    assert "Service summary" in body
+    assert (
+        'serviceValue(payload, "status", "service_status", "state", '
+        '"maintenance_status", "appointment_status")' in body
+    )
+    assert "Top visits: ${topVisits.join" in body
+    assert "Appointment IDs, service-center addresses, raw booking URLs" in body
+    assert "vehicle identifiers, and customer contact details" in body
+    assert "appointment.appointment_id" not in asset
+    assert "appointment.service_center_url" not in asset
+    assert "appointment.url" not in asset
+    assert "appointment.address" not in asset
+    assert "service_center_name" not in asset
+    assert "customer" not in body.split('lastReadKind === "service"', 1)[1].split(
+        'lastReadKind === "mobile-access"', 1
+    )[0].lower().replace("customer contact details", "")
+    assert "5YJ3E1EA7JF000001" not in body
+    assert "12345678901234567" not in body
+
+
 def test_dashboard_warranty_read_summary_is_available_useful_and_private() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     body = asset.split("function DashboardReadSummary", 1)[1].split(
