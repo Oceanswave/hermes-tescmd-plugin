@@ -904,10 +904,34 @@
     return `${label} ${sanitizeDashboardText(String(value).replace(/_/g, " "), "unknown")}`;
   }
 
+  function serviceContainers(payload) {
+    const service = payload && payload.service;
+    const response = payload && payload.response;
+    const data = payload && payload.data;
+    return [
+      payload,
+      service,
+      response,
+      data,
+      response && response.service,
+      data && data.service,
+      service && service.response,
+      service && service.data,
+    ].filter((item) => item && typeof item === "object" && !Array.isArray(item));
+  }
+
+  function serviceValue(payload, ...keys) {
+    for (const container of serviceContainers(payload)) {
+      for (const key of keys) {
+        if (container[key] != null && String(container[key]).trim() !== "") return container[key];
+      }
+    }
+    return undefined;
+  }
+
   function serviceAppointments(payload) {
-    const containers = [payload, payload && payload.response, payload && payload.data, payload && payload.service];
+    const containers = serviceContainers(payload);
     for (const container of containers) {
-      if (!container || typeof container !== "object") continue;
       for (const key of ["appointments", "service_visits", "visits", "service_appointments", "upcoming_appointments"]) {
         if (Array.isArray(container[key])) return container[key];
       }
@@ -1386,7 +1410,7 @@
     } else if (lastReadKind === "service") {
       const appointments = serviceAppointments(payload);
       const visitCount = appointments.length || arrayCount(payload, ["appointments", "service_visits", "visits", "service_appointments", "upcoming_appointments"]);
-      const status = sanitizeDashboardText(firstDefined(payload.status, payload.service_status, payload.state, "status unknown"), "status unknown");
+      const status = sanitizeDashboardText(firstDefined(serviceValue(payload, "status", "service_status", "state", "maintenance_status", "appointment_status"), "status unknown"), "status unknown");
       const topVisits = appointments.slice(0, 3).map((appointment, index) => serviceAppointmentLabel(appointment, `visit ${index + 1}`));
       title = "Service summary";
       body = topVisits.length
