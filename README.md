@@ -224,7 +224,7 @@ Guardrails:
 - known signed-command-required operations fail before network when no vehicle-command key is configured
 - raw Fleet API paths must be relative `/api/...` paths; absolute URLs, traversal, and NUL bytes are rejected
 - sensitive error payloads are redacted before returning to Hermes
-- side-effecting vehicle commands and wake attempts append redacted audit entries to `audit/commands.jsonl` and are also emitted through Hermes' standard logger into `agent.log` when Hermes logging is configured
+- side-effecting vehicle commands and wake attempts append redacted audit entries to `audit/commands.jsonl` and are also emitted through Hermes' standard logger into `agent.log` when Hermes logging is configured; audit error text additionally scrubs VIN-like identifiers, email addresses, OAuth callback query values, bearer tokens, and coordinate pairs
 - auth export writes a `0600` file and does not return bearer/refresh tokens in tool output
 
 Use the same care you would use with the Tesla app.

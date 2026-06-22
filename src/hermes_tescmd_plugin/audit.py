@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,14 @@ logger = logging.getLogger(__name__)
 
 AUDIT_LOG_NAME = "commands.jsonl"
 _MAX_DETAIL_LENGTH = 320
+_VIN_RE = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b", re.IGNORECASE)
+_EMAIL_RE = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
+_COORD_PAIR_RE = re.compile(r"(?<!\w)-?\d{1,3}\.\d{3,}\s*,\s*-?\d{1,3}\.\d{3,}(?!\w)")
+_BEARER_RE = re.compile(r"\b(Bearer\s+)[A-Za-z0-9._~+/=-]{8,}", re.IGNORECASE)
+_QUERY_SECRET_RE = re.compile(
+    r"([?&](?:code|state|access_token|refresh_token|token|id_token)=)[^&#\s]+",
+    re.IGNORECASE,
+)
 _SENSITIVE_ARG_KEYS = {
     "access_token",
     "address",
@@ -148,9 +157,17 @@ def _safe_error(error: Any) -> str | None:
     if error is None:
         return None
     text = str(error)
-    for word in ("token", "secret", "password", "pin", "authorization", "bearer"):
-        if word in text.lower():
+    lowered = text.lower()
+    for word in ("secret", "password", "pin", "authorization"):
+        if word in lowered:
             return "[REDACTED]"
+    text = _BEARER_RE.sub(r"\1[REDACTED]", text)
+    text = _QUERY_SECRET_RE.sub(r"\1[REDACTED]", text)
+    text = _VIN_RE.sub("[REDACTED_VIN]", text)
+    text = _EMAIL_RE.sub("[REDACTED_EMAIL]", text)
+    text = _COORD_PAIR_RE.sub("[REDACTED_COORDS]", text)
+    if "token" in lowered and text == str(error):
+        return "[REDACTED]"
     if len(text) > _MAX_DETAIL_LENGTH:
         return text[:_MAX_DETAIL_LENGTH] + "…"
     return text
