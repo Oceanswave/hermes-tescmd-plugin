@@ -877,6 +877,33 @@
       .map(([label, count]) => `${label} ${count}`);
   }
 
+  function mobileAccessContainers(payload) {
+    const access = payload && payload.mobile_access;
+    return [
+      payload,
+      access,
+      payload && payload.response,
+      payload && payload.data,
+      access && access.response,
+      access && access.data,
+    ].filter((item) => item && typeof item === "object" && !Array.isArray(item));
+  }
+
+  function mobileAccessValue(payload, ...keys) {
+    for (const container of mobileAccessContainers(payload)) {
+      for (const key of keys) {
+        if (container[key] != null && String(container[key]).trim() !== "") return container[key];
+      }
+    }
+    return undefined;
+  }
+
+  function mobileAccessBadge(label, payload, ...keys) {
+    const value = mobileAccessValue(payload, ...keys);
+    if (value === undefined) return `${label} unknown`;
+    return `${label} ${sanitizeDashboardText(String(value).replace(/_/g, " "), "unknown")}`;
+  }
+
   function serviceAppointments(payload) {
     const containers = [payload, payload && payload.response, payload && payload.data, payload && payload.service];
     for (const container of containers) {
@@ -1367,10 +1394,14 @@
         : "Service data returned without visit rows. The dashboard shows status/count hints while appointment IDs, service-center addresses, booking URLs, vehicle identifiers, and customer contact details stay hidden.";
       badges = [status, `${visitCount == null ? "unknown" : visitCount} visit${visitCount === 1 ? "" : "s"}`];
     } else if (lastReadKind === "mobile-access") {
-      const access = booleanLabel(firstDefined(payload.enabled, payload.mobile_access_enabled, payload.allow_mobile_access));
+      const access = booleanLabel(mobileAccessValue(payload, "enabled", "mobile_access_enabled", "allow_mobile_access", "remote_access_enabled"));
+      const status = mobileAccessBadge("status", payload, "status", "state", "access_status", "remote_access_status");
+      const reads = `reads ${yesNoUnknown(mobileAccessValue(payload, "ready_for_vehicle_reads", "read_access", "reads_enabled"))}`;
+      const commands = `commands ${yesNoUnknown(mobileAccessValue(payload, "ready_for_vehicle_commands", "command_access", "commands_enabled"))}`;
+      const source = mobileAccessBadge("source", payload, "source", "config_source", "grant_source", "scope_source");
       title = "Mobile access summary";
-      body = "Mobile access is shown as an enabled/disabled/unknown state so operators can quickly see whether app access appears available.";
-      badges = [`mobile access ${access}`];
+      body = "Mobile access is summarized as remote access, read, command, status, and source hints so operators can triage app access without exposing account contact fields, tokens, callback values, vehicle identifiers, or raw access rows.";
+      badges = [`mobile access ${access}`, status, reads, commands, source];
     } else if (lastReadKind === "nearby-chargers") {
       const superchargers = chargerSites(payload, "superchargers", "nearby_superchargers");
       const destinationChargers = chargerSites(payload, "destination_charging", "destination_chargers");
