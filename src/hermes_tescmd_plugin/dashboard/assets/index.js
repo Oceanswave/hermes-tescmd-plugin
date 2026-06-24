@@ -21,7 +21,7 @@
   const READ_GROUPS = [
     ["Core", [["vehicle-status", "Vehicle"], ["drive", "Drive"], ["closures", "Closures"], ["charge", "Charge"], ["climate", "Climate"], ["location", "Location"]]],
     ["Diagnostics", [["security", "Security"], ["software", "Software"], ["config", "Config"], ["gui", "GUI"], ["alerts", "Alerts"], ["release-notes", "Release notes"]]],
-    ["Services", [["nearby-chargers", "Nearby chargers"], ["mobile-access", "Mobile access"], ["drivers", "Drivers"], ["service", "Service"], ["warranty", "Warranty"], ["charge-schedule", "Charge schedules"], ["preconditioning-schedule", "Preconditioning"]]],
+    ["Services", [["nearby-chargers", "Nearby chargers"], ["energy", "Energy"], ["mobile-access", "Mobile access"], ["drivers", "Drivers"], ["service", "Service"], ["warranty", "Warranty"], ["charge-schedule", "Charge schedules"], ["preconditioning-schedule", "Preconditioning"]]],
     ["Admin", [["auth-status", "Auth"], ["onboarding", "Onboarding"], ["key-show", "Key"], ["key-validate", "Validate key"], ["cache-status", "Cache"]]],
   ];
 
