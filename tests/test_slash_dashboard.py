@@ -1564,8 +1564,11 @@ def test_dashboard_energy_read_summary_is_useful_and_private() -> None:
     body = asset.split("function DashboardReadSummary", 1)[1].split(
         "function vehicleAvailability", 1
     )[0]
+    plugin_api = Path("src/hermes_tescmd_plugin/dashboard/plugin_api.py").read_text()
 
     assert "/tescmd-energy" in Path("README.md").read_text()
+    assert '["energy", "Energy"]' in asset
+    assert '"energy": "tescmd_energy_list"' in plugin_api
     assert "function energyContainers(payload)" in asset
     assert "function energyProducts(payload)" in asset
     assert "function energyMeta(payload, ...keys)" in asset
@@ -3189,6 +3192,7 @@ def test_dashboard_catalog_includes_expanded_reads_and_actions() -> None:
     assert catalog["reads"]["onboarding"] == "tescmd_onboarding_status"
     assert catalog["reads"]["software"] == "tescmd_software_status"
     assert catalog["reads"]["nearby-chargers"] == "tescmd_vehicle_nearby_chargers"
+    assert catalog["reads"]["energy"] == "tescmd_energy_list"
     assert catalog["reads"]["warranty"] == "tescmd_vehicle_warranty"
     assert catalog["quick_actions"]["unlock"] == "tescmd_unlock"
     assert catalog["quick_actions"]["honk"] == "tescmd_honk"
@@ -4025,6 +4029,34 @@ def test_dashboard_read_supports_warranty_without_wake_confirm_flags(
             },
         )
     ]
+
+
+def test_dashboard_read_supports_energy_list_without_vehicle_side_effect_flags(
+    monkeypatch,
+) -> None:
+    calls: list[tuple[str, dict]] = []
+
+    def fake_run(tool_name, args=None):
+        calls.append((tool_name, args or {}))
+        return {"ok": True, "products": [{"status": "online"}]}
+
+    monkeypatch.setattr("hermes_tescmd_plugin.dashboard.plugin_api._run", fake_run)
+
+    payload = read(
+        "energy",
+        profile="daily",
+        region="eu",
+        wake=True,
+        confirm=True,
+        no_cache=True,
+    )
+
+    assert payload == {
+        "ok": True,
+        "products": [{"status": "online"}],
+        "display_payload": {"ok": True, "products": [{"status": "online"}]},
+    }
+    assert calls == [("tescmd_energy_list", {"profile": "daily", "region": "eu"})]
 
 
 def test_dashboard_quick_action_passes_extra_action_arguments(monkeypatch) -> None:

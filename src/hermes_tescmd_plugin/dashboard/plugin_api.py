@@ -81,6 +81,7 @@ _READ_TOOLS = {
     "security": "tescmd_security_status",
     "software": "tescmd_software_status",
     "nearby-chargers": "tescmd_vehicle_nearby_chargers",
+    "energy": "tescmd_energy_list",
     "alerts": "tescmd_vehicle_alerts",
     "drivers": "tescmd_vehicle_drivers",
     "release-notes": "tescmd_vehicle_release_notes",
