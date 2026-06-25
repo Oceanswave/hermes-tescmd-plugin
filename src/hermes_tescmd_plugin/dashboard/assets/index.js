@@ -101,17 +101,35 @@
     return bootstrapOperational(readiness);
   }
 
+  function boundedPreview(items, limit) {
+    const safeLimit = Math.max(0, Number(limit) || 0);
+    const list = Array.isArray(items) ? items : [];
+    return {
+      visible: list.slice(0, safeLimit),
+      hiddenCount: Math.max(0, list.length - safeLimit),
+    };
+  }
+
+  function hiddenCountText(count, singular, plural) {
+    if (!count) return "";
+    return `+${count} more ${count === 1 ? singular : plural} hidden for brevity`;
+  }
+
   function OnboardingCard({ onboarding }) {
     if (!onboarding) return null;
     const missing = Array.isArray(onboarding.missing_prerequisites)
       ? onboarding.missing_prerequisites.map((item) => sanitizeDashboardText(item, "setup item"))
       : [];
     const steps = Array.isArray(onboarding.next_steps)
-      ? onboarding.next_steps.slice(0, 2).map((step) => sanitizeDashboardText(step, "setup step"))
+      ? onboarding.next_steps.map((step) => sanitizeDashboardText(step, "setup step"))
       : [];
     if (onboardingOperational(onboarding)) return null;
     const next = sanitizeDashboardText(onboarding.next_tool || onboarding.next_action || "Ready", "Ready");
     const docsAnchor = sanitizeDashboardText(onboarding.docs_anchor || "docs/ONBOARDING.md", "docs/ONBOARDING.md");
+    const missingPreview = boundedPreview(missing, 4);
+    const stepsPreview = boundedPreview(steps, 2);
+    const hiddenMissing = hiddenCountText(missingPreview.hiddenCount, "setup item", "setup items");
+    const hiddenSteps = hiddenCountText(stepsPreview.hiddenCount, "next step", "next steps");
     return h("div", { className: "tescmd-onboarding-card" },
       h("div", null,
         h("span", { className: "tescmd-widget-label" }, "Next setup step"),
@@ -119,10 +137,14 @@
         h("small", null, docsAnchor)
       ),
       missing.length
-        ? h("div", { className: "tescmd-missing-list" }, missing.slice(0, 4).map((item, index) => h(Badge, { key: `${item}-${index}`, className: "tescmd-warn" }, item)))
+        ? h("div", { className: "tescmd-missing-list" },
+          missingPreview.visible.map((item, index) => h(Badge, { key: `${item}-${index}`, className: "tescmd-warn" }, item)),
+          hiddenMissing ? h(Badge, { className: "tescmd-warn" }, hiddenMissing) : null
+        )
         : h(Badge, { className: "tescmd-ok" }, "no missing prerequisites"),
-      steps.length ? h("ol", null, steps.map((step, index) => h("li", { key: index }, step))) : null,
-      h("small", { className: "tescmd-muted" }, "Setup guidance is sanitized before display; OAuth values, vehicle identifiers, and precise route/location details stay hidden.")
+      stepsPreview.visible.length ? h("ol", null, stepsPreview.visible.map((step, index) => h("li", { key: index }, step))) : null,
+      hiddenSteps ? h("small", { className: "tescmd-muted" }, hiddenSteps) : null,
+      h("small", { className: "tescmd-muted" }, "Setup guidance is sanitized before display; OAuth values, vehicle identifiers, and precise route/location details stay hidden. Hidden counts describe omitted sanitized guidance without revealing raw values.")
     );
   }
 

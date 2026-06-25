@@ -927,11 +927,30 @@ def test_dashboard_onboarding_card_sanitizes_setup_guidance() -> None:
     ]
 
     assert "missing_prerequisites.map((item) => sanitizeDashboardText" in body
-    assert "next_steps.slice(0, 2).map((step) => sanitizeDashboardText" in body
+    assert "next_steps.map((step) => sanitizeDashboardText" in body
+    assert "function boundedPreview(items, limit)" in asset
+    assert "function hiddenCountText(count, singular, plural)" in asset
+    assert "const missingPreview = boundedPreview(missing, 4)" in body
+    assert "const stepsPreview = boundedPreview(steps, 2)" in body
+    assert (
+        'hiddenCountText(missingPreview.hiddenCount, "setup item", "setup items")'
+        in body
+    )
+    assert (
+        'hiddenCountText(stepsPreview.hiddenCount, "next step", "next steps")' in body
+    )
+    assert "hiddenMissing ? h(Badge" in body
+    assert (
+        'hiddenSteps ? h("small", { className: "tescmd-muted" }, hiddenSteps)' in body
+    )
     assert "const next = sanitizeDashboardText" in body
     assert "const docsAnchor = sanitizeDashboardText" in body
     assert (
         "OAuth values, vehicle identifiers, and precise route/location details stay hidden"
+        in body
+    )
+    assert (
+        "Hidden counts describe omitted sanitized guidance without revealing raw values"
         in body
     )
     assert 'h("small", null, docsAnchor)' in body
