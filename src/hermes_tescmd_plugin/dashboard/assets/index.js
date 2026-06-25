@@ -167,6 +167,13 @@
     });
   }
 
+  function scopeNeedsText(missing) {
+    const preview = boundedPreview(missing, 3);
+    if (!preview.visible.length) return "scope";
+    const hidden = preview.hiddenCount ? `, +${preview.hiddenCount} more` : "";
+    return `${preview.visible.join(", ")}${hidden}`;
+  }
+
   function ScopeReadinessPanel({ status }) {
     const scopeReadiness = scopeReadinessFromStatus(status);
     if (!scopeReadiness) return null;
@@ -176,6 +183,10 @@
       : [];
     const capabilities = scopeCapabilityRows(scopeReadiness);
     const blocked = missingGranted.length > 0 || capabilities.some((item) => !item.ready);
+    const missingGrantedPreview = boundedPreview(missingGranted, 4);
+    const capabilitiesPreview = boundedPreview(capabilities, 4);
+    const hiddenMissingGranted = hiddenCountText(missingGrantedPreview.hiddenCount, "missing granted scope", "missing granted scopes");
+    const hiddenCapabilities = hiddenCountText(capabilitiesPreview.hiddenCount, "capability", "capabilities");
     return h("div", { className: blocked ? "tescmd-scope-readiness tescmd-scope-readiness-warn" : "tescmd-scope-readiness", role: "status", "aria-live": "polite" },
       h("div", null,
         h("span", { className: "tescmd-widget-label" }, "OAuth scope readiness"),
@@ -184,13 +195,21 @@
       ),
       h("div", { className: "tescmd-scope-grid" },
         missingGranted.length
-          ? h("div", { className: "tescmd-scope-missing" }, h("span", null, "Missing granted"), missingGranted.slice(0, 4).map((scope) => h(Badge, { key: scope, className: "tescmd-warn" }, scope)))
+          ? h("div", { className: "tescmd-scope-missing" },
+            h("span", null, "Missing granted"),
+            missingGrantedPreview.visible.map((scope) => h(Badge, { key: scope, className: "tescmd-warn" }, scope)),
+            hiddenMissingGranted ? h(Badge, { className: "tescmd-warn" }, hiddenMissingGranted) : null
+          )
           : h(Badge, { className: "tescmd-ok" }, "no missing granted scopes"),
-        capabilities.slice(0, 4).map((item) => h("div", { key: item.name, className: "tescmd-scope-capability" },
+        capabilitiesPreview.visible.map((item) => h("div", { key: item.name, className: "tescmd-scope-capability" },
           h("span", null, item.name),
-          h(Badge, { className: item.ready ? "tescmd-ok" : "tescmd-warn" }, item.ready ? "ready" : `needs ${item.missing.join(", ") || "scope"}`)
-        ))
-      )
+          h(Badge, { className: item.ready ? "tescmd-ok" : "tescmd-warn" }, item.ready ? "ready" : `needs ${scopeNeedsText(item.missing)}`)
+        )),
+        hiddenCapabilities ? h("small", { className: "tescmd-muted" }, hiddenCapabilities) : null
+      ),
+      hiddenMissingGranted || hiddenCapabilities
+        ? h("small", { className: "tescmd-muted" }, "Hidden scope-readiness counts describe omitted sanitized scopes/capabilities without exposing raw tokens, callbacks, or vehicle identifiers.")
+        : null
     );
   }
 
