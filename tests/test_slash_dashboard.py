@@ -1402,8 +1402,12 @@ def test_dashboard_software_and_alert_summaries_are_useful_and_private() -> None
     assert "version ${version}" in body
     assert "status ${status}" in body
     assert "timing ${estimate}" in body
+    assert "progress ${progress}" in body
+    assert "scheduled ${scheduled}" in body
+    assert 'softwareMeta(payload, "install_perc", "download_perc"' in body
+    assert 'softwareMeta(payload, "scheduled_time", "install_window_start"' in body
     assert (
-        "without exposing vehicle identifiers, release-note URLs, account fields, or raw diagnostic payloads"
+        "without exposing vehicle identifiers, release-note URLs, account fields, location context, or raw diagnostic payloads"
         in body
     )
     assert "Alerts summary" in body
