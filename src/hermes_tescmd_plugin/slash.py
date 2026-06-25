@@ -315,13 +315,44 @@ def _format_onboarding(payload: dict[str, Any]) -> str:
 
     missing = payload.get("missing_prerequisites")
     if isinstance(missing, list) and missing:
+        shown_missing = missing[:6]
+        hidden_missing = len(missing) - len(shown_missing)
         lines.append("Missing prerequisites:")
-        lines.extend(f"- {_redact_slash_text(item)}" for item in missing[:6])
+        lines.extend(f"- {_redact_slash_text(item)}" for item in shown_missing)
+        if hidden_missing > 0:
+            lines.append(f"- …and {hidden_missing} more missing prerequisite(s)")
 
     next_steps = payload.get("next_steps")
     if isinstance(next_steps, list) and next_steps:
+        shown_steps = next_steps[:4]
+        hidden_steps = len(next_steps) - len(shown_steps)
         lines.append("Next steps:")
-        lines.extend(f"- {_redact_slash_text(step)}" for step in next_steps[:4])
+        lines.extend(f"- {_redact_slash_text(step)}" for step in shown_steps)
+        if hidden_steps > 0:
+            lines.append(f"- …and {hidden_steps} more setup step(s)")
+
+    scope_readiness = payload.get("scope_readiness")
+    if isinstance(scope_readiness, dict):
+        configured = scope_readiness.get("configured_user_scopes")
+        granted = scope_readiness.get("granted_user_scopes")
+        missing_scopes = scope_readiness.get("missing_granted_user_scopes")
+        scope_parts = []
+        if isinstance(configured, list):
+            scope_parts.append(f"configured={len(configured)}")
+        if isinstance(granted, list):
+            scope_parts.append(f"granted={len(granted)}")
+        if isinstance(missing_scopes, list):
+            scope_parts.append(f"missing={len(missing_scopes)}")
+        if scope_parts:
+            lines.append("Scopes: " + ", ".join(scope_parts))
+            if isinstance(missing_scopes, list) and missing_scopes:
+                shown_scopes = missing_scopes[:4]
+                hidden_scopes = len(missing_scopes) - len(shown_scopes)
+                lines.append(
+                    "Missing scopes: "
+                    + ", ".join(_redact_slash_text(scope) for scope in shown_scopes)
+                    + (f", …and {hidden_scopes} more" if hidden_scopes > 0 else "")
+                )
 
     readiness = payload.get("readiness")
     if isinstance(readiness, dict):

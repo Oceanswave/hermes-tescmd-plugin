@@ -557,6 +557,19 @@ def test_onboarding_slash_output_is_human_readable_and_read_only() -> None:
                 "Open https://cars.example.com/callback#code=oauth-code-123456&state=oauth-state-123456.",
                 "Do not paste Bearer secret-token-123456 or client_secret=client-secret-123456 into chat.",
             ],
+            "scope_readiness": {
+                "configured_user_scopes": [
+                    "openid",
+                    "offline_access",
+                    "vehicle_device_data",
+                    "vehicle_cmds",
+                ],
+                "granted_user_scopes": ["openid", "offline_access"],
+                "missing_granted_user_scopes": [
+                    "vehicle_device_data",
+                    "vehicle_cmds",
+                ],
+            },
             "readiness": {
                 "app_configured": True,
                 "authenticated": False,
@@ -579,6 +592,8 @@ def test_onboarding_slash_output_is_human_readable_and_read_only() -> None:
     assert "Bearer [REDACTED]" in output
     assert "#code=[REDACTED]&state=[REDACTED]" in output
     assert "client_secret=[REDACTED]" in output
+    assert "Scopes: configured=4, granted=2, missing=2" in output
+    assert "Missing scopes: vehicle_device_data, vehicle_cmds" in output
     assert "authenticated=no" in output
     assert "ready_for_vehicle_commands=no" in output
     assert "Safety: read-only" in output
@@ -589,6 +604,41 @@ def test_onboarding_slash_output_is_human_readable_and_read_only() -> None:
     assert "oauth-state-123456" not in output
     assert "client-secret-123456" not in output
     assert "{" not in output
+
+
+def test_onboarding_slash_output_summarizes_hidden_items() -> None:
+    output = slash._format_onboarding(  # noqa: SLF001
+        {
+            "ok": True,
+            "phase": "auth_login",
+            "missing_prerequisites": [f"missing {index}" for index in range(8)],
+            "next_steps": [f"step {index}" for index in range(6)],
+            "scope_readiness": {
+                "configured_user_scopes": ["openid", "offline_access"],
+                "granted_user_scopes": ["openid"],
+                "missing_granted_user_scopes": [
+                    "offline_access",
+                    "vehicle_device_data",
+                    "vehicle_cmds",
+                    "vehicle_charging_cmds",
+                    "vehicle_location",
+                ],
+            },
+            "mutates_state": False,
+        }
+    )
+
+    assert "- missing 5" in output
+    assert "- missing 6" not in output
+    assert "- …and 2 more missing prerequisite(s)" in output
+    assert "- step 3" in output
+    assert "- step 4" not in output
+    assert "- …and 2 more setup step(s)" in output
+    assert "Scopes: configured=2, granted=1, missing=5" in output
+    assert (
+        "Missing scopes: offline_access, vehicle_device_data, vehicle_cmds, "
+        "vehicle_charging_cmds, …and 1 more"
+    ) in output
 
 
 def test_auth_status_slash_output_summarizes_scope_readiness() -> None:
