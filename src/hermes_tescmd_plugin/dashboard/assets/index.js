@@ -1412,12 +1412,16 @@
       const version = softwareMeta(payload, "version", "car_version", "current_version", "firmware_version");
       const status = softwareMeta(payload, "status", "state", "download_status", "install_status");
       const estimate = softwareMeta(payload, "expected_duration_sec", "expected_duration_seconds", "install_duration", "eta", "scheduled_time");
+      const progress = softwareMeta(payload, "install_perc", "download_perc", "progress_percent", "update_progress", "percent_complete");
+      const scheduled = softwareMeta(payload, "scheduled_time", "install_window_start", "install_window", "eligible_time", "install_after");
       title = "Software summary";
-      body = "Software status is condensed into version, update state, and timing hints so operators can spot update readiness without exposing vehicle identifiers, release-note URLs, account fields, or raw diagnostic payloads.";
+      body = "Software status is condensed into version, update state, timing, progress, and scheduled-install hints so operators can spot update readiness without exposing vehicle identifiers, release-note URLs, account fields, location context, or raw diagnostic payloads.";
       badges = [
         `version ${version}`,
         `status ${status}`,
         `timing ${estimate}`,
+        `progress ${progress}`,
+        `scheduled ${scheduled}`,
       ];
     } else if (lastReadKind === "alerts") {
       const alerts = alertItems(payload);
