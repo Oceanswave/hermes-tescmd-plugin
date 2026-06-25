@@ -1099,7 +1099,8 @@ def test_dashboard_scope_readiness_panel_summarizes_missing_scopes_safely() -> N
     )[0]
 
     assert "function scopeReadinessFromStatus(status)" in asset
-    assert "function scopeCapabilityRows(scopeReadiness)" in asset
+    assert "scopeCapabilityRows(scopeReadiness)" in asset
+    assert "function scopeNeedsText(missing)" in asset
     assert "OAuth scope readiness" in body
     assert "Some Tesla capabilities need scopes" in body
     assert "Tesla OAuth scopes look ready" in body
@@ -1111,6 +1112,22 @@ def test_dashboard_scope_readiness_panel_summarizes_missing_scopes_safely() -> N
     )
     assert "sanitizeDashboardText(scopeReadiness.grant_scope_source" in body
     assert 'sanitizeDashboardText(item, "scope")' in body
+    assert "const missingGrantedPreview = boundedPreview(missingGranted, 4)" in body
+    assert "const capabilitiesPreview = boundedPreview(capabilities, 4)" in body
+    assert (
+        'hiddenCountText(missingGrantedPreview.hiddenCount, "missing granted scope", "missing granted scopes")'
+        in body
+    )
+    assert (
+        'hiddenCountText(capabilitiesPreview.hiddenCount, "capability", "capabilities")'
+        in body
+    )
+    assert "scopeNeedsText(item.missing)" in body
+    assert (
+        "Hidden scope-readiness counts describe omitted sanitized scopes/capabilities"
+        in body
+    )
+    assert "without exposing raw tokens, callbacks, or vehicle identifiers" in body
     assert "h(ScopeReadinessPanel, { status })" in asset
     assert ".tescmd-scope-readiness" in style
     assert ".tescmd-scope-readiness-warn" in style
