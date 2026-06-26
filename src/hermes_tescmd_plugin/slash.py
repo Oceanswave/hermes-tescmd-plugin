@@ -1391,18 +1391,47 @@ def _energy_product_label(product: Any) -> str:
     return label
 
 
+def _energy_product_type(product: Any) -> str | None:
+    if not isinstance(product, dict):
+        return None
+    product_type = _first_present(
+        product, "resource_type", "asset_type", "device_type", "product_type", "type"
+    )
+    if product_type is None:
+        return None
+    label = str(product_type).replace("_", " ").strip()
+    return label or None
+
+
 def _summarize_energy_products(payload: dict[str, Any]) -> list[str]:
     products = _collection_from_payload(payload, "products", "energy_products")
     if not products:
         return ["Energy products: no energy products returned."]
 
+    type_counts: dict[str, int] = {}
+    for product in products:
+        product_type = _energy_product_type(product)
+        if product_type:
+            type_counts[product_type] = type_counts.get(product_type, 0) + 1
+
     top = "; ".join(
         f"#{idx} {_energy_product_label(product)}"
         for idx, product in enumerate(products[:3], 1)
     )
+    hidden = max(len(products) - 3, 0)
     lines = [f"Energy products: {len(products)} product(s) returned."]
+    if type_counts:
+        lines.append(
+            "Energy product types: "
+            + ", ".join(
+                f"{_redact_slash_text(product_type)}={count}"
+                for product_type, count in sorted(type_counts.items())
+            )
+        )
     if top:
         lines.append("Top products: " + top)
+    if hidden:
+        lines.append(f"Energy products: {hidden} additional product(s) hidden.")
     lines.append(
         "Energy: use site_id=... with tescmd_energy_live/status for details; full site payloads stay out of slash summaries."
     )
