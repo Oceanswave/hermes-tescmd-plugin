@@ -570,6 +570,41 @@ def test_cache_clear_slash_output_reports_cleared_count() -> None:
     assert "{" not in output
 
 
+def test_energy_slash_output_summarizes_product_types_and_hidden_count() -> None:
+    output = slash._format_command(  # noqa: SLF001
+        "tescmd-energy",
+        {
+            "ok": True,
+            "profile": "energy-5YJ3E1EA7JF000001",
+            "products": [
+                {
+                    "site_name": "Home Battery",
+                    "resource_type": "battery",
+                    "site_id": "12345678901234567",
+                    "postal_code": "78701",
+                    "latitude": 30.267153,
+                },
+                {"energy_site_name": "Solar Roof", "resource_type": "solar"},
+                {"asset_site_name": "Backup Battery", "asset_type": "battery"},
+                {"name": "Wall Connector", "device_type": "wall_connector"},
+            ],
+        },
+    )
+
+    assert output.startswith("/tescmd-energy: success")
+    assert "Context: profile energy-…0001" in output
+    assert "Energy products: 4 product(s) returned." in output
+    assert "Energy product types: battery=2, solar=1, wall connector=1" in output
+    assert "Top products: #1 Home Battery (type battery, site …4567)" in output
+    assert "Energy products: 1 additional product(s) hidden." in output
+    assert "use site_id=... with tescmd_energy_live/status" in output
+    assert "12345678901234567" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "78701" not in output
+    assert "30.267153" not in output
+    assert "{" not in output
+
+
 def test_onboarding_slash_output_is_human_readable_and_read_only() -> None:
     output = slash._format_onboarding(  # noqa: SLF001
         {
