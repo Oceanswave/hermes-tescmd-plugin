@@ -993,6 +993,10 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
     assert 'setPlaceIds("")' in asset
     assert "if (navigationAction) clearNavigationFields(action);" in asset
     assert "function routeReadiness(destination, lat, lon, placeIds)" in asset
+    assert (
+        "function controlReadiness(percent, amps, driverTemp, passengerTemp, volume)"
+        in asset
+    )
     assert "function ActionRequirementsPanel" in asset
     assert "Action readiness" in asset
     assert "Quick action readiness checklist" in asset
@@ -1004,9 +1008,20 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
         in asset
     )
     assert "check the confirmation box before any physical action" in asset
+    assert "enter a charge limit from 1 to 100" in asset
+    assert "enter charging amps from 1 to 80" in asset
+    assert "enter numeric driver and passenger temperatures" in asset
+    assert "enter a volume level from 0 to 11" in asset
+    assert "Enter a charge limit from 1 to 100 before changing charging." in asset
+    assert "Enter charging amps from 1 to 80 before changing charging." in asset
+    assert (
+        "Enter numeric driver and passenger temperatures before changing climate."
+        in asset
+    )
+    assert "Enter a volume level from 0 to 11 before changing media volume." in asset
     assert "enter both latitude and longitude" in asset
     assert (
-        "h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds })"
+        "h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume })"
         in asset
     )
     assert ".tescmd-action-requirements" in style
@@ -1029,6 +1044,10 @@ def test_dashboard_action_readiness_panel_explains_disabled_buttons_privately() 
     )[0]
 
     assert "function routeReadiness(destination, lat, lon, placeIds)" in asset
+    assert (
+        "function controlReadiness(percent, amps, driverTemp, passengerTemp, volume)"
+        in asset
+    )
     assert "Quick action readiness checklist" in body
     assert "Action readiness" in body
     assert "still blocking some buttons" in body
@@ -1039,13 +1058,21 @@ def test_dashboard_action_readiness_panel_explains_disabled_buttons_privately() 
         in body
     )
     assert "Physical confirmation" in body
+    assert "Charge limit" in body
+    assert "Charge amps" in body
+    assert "Cabin temperatures" in body
+    assert "Media volume" in body
+    assert "enter a charge limit from 1 to 100" in body
+    assert "enter charging amps from 1 to 80" in body
+    assert "enter numeric driver and passenger temperatures" in body
+    assert "enter a volume level from 0 to 11" in body
     assert "Navigate" in body
     assert "GPS navigation" in body
     assert "Waypoints" in body
     assert "enter both latitude and longitude" in body
     assert "enter at least one place ID" in body
     assert (
-        "h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds })"
+        "h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume })"
         in asset
     )
     assert ".tescmd-action-requirements" in style
