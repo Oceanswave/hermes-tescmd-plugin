@@ -499,6 +499,28 @@
     };
   }
 
+  function numericTextReady(text) {
+    if (text === "" || text === null || text === undefined) return false;
+    return Number.isFinite(Number(text));
+  }
+
+  function boundedNumberReady(text, min, max) {
+    if (!numericTextReady(text)) return false;
+    const value = Number(text);
+    return value >= min && value <= max;
+  }
+
+  function controlReadiness(percent, amps, driverTemp, passengerTemp, volume) {
+    const driverReady = numericTextReady(driverTemp);
+    const passengerReady = numericTextReady(passengerTemp);
+    return {
+      chargeLimitReady: boundedNumberReady(percent, 1, 100),
+      chargeAmpsReady: boundedNumberReady(amps, 1, 80),
+      temperatureReady: driverReady && passengerReady,
+      volumeReady: boundedNumberReady(volume, 0, 11),
+    };
+  }
+
   function NavigationGuardPanel({ destination, lat, lon, placeIds, clearRouteFields }) {
     const readiness = routeReadiness(destination, lat, lon, placeIds);
     return h("div", { className: "tescmd-nav-guard", role: "note", "aria-label": "Navigation action guardrails" },
@@ -519,10 +541,15 @@
     );
   }
 
-  function ActionRequirementsPanel({ confirm, destination, lat, lon, placeIds }) {
+  function ActionRequirementsPanel({ confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume }) {
     const readiness = routeReadiness(destination, lat, lon, placeIds);
+    const controls = controlReadiness(percent, amps, driverTemp, passengerTemp, volume);
     const requirements = [
       ["Physical confirmation", Boolean(confirm), confirm ? "armed for one action" : "check the confirmation box before any physical action"],
+      ["Charge limit", controls.chargeLimitReady, controls.chargeLimitReady ? "percent ready" : "enter a charge limit from 1 to 100"],
+      ["Charge amps", controls.chargeAmpsReady, controls.chargeAmpsReady ? "amps ready" : "enter charging amps from 1 to 80"],
+      ["Cabin temperatures", controls.temperatureReady, controls.temperatureReady ? "temperatures ready" : "enter numeric driver and passenger temperatures"],
+      ["Media volume", controls.volumeReady, controls.volumeReady ? "volume ready" : "enter a volume level from 0 to 11"],
       ["Navigate", readiness.navReady, readiness.navReady ? "destination ready" : "enter a destination"],
       ["GPS navigation", readiness.gpsReady, readiness.gpsReady ? "latitude/longitude ready" : "enter both latitude and longitude"],
       ["Waypoints", readiness.waypointReady, readiness.waypointReady ? `${readiness.waypointCount} place ID${readiness.waypointCount === 1 ? "" : "s"} ready` : "enter at least one place ID"],
@@ -2084,6 +2111,11 @@
     }
 
     function actionDisabledReason(action) {
+      const controls = controlReadiness(percent, amps, driverTemp, passengerTemp, volume);
+      if (action === "charge-limit" && !controls.chargeLimitReady) return "Enter a charge limit from 1 to 100 before changing charging.";
+      if (action === "charge-amps" && !controls.chargeAmpsReady) return "Enter charging amps from 1 to 80 before changing charging.";
+      if (action === "set-temp" && !controls.temperatureReady) return "Enter numeric driver and passenger temperatures before changing climate.";
+      if (action === "media-volume-set" && !controls.volumeReady) return "Enter a volume level from 0 to 11 before changing media volume.";
       if (action === "nav" && !destination.trim()) return "Enter a destination before sending navigation.";
       if (action === "nav-gps" && (numeric(lat) === null || numeric(lon) === null)) return "Enter both latitude and longitude before sending GPS navigation.";
       if (action === "nav-waypoints" && !placeIds.split(",").map((x) => x.trim()).filter(Boolean).length) return "Enter at least one place ID before sending waypoints.";
@@ -2286,7 +2318,7 @@
                 h(TextInput, { label: "Place IDs", value: placeIds, setValue: setPlaceIds, placeholder: "id1,id2" })
               ),
               h(NavigationGuardPanel, { destination, lat, lon, placeIds, clearRouteFields: clearAllNavigationFields }),
-              h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds }),
+              h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume }),
               ACTION_GROUPS.map(([title, actions]) => h(ActionGroup, { key: title, title, actions, runAction, loading, confirm, actionDisabledReason })),
               h("p", { className: "tescmd-muted" }, "Higher-risk flows like remote-start-drive, speed limit PINs, valet/PIN-to-drive, erase-user-data, and raw API calls remain tool-only with explicit confirm=true.")
             )
