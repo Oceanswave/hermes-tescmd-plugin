@@ -423,6 +423,37 @@ def test_status_slash_output_redacts_next_action_and_steps() -> None:
     assert "{" not in output
 
 
+def test_cache_status_reports_privacy_safe_freshness_counts(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    now = 1_800_000_000
+    monkeypatch.setattr(config.time, "time", lambda: now - 30)
+    current = config.save_cache_entry(
+        "daily", "raw-cache-key-current", {"vin": "5YJ3E1EA7JF000001"}, ttl_seconds=120
+    )
+    monkeypatch.setattr(config.time, "time", lambda: now - 600)
+    expired = config.save_cache_entry(
+        "daily", "raw-cache-key-expired", {"vin": "5YJ3E1EA7JF000002"}, ttl_seconds=60
+    )
+    monkeypatch.setattr(config.time, "time", lambda: now)
+
+    assert current.expires_at is not None
+    status = config.cache_status("daily")
+
+    assert status == {
+        "enabled": True,
+        "entries": 1,
+        "expired_entries": 1,
+        "total_entries": 2,
+        "newest_age_seconds": now - current.created_at,
+        "oldest_age_seconds": now - expired.created_at,
+        "next_expiry_seconds": current.expires_at - now,
+    }
+    assert "raw-cache-key" not in json.dumps(status)
+    assert "5YJ3E1EA" not in json.dumps(status)
+
+
 def test_cache_status_slash_output_summarizes_counts_without_raw_payload() -> None:
     output = slash._format_command(  # noqa: SLF001
         "tescmd-cache-status",
@@ -1227,6 +1258,33 @@ def test_dashboard_admin_read_summaries_are_useful_and_private() -> None:
     assert "function yesNoUnknown(value)" in asset
     assert "function setupReadinessValue(payload, key)" in asset
     assert "function cacheModeLabel(payload)" in asset
+    assert "function cacheValue(payload, ...keys)" in asset
+    assert "function cacheCountLabel(label, value, pluralLabel)" in asset
+    assert "function cacheFreshnessLabel(payload)" in asset
+    assert (
+        'cacheValue(payload, "entries", "entry_count", "count", "current_entries")'
+        in body
+    )
+    assert 'cacheValue(payload, "backend", "mode", "storage", "source")' in body
+    assert "current/stale counts, backend mode, and freshness hints" in body
+    assert (
+        "raw cache keys, cached vehicle snapshots, vehicle identifiers, or account details"
+        in body
+    )
+    assert 'cacheCountLabel("current entry", entryCount, "current entries")' in body
+    assert (
+        'cacheCountLabel("stale/expired entry", expiredCount, "stale/expired entries")'
+        in body
+    )
+    assert "cacheFreshnessLabel(payload)" in body
+    assert (
+        'cacheValue(payload, "next_expiry_seconds", "next_expires_in_seconds"' in asset
+    )
+    assert "payload && payload.cache_status" in asset
+    assert "payload && payload.response" in asset
+    assert "payload && payload.data" in asset
+    assert "cache_key" not in body
+    assert "cache_path" not in body
     assert 'lastReadKind === "auth-status"' in body
     assert 'lastReadKind === "onboarding"' in body
     assert 'lastReadKind === "key-show" || lastReadKind === "key-validate"' in body
@@ -1268,7 +1326,7 @@ def test_dashboard_admin_read_summaries_are_useful_and_private() -> None:
         "local key paths, public-key URLs, fingerprints, domains, and enrollment links"
         in body
     )
-    assert "local cache paths or cached vehicle snapshots" in body
+    assert "local cache paths, raw cache keys, cached vehicle snapshots" in body
     assert (
         "without echoing raw option values, identifiers, precise location hints, or account details"
         in body

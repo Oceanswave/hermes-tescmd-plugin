@@ -754,7 +754,18 @@ def cache_status(profile: str = DEFAULT_PROFILE) -> dict[str, Any]:
     now = int(time.time())
     valid = 0
     expired = 0
+    newest_age: int | None = None
+    oldest_age: int | None = None
+    next_expiry: int | None = None
     for entry_payload in profile_payload.values():
+        if not isinstance(entry_payload, dict):
+            expired += 1
+            continue
+        created_at = entry_payload.get("created_at")
+        if created_at is not None:
+            age = max(0, now - int(created_at))
+            newest_age = age if newest_age is None else min(newest_age, age)
+            oldest_age = age if oldest_age is None else max(oldest_age, age)
         expires_at = (
             entry_payload.get("expires_at") if isinstance(entry_payload, dict) else None
         )
@@ -762,7 +773,20 @@ def cache_status(profile: str = DEFAULT_PROFILE) -> dict[str, Any]:
             expired += 1
         else:
             valid += 1
-    return {"enabled": True, "entries": valid, "expired_entries": expired}
+            if expires_at is not None:
+                remaining = max(0, int(expires_at) - now)
+                next_expiry = (
+                    remaining if next_expiry is None else min(next_expiry, remaining)
+                )
+    return {
+        "enabled": True,
+        "entries": valid,
+        "expired_entries": expired,
+        "total_entries": valid + expired,
+        "newest_age_seconds": newest_age,
+        "oldest_age_seconds": oldest_age,
+        "next_expiry_seconds": next_expiry,
+    }
 
 
 def clear_cache(profile: str = DEFAULT_PROFILE) -> int:

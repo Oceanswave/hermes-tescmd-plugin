@@ -796,11 +796,43 @@
     return firstDefined(payload && payload[key], bootstrap[key], readiness[key]);
   }
 
+  function cacheValue(payload, ...keys) {
+    const status = payload && payload.cache_status;
+    for (const container of [payload, payload && payload.response, payload && payload.data, status]) {
+      if (!container || typeof container !== "object" || Array.isArray(container)) continue;
+      for (const key of keys) {
+        if (container[key] !== undefined && container[key] !== null && String(container[key]).trim() !== "") return container[key];
+      }
+    }
+    return undefined;
+  }
+
+  function cacheCountLabel(label, value, pluralLabel) {
+    const count = numericValue(value);
+    const unit = count === 1 ? label : (pluralLabel || `${label}s`);
+    if (count == null) return `${label} unknown`;
+    return `${count} ${unit}`;
+  }
+
+  function cacheFreshnessLabel(payload) {
+    const stale = cacheValue(payload, "stale_entries", "stale_count", "expired_entries", "expired_count");
+    const newest = cacheValue(payload, "newest_age_seconds", "freshest_age_seconds", "youngest_age_seconds", "last_refresh_age_seconds", "age_seconds");
+    const oldest = cacheValue(payload, "oldest_age_seconds", "oldest_entry_age_seconds", "max_age_seconds");
+    const nextExpiry = cacheValue(payload, "next_expiry_seconds", "next_expires_in_seconds", "expires_in_seconds");
+    const ttl = cacheValue(payload, "ttl_seconds", "cache_ttl_seconds");
+    if (newest !== undefined) return `freshest ${sanitizeDashboardText(newest, "age unknown")}s old`;
+    if (oldest !== undefined) return `oldest ${sanitizeDashboardText(oldest, "age unknown")}s old`;
+    if (nextExpiry !== undefined) return `next expiry ${sanitizeDashboardText(nextExpiry, "expiry unknown")}s`;
+    if (ttl !== undefined) return `ttl ${sanitizeDashboardText(ttl, "ttl unknown")}s`;
+    if (stale !== undefined) return cacheCountLabel("stale/expired entry", stale, "stale/expired entries");
+    return "freshness unknown";
+  }
+
   function cacheModeLabel(payload) {
-    const enabled = yesNoUnknown(firstDefined(payload && payload.enabled, payload && payload.cache_enabled));
-    const entries = firstDefined(payload && payload.entries, payload && payload.entry_count, payload && payload.count, "unknown");
-    const expired = firstDefined(payload && payload.expired_entries, payload && payload.expired_count, 0);
-    return `cache ${enabled}, ${sanitizeDashboardText(entries, "unknown")} entries, ${sanitizeDashboardText(expired, "0")} expired`;
+    const enabled = yesNoUnknown(cacheValue(payload, "enabled", "cache_enabled"));
+    const entries = cacheValue(payload, "entries", "entry_count", "count", "current_entries");
+    const expired = cacheValue(payload, "expired_entries", "expired_count", "stale_entries", "stale_count") ?? 0;
+    return `cache ${enabled}, ${sanitizeDashboardText(entries ?? "unknown", "unknown")} entries, ${sanitizeDashboardText(expired, "0")} expired`;
   }
 
   function readStatusObject(payload, ...keys) {
@@ -1310,9 +1342,18 @@
         `matches local ${matches}`,
       ];
     } else if (lastReadKind === "cache-status") {
+      const entryCount = cacheValue(payload, "entries", "entry_count", "count", "current_entries");
+      const expiredCount = cacheValue(payload, "expired_entries", "expired_count", "stale_entries", "stale_count");
+      const backend = sanitizeDashboardText(cacheValue(payload, "backend", "mode", "storage", "source") || "backend unknown", "backend unknown");
       title = "Cache summary";
-      body = "Cache diagnostics are summarized as counts and mode hints so operators can verify read freshness without exposing local cache paths or cached vehicle snapshots.";
-      badges = [cacheModeLabel(payload)];
+      body = "Cache diagnostics are summarized as current/stale counts, backend mode, and freshness hints so operators can verify read freshness without exposing local cache paths, raw cache keys, cached vehicle snapshots, vehicle identifiers, or account details.";
+      badges = [
+        cacheModeLabel(payload),
+        cacheCountLabel("current entry", entryCount, "current entries"),
+        cacheCountLabel("stale/expired entry", expiredCount, "stale/expired entries"),
+        `mode ${backend}`,
+        cacheFreshnessLabel(payload),
+      ];
     } else if (lastReadKind === "vehicle-status") {
       const vehicleState = readObjectWithFields(payload, ["vehicle_name", "car_version", "locked", "is_user_present", "sentry_mode"], "vehicle_state", "vehicle_status", "state");
       const drive = readStatusObject(payload, "drive_state", "drive", "location_data");
