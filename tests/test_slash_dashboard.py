@@ -2433,6 +2433,20 @@ def test_warranty_slash_summary_redacts_ids_urls_and_raw_payload() -> None:
                             "expiration_date": "2032-06-01",
                             "odometer_limit_km": 192000,
                         },
+                        {
+                            "title": "Supplemental Restraint System",
+                            "state": "active",
+                            "expires_at": "2030-01-01",
+                            "mileage_limit": 100000,
+                        },
+                        {
+                            "title": "Hidden Service Agreement WRN-SECRET-456",
+                            "url": "https://cars.example.com/private-warranty",
+                        },
+                        {
+                            "title": "Hidden Roadside Coverage 5YJ3E1EA7JF000003",
+                            "details_url": "https://cars.example.com/roadside?token=secret-token-999",
+                        },
                     ]
                 },
             },
@@ -2440,7 +2454,7 @@ def test_warranty_slash_summary_redacts_ids_urls_and_raw_payload() -> None:
     )
 
     assert output.startswith("/tescmd-warranty: success")
-    assert "Warranty: 2 terms returned" in output
+    assert "Warranty: 5 terms returned" in output
     assert "status active for vehicle …0002" in output
     assert "as of 2026-06-16T12:00:00Z" in output
     assert (
@@ -2451,13 +2465,23 @@ def test_warranty_slash_summary_redacts_ids_urls_and_raw_payload() -> None:
         "#2 Battery and Drive Unit (status active, ends 2032-06-01, km limit 192000)"
         in output
     )
+    assert (
+        "#3 Supplemental Restraint System (status active, ends 2030-01-01, mi limit 100000)"
+        in output
+    )
+    assert "Warranty: 2 additional term(s) hidden for brevity." in output
     assert "identifiers, URLs, and raw payload details stay out" in output
     assert "Result: command accepted" not in output
     assert "5YJ3E1EA7JF000001" not in output
     assert "5YJ3E1EA7JF000002" not in output
     assert "WRN-SECRET-123" not in output
+    assert "WRN-SECRET-456" not in output
+    assert "Hidden Service Agreement" not in output
+    assert "Hidden Roadside Coverage" not in output
+    assert "5YJ3E1EA7JF000003" not in output
     assert "cars.example.com" not in output
     assert "secret-token-123456" not in output
+    assert "secret-token-999" not in output
     assert "secret-state" not in output
     assert "details_url" not in output
     assert "{" not in output
