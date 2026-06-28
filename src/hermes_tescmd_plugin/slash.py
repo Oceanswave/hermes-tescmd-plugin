@@ -1711,13 +1711,22 @@ def _summarize_release_notes(payload: dict[str, Any]) -> list[str]:
         prefix = "Release notes: " + f"{len(notes)} note(s)"
         if details:
             prefix += " — " + ", ".join(details)
+        visible_notes = notes[:3]
+        hidden_count = max(len(notes) - len(visible_notes), 0)
         lines = [prefix]
         lines.append(
             "Top notes: "
             + "; ".join(
                 f"#{idx} {_release_note_title(note)}"
-                for idx, note in enumerate(notes[:3], 1)
+                for idx, note in enumerate(visible_notes, 1)
             )
+        )
+        if hidden_count:
+            lines.append(
+                f"Release notes: {hidden_count} additional note(s) hidden for brevity."
+            )
+        lines.append(
+            "Release notes: note bodies, URLs, route text, vehicle identifiers, and coordinates stay out of slash summaries."
         )
         return lines
 

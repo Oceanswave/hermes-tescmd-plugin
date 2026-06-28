@@ -2642,23 +2642,44 @@ def test_release_notes_slash_summary_is_human_readable_and_privacy_safe() -> Non
                         "heading": "Charge on Solar",
                         "url": "https://cars.example.com/callback?code=secret-token-123456",
                     },
+                    {
+                        "title": "Trip Planner",
+                        "body": "Navigate to 456 Example Ave",
+                    },
+                    {
+                        "title": "Cabin Comfort",
+                        "body": "Private release body",
+                    },
+                    {
+                        "title": "Dashcam Viewer",
+                        "url": "https://cars.example.com/release?state=secret-state-123456",
+                    },
                 ],
             },
         },
     )
 
     assert output.startswith("/tescmd-release-notes: success")
-    assert "Release notes: 2 note(s) — version 2026.14.3, status available" in output
+    assert "Release notes: 5 note(s) — version 2026.14.3, status available" in output
     assert (
-        "Top notes: #1 Improved Autopark for vehicle …0002; #2 Charge on Solar"
+        "Top notes: #1 Improved Autopark for vehicle …0002; #2 Charge on Solar; #3 Trip Planner"
         in output
     )
+    assert "Release notes: 2 additional note(s) hidden for brevity." in output
+    assert (
+        "note bodies, URLs, route text, vehicle identifiers, and coordinates stay out of slash summaries"
+        in output
+    )
+    assert "Cabin Comfort" not in output
+    assert "Dashcam Viewer" not in output
     assert "Result: command accepted" not in output
     assert "5YJ3E1EA7JF000001" not in output
     assert "5YJ3E1EA7JF000002" not in output
     assert "123 Main St" not in output
+    assert "456 Example Ave" not in output
     assert "37.7749295" not in output
     assert "secret-token-123456" not in output
+    assert "secret-state-123456" not in output
     assert "{" not in output
 
 
