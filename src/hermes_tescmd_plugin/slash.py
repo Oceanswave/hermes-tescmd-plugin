@@ -557,6 +557,11 @@ _COORDINATE_VALUE_PATTERN = re.compile(
 _COORDINATE_QUERY_VALUE_PATTERN = re.compile(
     r"(?i)([?&](?:lat|latitude|lon|lng|longitude|native_latitude|native_longitude)=)[^\s&]+"
 )
+_STREET_ADDRESS_PATTERN = re.compile(
+    r"(?i)\b\d{1,6}\s+[A-Z0-9][A-Z0-9 .'-]{1,60}\s"
+    r"(?:st|street|ave|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|ct|court|"
+    r"way|pkwy|parkway|hwy|highway|pl|place|cir|circle)\b"
+)
 
 
 def _redact_slash_text(value: Any) -> str:
@@ -1216,9 +1221,12 @@ def _alert_label(alert: Any) -> str:
         or alert.get("event")
         or "unnamed alert"
     )
+    safe_message = _STREET_ADDRESS_PATTERN.sub(
+        "[address redacted]", _redact_slash_text(message)
+    )
     if severity:
-        return f"{_redact_slash_text(severity)}: {_redact_slash_text(message)}"
-    return _redact_slash_text(message)
+        return f"{_redact_slash_text(severity)}: {safe_message}"
+    return safe_message
 
 
 def _alert_count_summary(alerts: list[Any]) -> str | None:
@@ -1264,6 +1272,9 @@ def _summarize_alerts(payload: dict[str, Any]) -> list[str]:
             f"#{idx} {_alert_label(alert)}" for idx, alert in enumerate(alerts[:3], 1)
         )
     )
+    hidden = max(len(alerts) - 3, 0)
+    if hidden:
+        lines.append(f"Alerts: {hidden} additional alert(s) hidden.")
     return lines
 
 

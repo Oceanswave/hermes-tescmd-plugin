@@ -605,6 +605,46 @@ def test_energy_slash_output_summarizes_product_types_and_hidden_count() -> None
     assert "{" not in output
 
 
+def test_alerts_slash_output_summarizes_hidden_count_privately() -> None:
+    output = slash._format_command(  # noqa: SLF001
+        "tescmd-alerts",
+        {
+            "ok": True,
+            "profile": "alerts-5YJ3E1EA7JF000001",
+            "alerts": [
+                {
+                    "severity": "critical",
+                    "message": "Charge port at 123 Secret St needs attention",
+                    "vin": "5YJ3E1EA7JF000001",
+                    "latitude": 30.267153,
+                },
+                {"severity": "warning", "description": "Window open"},
+                {"level": "info", "title": "Software update ready"},
+                {
+                    "type": "warning",
+                    "event": "Service center appointment at https://service.example.com/abc",
+                },
+                {"status": "active", "name": "Low tire pressure"},
+            ],
+        },
+    )
+
+    assert output.startswith("/tescmd-alerts: success")
+    assert "Context: profile alerts-…0001" in output
+    assert "Alerts: 5 recent alert(s)" in output
+    assert "Alert types/statuses: active 1, critical 1, info 1, warning 2" in output
+    assert "Top alerts: #1 critical:" in output
+    assert "#2 warning: Window open" in output
+    assert "#3 info: Software update ready" in output
+    assert "Alerts: 2 additional alert(s) hidden." in output
+    assert "Service center appointment" not in output
+    assert "https://service.example.com" not in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "123 Secret St" not in output
+    assert "30.267153" not in output
+    assert "{" not in output
+
+
 def test_onboarding_slash_output_is_human_readable_and_read_only() -> None:
     output = slash._format_onboarding(  # noqa: SLF001
         {
