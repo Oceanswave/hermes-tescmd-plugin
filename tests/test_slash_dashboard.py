@@ -1088,7 +1088,14 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
     assert "actionDisabledReason(action)" in asset
     assert "const disabledReason = actionDisabledReason(action);" in asset
     assert "Enter a destination before sending navigation." in asset
-    assert "Enter both latitude and longitude before sending GPS navigation." in asset
+    assert (
+        "Enter latitude from -90 to 90 and longitude from -180 to 180 before sending GPS navigation."
+        in asset
+    )
+    assert "const latitudeReady = boundedNumberReady(lat, -90, 90);" in asset
+    assert "const longitudeReady = boundedNumberReady(lon, -180, 180);" in asset
+    assert "GPS pair in range" in asset
+    assert "GPS range needed" in asset
     assert "Enter at least one place ID before sending waypoints." in asset
     assert "Physical actions are locked again." in asset
     assert "body.destination = destination.trim()" in asset
@@ -1128,6 +1135,7 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
     assert "const passengerReady = boundedNumberReady(passengerTemp, 50, 90);" in asset
     assert "Enter a volume level from 0 to 11 before changing media volume." in asset
     assert "enter both latitude and longitude" in asset
+    assert "enter latitude from -90 to 90 and longitude from -180 to 180" in asset
     assert (
         "h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume })"
         in asset
@@ -1184,6 +1192,8 @@ def test_dashboard_action_readiness_panel_explains_disabled_buttons_privately() 
     assert "GPS navigation" in body
     assert "Waypoints" in body
     assert "enter both latitude and longitude" in body
+    assert "enter latitude from -90 to 90 and longitude from -180 to 180" in body
+    assert "latitude/longitude in range" in body
     assert "enter at least one place ID" in body
     assert (
         "h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume })"

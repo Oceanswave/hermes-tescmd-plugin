@@ -489,10 +489,16 @@
     const hasDestination = String(destination || "").trim() !== "";
     const hasLat = String(lat || "").trim() !== "";
     const hasLon = String(lon || "").trim() !== "";
+    const latitudeReady = boundedNumberReady(lat, -90, 90);
+    const longitudeReady = boundedNumberReady(lon, -180, 180);
     const waypointCount = String(placeIds || "").split(",").map((value) => value.trim()).filter(Boolean).length;
     return {
       navReady: hasDestination,
-      gpsReady: hasLat && hasLon,
+      gpsReady: latitudeReady && longitudeReady,
+      gpsFieldsPresent: hasLat || hasLon,
+      gpsFieldsComplete: hasLat && hasLon,
+      latitudeReady,
+      longitudeReady,
       waypointReady: waypointCount > 0,
       waypointCount,
       routeFieldsPresent: hasDestination || (hasLat && hasLon) || waypointCount > 0,
@@ -531,7 +537,7 @@
       ),
       h("div", { className: "tescmd-nav-guard-badges" },
         h(Badge, { className: readiness.navReady ? "tescmd-ok" : "tescmd-warn" }, readiness.navReady ? "destination set" : "destination needed"),
-        h(Badge, { className: readiness.gpsReady ? "tescmd-ok" : "tescmd-warn" }, readiness.gpsReady ? "GPS pair set" : "lat/lon needed"),
+        h(Badge, { className: readiness.gpsReady ? "tescmd-ok" : "tescmd-warn" }, readiness.gpsReady ? "GPS pair in range" : readiness.gpsFieldsPresent ? "GPS range needed" : "lat/lon needed"),
         h(Badge, { className: readiness.waypointReady ? "tescmd-ok" : "tescmd-warn" }, readiness.waypointReady ? `${readiness.waypointCount} waypoint${readiness.waypointCount === 1 ? "" : "s"}` : "place IDs needed")
       ),
       h("div", { className: "tescmd-nav-guard-actions" },
@@ -551,7 +557,7 @@
       ["Cabin temperatures", controls.temperatureReady, controls.temperatureReady ? "temperatures ready" : "enter driver and passenger temperatures from 50° to 90°"],
       ["Media volume", controls.volumeReady, controls.volumeReady ? "volume ready" : "enter a volume level from 0 to 11"],
       ["Navigate", readiness.navReady, readiness.navReady ? "destination ready" : "enter a destination"],
-      ["GPS navigation", readiness.gpsReady, readiness.gpsReady ? "latitude/longitude ready" : "enter both latitude and longitude"],
+      ["GPS navigation", readiness.gpsReady, readiness.gpsReady ? "latitude/longitude in range" : readiness.gpsFieldsComplete ? "enter latitude from -90 to 90 and longitude from -180 to 180" : "enter both latitude and longitude"],
       ["Waypoints", readiness.waypointReady, readiness.waypointReady ? `${readiness.waypointCount} place ID${readiness.waypointCount === 1 ? "" : "s"} ready` : "enter at least one place ID"],
     ];
     const blockedCount = requirements.filter((item) => !item[1]).length;
@@ -2158,7 +2164,7 @@
       if (action === "set-temp" && !controls.temperatureReady) return "Enter driver and passenger temperatures from 50° to 90° before changing climate.";
       if (action === "media-volume-set" && !controls.volumeReady) return "Enter a volume level from 0 to 11 before changing media volume.";
       if (action === "nav" && !destination.trim()) return "Enter a destination before sending navigation.";
-      if (action === "nav-gps" && (numeric(lat) === null || numeric(lon) === null)) return "Enter both latitude and longitude before sending GPS navigation.";
+      if (action === "nav-gps" && !routeReadiness("", lat, lon, "").gpsReady) return "Enter latitude from -90 to 90 and longitude from -180 to 180 before sending GPS navigation.";
       if (action === "nav-waypoints" && !placeIds.split(",").map((x) => x.trim()).filter(Boolean).length) return "Enter at least one place ID before sending waypoints.";
       return "";
     }
