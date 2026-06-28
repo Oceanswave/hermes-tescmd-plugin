@@ -53,13 +53,21 @@
     return h("div", { className: "tescmd-field" }, h(Label, null, label), children);
   }
 
-  function TextInput({ label, value, setValue, placeholder, type }) {
-    return h(Field, { label }, h(Input, {
-      type: type || "text",
-      value: value ?? "",
-      placeholder,
-      onChange: (event) => setValue(event.target.value),
-    }));
+  function TextInput({ label, value, setValue, placeholder, type, min, max, step, inputMode, helpText }) {
+    return h(Field, { label },
+      h(Input, {
+        type: type || "text",
+        value: value ?? "",
+        placeholder,
+        min,
+        max,
+        step,
+        inputMode,
+        "aria-describedby": helpText ? `${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-help` : undefined,
+        onChange: (event) => setValue(event.target.value),
+      }),
+      helpText ? h("small", { id: `${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-help`, className: "tescmd-muted" }, helpText) : null
+    );
   }
 
   function bootstrapOperational(bootstrap) {
@@ -2352,16 +2360,16 @@
               h("label", { className: "tescmd-confirm" }, h("input", { type: "checkbox", checked: confirm, onChange: (event) => setConfirm(event.target.checked) }), h("span", null, "I confirm this physical Tesla side effect")),
               h("div", { className: "tescmd-controls" },
                 h(Field, { label: "Sentry" }, h("select", { className: "tescmd-select", value: enabled ? "true" : "false", onChange: (event) => setEnabled(event.target.value === "true") }, h("option", { value: "true" }, "Enable"), h("option", { value: "false" }, "Disable"))),
-                h(TextInput, { label: "Charge limit %", value: percent, setValue: setPercent, type: "number" }),
-                h(TextInput, { label: "Charge amps", value: amps, setValue: setAmps, type: "number" }),
-                h(TextInput, { label: "Driver temp", value: driverTemp, setValue: setDriverTemp, type: "number" }),
-                h(TextInput, { label: "Passenger temp", value: passengerTemp, setValue: setPassengerTemp, type: "number" }),
-                h(TextInput, { label: "Volume", value: volume, setValue: setVolume, type: "number" })
+                h(TextInput, { label: "Charge limit %", value: percent, setValue: setPercent, type: "number", min: "1", max: "100", step: "1", inputMode: "numeric", helpText: "Allowed range 1–100%; the value is never echoed in status copy until a confirmed action runs." }),
+                h(TextInput, { label: "Charge amps", value: amps, setValue: setAmps, type: "number", min: "1", max: "80", step: "1", inputMode: "numeric", helpText: "Allowed range 1–80 amps; invalid values keep the charging button disabled." }),
+                h(TextInput, { label: "Driver temp", value: driverTemp, setValue: setDriverTemp, type: "number", min: "50", max: "90", step: "0.5", inputMode: "decimal", helpText: "Cabin temperature guardrail: 50°–90°." }),
+                h(TextInput, { label: "Passenger temp", value: passengerTemp, setValue: setPassengerTemp, type: "number", min: "50", max: "90", step: "0.5", inputMode: "decimal", helpText: "Cabin temperature guardrail: 50°–90°." }),
+                h(TextInput, { label: "Volume", value: volume, setValue: setVolume, type: "number", min: "0", max: "11", step: "1", inputMode: "numeric", helpText: "Allowed volume range 0–11; invalid values keep media changes disabled." })
               ),
               h("div", { className: "tescmd-controls" },
                 h(TextInput, { label: "Destination", value: destination, setValue: setDestination, placeholder: "address or place" }),
-                h(TextInput, { label: "Latitude", value: lat, setValue: setLat, type: "number" }),
-                h(TextInput, { label: "Longitude", value: lon, setValue: setLon, type: "number" }),
+                h(TextInput, { label: "Latitude", value: lat, setValue: setLat, type: "number", min: "-90", max: "90", step: "0.000001", inputMode: "decimal", helpText: "Latitude must be from -90 to 90; precise coordinates are cleared after attempts." }),
+                h(TextInput, { label: "Longitude", value: lon, setValue: setLon, type: "number", min: "-180", max: "180", step: "0.000001", inputMode: "decimal", helpText: "Longitude must be from -180 to 180; precise coordinates are never echoed in guidance." }),
                 h(TextInput, { label: "Place IDs", value: placeIds, setValue: setPlaceIds, placeholder: "id1,id2" })
               ),
               h(NavigationGuardPanel, { destination, lat, lon, placeIds, clearRouteFields: clearAllNavigationFields }),
