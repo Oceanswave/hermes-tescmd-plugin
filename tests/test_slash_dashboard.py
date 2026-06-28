@@ -1140,6 +1140,34 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
         "h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume })"
         in asset
     )
+    assert "aria-describedby" in asset
+    assert 'helpText ? h("small"' in asset
+    assert 'label: "Charge limit %"' in asset
+    assert 'min: "1", max: "100", step: "1", inputMode: "numeric"' in asset
+    assert (
+        "Allowed range 1–100%; the value is never echoed in status copy until a confirmed action runs."
+        in asset
+    )
+    assert 'label: "Charge amps"' in asset
+    assert 'min: "1", max: "80", step: "1", inputMode: "numeric"' in asset
+    assert (
+        "Allowed range 1–80 amps; invalid values keep the charging button disabled."
+        in asset
+    )
+    assert 'label: "Driver temp"' in asset
+    assert 'min: "50", max: "90", step: "0.5", inputMode: "decimal"' in asset
+    assert "Cabin temperature guardrail: 50°–90°." in asset
+    assert 'label: "Volume"' in asset
+    assert 'min: "0", max: "11", step: "1", inputMode: "numeric"' in asset
+    assert (
+        "Allowed volume range 0–11; invalid values keep media changes disabled."
+        in asset
+    )
+    assert 'label: "Latitude"' in asset
+    assert 'min: "-90", max: "90", step: "0.000001", inputMode: "decimal"' in asset
+    assert 'label: "Longitude"' in asset
+    assert 'min: "-180", max: "180", step: "0.000001", inputMode: "decimal"' in asset
+    assert "precise coordinates are never echoed in guidance" in asset
     assert ".tescmd-action-requirements" in style
     assert ".tescmd-action-requirements-warn" in style
     assert ".tescmd-action-requirement-list" in style
