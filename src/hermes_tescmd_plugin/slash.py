@@ -1600,15 +1600,24 @@ def _summarize_warranty(payload: dict[str, Any]) -> list[str]:
         line = f"Warranty: {len(terms)} term{'s' if len(terms) != 1 else ''} returned"
         if details:
             line += " — " + ", ".join(details)
-        return [
+        visible_terms = terms[:3]
+        hidden_count = max(len(terms) - len(visible_terms), 0)
+        lines = [
             line,
             "Top terms: "
             + "; ".join(
                 f"#{idx} {_warranty_term_label(term)}"
-                for idx, term in enumerate(terms[:3], 1)
+                for idx, term in enumerate(visible_terms, 1)
             ),
-            "Warranty: identifiers, URLs, and raw payload details stay out of slash summaries.",
         ]
+        if hidden_count:
+            lines.append(
+                f"Warranty: {hidden_count} additional term(s) hidden for brevity."
+            )
+        lines.append(
+            "Warranty: identifiers, URLs, and raw payload details stay out of slash summaries."
+        )
+        return lines
 
     if details:
         return ["Warranty: " + ", ".join(details)]
