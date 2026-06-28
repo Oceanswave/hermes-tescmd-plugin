@@ -1076,14 +1076,16 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
     assert "check the confirmation box before any physical action" in asset
     assert "enter a charge limit from 1 to 100" in asset
     assert "enter charging amps from 1 to 80" in asset
-    assert "enter numeric driver and passenger temperatures" in asset
+    assert "enter driver and passenger temperatures from 50° to 90°" in asset
     assert "enter a volume level from 0 to 11" in asset
     assert "Enter a charge limit from 1 to 100 before changing charging." in asset
     assert "Enter charging amps from 1 to 80 before changing charging." in asset
     assert (
-        "Enter numeric driver and passenger temperatures before changing climate."
+        "Enter driver and passenger temperatures from 50° to 90° before changing climate."
         in asset
     )
+    assert "const driverReady = boundedNumberReady(driverTemp, 50, 90);" in asset
+    assert "const passengerReady = boundedNumberReady(passengerTemp, 50, 90);" in asset
     assert "Enter a volume level from 0 to 11 before changing media volume." in asset
     assert "enter both latitude and longitude" in asset
     assert (
@@ -1130,8 +1132,14 @@ def test_dashboard_action_readiness_panel_explains_disabled_buttons_privately() 
     assert "Media volume" in body
     assert "enter a charge limit from 1 to 100" in body
     assert "enter charging amps from 1 to 80" in body
-    assert "enter numeric driver and passenger temperatures" in body
+    assert "enter driver and passenger temperatures from 50° to 90°" in body
     assert "enter a volume level from 0 to 11" in body
+    assert "boundedNumberReady(driverTemp, 50, 90)" in asset
+    assert "boundedNumberReady(passengerTemp, 50, 90)" in asset
+    assert (
+        "Enter driver and passenger temperatures from 50° to 90° before changing climate."
+        in asset
+    )
     assert "Navigate" in body
     assert "GPS navigation" in body
     assert "Waypoints" in body
