@@ -1692,6 +1692,10 @@ def test_dashboard_schedule_read_summaries_are_useful_and_private() -> None:
     assert "Charge schedule summary" in body
     assert "Preconditioning schedule summary" in body
     assert "Top schedules: ${summary.topEntries.join" in body
+    assert "hiddenCount = Math.max(0, entries.length - topEntries.length)" in asset
+    assert "hiddenText: hiddenCount ? `${hiddenCount} additional schedule entr" in asset
+    assert "summary.hiddenText ? `. ${summary.hiddenText}`" in body
+    assert "...(summary.hiddenText ? [summary.hiddenText] : [])" in body
     assert "enabled ${summary.enabled}" in body
     assert "next/start ${summary.nextStart}" in body
     assert '"charge_schedule", "charge_schedule_data"' in body
