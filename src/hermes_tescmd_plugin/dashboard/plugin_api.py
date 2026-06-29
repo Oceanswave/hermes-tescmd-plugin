@@ -28,6 +28,9 @@ _QUICK_ACTION_TO_TOOL = {
     "climate-start": "tescmd_climate_start",
     "climate-stop": "tescmd_climate_stop",
     "set-temp": "tescmd_climate_set_temps",
+    "seat-heat-driver": "tescmd_climate_seat_heater",
+    "seat-heat-passenger": "tescmd_climate_seat_heater",
+    "steering-heat-level": "tescmd_climate_steering_wheel_heat_level",
     "frunk": "tescmd_vehicle_actuate_trunk",
     "trunk-open": "tescmd_vehicle_trunk_open",
     "trunk-close": "tescmd_vehicle_trunk_close",
@@ -46,6 +49,8 @@ _QUICK_ACTION_TO_TOOL = {
 
 _ACTION_DEFAULTS: dict[str, dict[str, Any]] = {
     "frunk": {"which_trunk": "front"},
+    "seat-heat-driver": {"seat_position": 0},
+    "seat-heat-passenger": {"seat_position": 1},
     "window-vent": {"command": "vent"},
     "window-close": {"command": "close"},
 }
@@ -55,6 +60,9 @@ _ACTION_EXTRA_FIELDS: dict[str, tuple[str, ...]] = {
     "charge-limit": ("percent",),
     "charge-amps": ("amps",),
     "set-temp": ("driver_temp", "passenger_temp"),
+    "seat-heat-driver": ("level",),
+    "seat-heat-passenger": ("level",),
+    "steering-heat-level": ("level",),
     "media-volume-set": ("volume",),
     "nav": ("destination", "order"),
     "nav-gps": ("lat", "lon", "order"),
@@ -326,6 +334,7 @@ class QuickActionBody(BaseModel):
     amps: int | None = None
     driver_temp: float | None = None
     passenger_temp: float | None = None
+    level: int | None = None
     volume: float | None = None
     destination: str | None = None
     order: int | None = None
