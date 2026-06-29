@@ -1107,7 +1107,7 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
     assert "if (navigationAction) clearNavigationFields(action);" in asset
     assert "function routeReadiness(destination, lat, lon, placeIds)" in asset
     assert (
-        "function controlReadiness(percent, amps, driverTemp, passengerTemp, volume)"
+        "function controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel)"
         in asset
     )
     assert "function ActionRequirementsPanel" in asset
@@ -1124,6 +1124,7 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
     assert "enter a charge limit from 1 to 100" in asset
     assert "enter charging amps from 1 to 80" in asset
     assert "enter driver and passenger temperatures from 50° to 90°" in asset
+    assert "enter a heater level from 0 to 3" in asset
     assert "enter a volume level from 0 to 11" in asset
     assert "Enter a charge limit from 1 to 100 before changing charging." in asset
     assert "Enter charging amps from 1 to 80 before changing charging." in asset
@@ -1133,11 +1134,16 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
     )
     assert "const driverReady = boundedNumberReady(driverTemp, 50, 90);" in asset
     assert "const passengerReady = boundedNumberReady(passengerTemp, 50, 90);" in asset
+    assert "heaterLevelReady: boundedNumberReady(heaterLevel, 0, 3)" in asset
+    assert (
+        "Enter a heater level from 0 to 3 before changing seat or steering heat."
+        in asset
+    )
     assert "Enter a volume level from 0 to 11 before changing media volume." in asset
     assert "enter both latitude and longitude" in asset
     assert "enter latitude from -90 to 90 and longitude from -180 to 180" in asset
     assert (
-        "h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume })"
+        "h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume, heaterLevel })"
         in asset
     )
     assert "aria-describedby" in asset
@@ -1157,6 +1163,12 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
     assert 'label: "Driver temp"' in asset
     assert 'min: "50", max: "90", step: "0.5", inputMode: "decimal"' in asset
     assert "Cabin temperature guardrail: 50°–90°." in asset
+    assert 'label: "Heater level"' in asset
+    assert 'min: "0", max: "3", step: "1", inputMode: "numeric"' in asset
+    assert (
+        "Seat and steering heat guardrail: 0 off, 1–3 warming levels; invalid values keep heater buttons disabled."
+        in asset
+    )
     assert 'label: "Volume"' in asset
     assert 'min: "0", max: "11", step: "1", inputMode: "numeric"' in asset
     assert (
@@ -1189,7 +1201,7 @@ def test_dashboard_action_readiness_panel_explains_disabled_buttons_privately() 
 
     assert "function routeReadiness(destination, lat, lon, placeIds)" in asset
     assert (
-        "function controlReadiness(percent, amps, driverTemp, passengerTemp, volume)"
+        "function controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel)"
         in asset
     )
     assert "Quick action readiness checklist" in body
@@ -1205,15 +1217,22 @@ def test_dashboard_action_readiness_panel_explains_disabled_buttons_privately() 
     assert "Charge limit" in body
     assert "Charge amps" in body
     assert "Cabin temperatures" in body
+    assert "Seat/steering heat" in body
     assert "Media volume" in body
     assert "enter a charge limit from 1 to 100" in body
     assert "enter charging amps from 1 to 80" in body
     assert "enter driver and passenger temperatures from 50° to 90°" in body
+    assert "enter a heater level from 0 to 3" in body
     assert "enter a volume level from 0 to 11" in body
     assert "boundedNumberReady(driverTemp, 50, 90)" in asset
     assert "boundedNumberReady(passengerTemp, 50, 90)" in asset
+    assert "boundedNumberReady(heaterLevel, 0, 3)" in asset
     assert (
         "Enter driver and passenger temperatures from 50° to 90° before changing climate."
+        in asset
+    )
+    assert (
+        "Enter a heater level from 0 to 3 before changing seat or steering heat."
         in asset
     )
     assert "Navigate" in body
@@ -1224,7 +1243,7 @@ def test_dashboard_action_readiness_panel_explains_disabled_buttons_privately() 
     assert "latitude/longitude in range" in body
     assert "enter at least one place ID" in body
     assert (
-        "h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume })"
+        "h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume, heaterLevel })"
         in asset
     )
     assert ".tescmd-action-requirements" in style
@@ -4462,6 +4481,44 @@ def test_dashboard_quick_action_passes_extra_action_arguments(monkeypatch) -> No
                 "percent": 80,
             },
         )
+    ]
+
+
+def test_dashboard_quick_action_passes_heater_level_arguments(monkeypatch) -> None:
+    calls: list[tuple[str, dict]] = []
+
+    def fake_run(tool_name, args=None):
+        calls.append((tool_name, args or {}))
+        return {"ok": True}
+
+    monkeypatch.setattr("hermes_tescmd_plugin.dashboard.plugin_api._run", fake_run)
+
+    driver_payload = quick_action(
+        QuickActionBody(action="seat-heat-driver", confirm=True, level=2)
+    )
+    passenger_payload = quick_action(
+        QuickActionBody(action="seat-heat-passenger", confirm=True, level=3)
+    )
+    steering_payload = quick_action(
+        QuickActionBody(action="steering-heat-level", confirm=True, level=1)
+    )
+
+    assert driver_payload["ok"] is True
+    assert passenger_payload["ok"] is True
+    assert steering_payload["ok"] is True
+    assert calls == [
+        (
+            "tescmd_climate_seat_heater",
+            {"profile": "default", "confirm": True, "seat_position": 0, "level": 2},
+        ),
+        (
+            "tescmd_climate_seat_heater",
+            {"profile": "default", "confirm": True, "seat_position": 1, "level": 3},
+        ),
+        (
+            "tescmd_climate_steering_wheel_heat_level",
+            {"profile": "default", "confirm": True, "level": 1},
+        ),
     ]
 
 

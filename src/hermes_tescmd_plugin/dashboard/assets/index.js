@@ -27,7 +27,7 @@
 
   const ACTION_GROUPS = [
     ["Attention & security", [["wake", "Wake"], ["flash", "Flash"], ["honk", "Honk"], ["lock", "Lock"], ["unlock", "Unlock"], ["sentry", "Sentry on/off"]]],
-    ["Climate", [["climate-start", "Climate start"], ["climate-stop", "Climate stop"], ["set-temp", "Set temp"]]],
+    ["Climate", [["climate-start", "Climate start"], ["climate-stop", "Climate stop"], ["set-temp", "Set temp"], ["seat-heat-driver", "Driver seat heat"], ["seat-heat-passenger", "Passenger seat heat"], ["steering-heat-level", "Steering heat"]]],
     ["Charging", [["charge-start", "Charge start"], ["charge-stop", "Charge stop"], ["charge-limit", "Set limit"], ["charge-amps", "Set amps"], ["charge-port-open", "Port open"], ["charge-port-close", "Port close"]]],
     ["Body", [["frunk", "Frunk"], ["trunk-open", "Trunk open"], ["trunk-close", "Trunk close"], ["window-vent", "Vent windows"], ["window-close", "Close windows"]]],
     ["Media & navigation", [["media-play", "Play/pause"], ["media-next", "Next"], ["media-prev", "Previous"], ["media-volume-up", "Vol +"], ["media-volume-down", "Vol -"], ["media-volume-set", "Set volume"], ["nav", "Navigate"], ["nav-gps", "Nav GPS"], ["nav-waypoints", "Waypoints"]]],
@@ -524,13 +524,14 @@
     return value >= min && value <= max;
   }
 
-  function controlReadiness(percent, amps, driverTemp, passengerTemp, volume) {
+  function controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel) {
     const driverReady = boundedNumberReady(driverTemp, 50, 90);
     const passengerReady = boundedNumberReady(passengerTemp, 50, 90);
     return {
       chargeLimitReady: boundedNumberReady(percent, 1, 100),
       chargeAmpsReady: boundedNumberReady(amps, 1, 80),
       temperatureReady: driverReady && passengerReady,
+      heaterLevelReady: boundedNumberReady(heaterLevel, 0, 3),
       volumeReady: boundedNumberReady(volume, 0, 11),
     };
   }
@@ -555,14 +556,15 @@
     );
   }
 
-  function ActionRequirementsPanel({ confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume }) {
+  function ActionRequirementsPanel({ confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume, heaterLevel }) {
     const readiness = routeReadiness(destination, lat, lon, placeIds);
-    const controls = controlReadiness(percent, amps, driverTemp, passengerTemp, volume);
+    const controls = controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel);
     const requirements = [
       ["Physical confirmation", Boolean(confirm), confirm ? "armed for one action" : "check the confirmation box before any physical action"],
       ["Charge limit", controls.chargeLimitReady, controls.chargeLimitReady ? "percent ready" : "enter a charge limit from 1 to 100"],
       ["Charge amps", controls.chargeAmpsReady, controls.chargeAmpsReady ? "amps ready" : "enter charging amps from 1 to 80"],
       ["Cabin temperatures", controls.temperatureReady, controls.temperatureReady ? "temperatures ready" : "enter driver and passenger temperatures from 50° to 90°"],
+      ["Seat/steering heat", controls.heaterLevelReady, controls.heaterLevelReady ? "heater level ready" : "enter a heater level from 0 to 3"],
       ["Media volume", controls.volumeReady, controls.volumeReady ? "volume ready" : "enter a volume level from 0 to 11"],
       ["Navigate", readiness.navReady, readiness.navReady ? "destination ready" : "enter a destination"],
       ["GPS navigation", readiness.gpsReady, readiness.gpsReady ? "latitude/longitude in range" : readiness.gpsFieldsComplete ? "enter latitude from -90 to 90 and longitude from -180 to 180" : "enter both latitude and longitude"],
@@ -2033,6 +2035,7 @@
     const [amps, setAmps] = hooks.useState("32");
     const [driverTemp, setDriverTemp] = hooks.useState("70");
     const [passengerTemp, setPassengerTemp] = hooks.useState("70");
+    const [heaterLevel, setHeaterLevel] = hooks.useState("1");
     const [volume, setVolume] = hooks.useState("3");
     const [destination, setDestination] = hooks.useState("");
     const [lat, setLat] = hooks.useState("");
@@ -2161,6 +2164,7 @@
         body.driver_temp = numeric(driverTemp);
         body.passenger_temp = numeric(passengerTemp);
       }
+      if (action === "seat-heat-driver" || action === "seat-heat-passenger" || action === "steering-heat-level") body.level = numeric(heaterLevel);
       if (action === "media-volume-set") body.volume = numeric(volume);
       if (action === "nav") body.destination = destination.trim();
       if (action === "nav-gps") {
@@ -2172,10 +2176,11 @@
     }
 
     function actionDisabledReason(action) {
-      const controls = controlReadiness(percent, amps, driverTemp, passengerTemp, volume);
+      const controls = controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel);
       if (action === "charge-limit" && !controls.chargeLimitReady) return "Enter a charge limit from 1 to 100 before changing charging.";
       if (action === "charge-amps" && !controls.chargeAmpsReady) return "Enter charging amps from 1 to 80 before changing charging.";
       if (action === "set-temp" && !controls.temperatureReady) return "Enter driver and passenger temperatures from 50° to 90° before changing climate.";
+      if (["seat-heat-driver", "seat-heat-passenger", "steering-heat-level"].includes(action) && !controls.heaterLevelReady) return "Enter a heater level from 0 to 3 before changing seat or steering heat.";
       if (action === "media-volume-set" && !controls.volumeReady) return "Enter a volume level from 0 to 11 before changing media volume.";
       if (action === "nav" && !destination.trim()) return "Enter a destination before sending navigation.";
       if (action === "nav-gps" && !routeReadiness("", lat, lon, "").gpsReady) return "Enter latitude from -90 to 90 and longitude from -180 to 180 before sending GPS navigation.";
@@ -2370,6 +2375,7 @@
                 h(TextInput, { label: "Charge amps", value: amps, setValue: setAmps, type: "number", min: "1", max: "80", step: "1", inputMode: "numeric", helpText: "Allowed range 1–80 amps; invalid values keep the charging button disabled." }),
                 h(TextInput, { label: "Driver temp", value: driverTemp, setValue: setDriverTemp, type: "number", min: "50", max: "90", step: "0.5", inputMode: "decimal", helpText: "Cabin temperature guardrail: 50°–90°." }),
                 h(TextInput, { label: "Passenger temp", value: passengerTemp, setValue: setPassengerTemp, type: "number", min: "50", max: "90", step: "0.5", inputMode: "decimal", helpText: "Cabin temperature guardrail: 50°–90°." }),
+                h(TextInput, { label: "Heater level", value: heaterLevel, setValue: setHeaterLevel, type: "number", min: "0", max: "3", step: "1", inputMode: "numeric", helpText: "Seat and steering heat guardrail: 0 off, 1–3 warming levels; invalid values keep heater buttons disabled." }),
                 h(TextInput, { label: "Volume", value: volume, setValue: setVolume, type: "number", min: "0", max: "11", step: "1", inputMode: "numeric", helpText: "Allowed volume range 0–11; invalid values keep media changes disabled." })
               ),
               h("div", { className: "tescmd-controls" },
@@ -2379,7 +2385,7 @@
                 h(TextInput, { label: "Place IDs", value: placeIds, setValue: setPlaceIds, placeholder: "id1,id2" })
               ),
               h(NavigationGuardPanel, { destination, lat, lon, placeIds, clearRouteFields: clearAllNavigationFields }),
-              h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume }),
+              h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume, heaterLevel }),
               ACTION_GROUPS.map(([title, actions]) => h(ActionGroup, { key: title, title, actions, runAction, loading, confirm, actionDisabledReason })),
               h("p", { className: "tescmd-muted" }, "Higher-risk flows like remote-start-drive, speed limit PINs, valet/PIN-to-drive, erase-user-data, and raw API calls remain tool-only with explicit confirm=true.")
             )
