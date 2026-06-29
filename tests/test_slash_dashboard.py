@@ -2259,25 +2259,46 @@ def test_drivers_slash_summary_counts_without_personal_details_or_raw_payload() 
                     "access_level": "driver",
                     "invite_status": "pending",
                 },
+                {"name": "Carol", "role": "guest", "status": "active"},
+                {
+                    "name": "Hidden Admin",
+                    "email": "hidden@example.com",
+                    "role": "administrator",
+                    "status": "expired",
+                    "vehicle_id": "12345678901234567",
+                    "invite_link": "https://tesla.example/invite/hidden-secret",
+                },
             ],
         },
     )
 
     assert output.startswith("/tescmd-drivers: success")
-    assert "Drivers: 2 associated driver(s) returned." in output
-    assert "Driver statuses: active 1, pending 1" in output
+    assert "Drivers: 4 associated driver(s) returned." in output
+    assert "Driver statuses: active 2, expired 1, pending 1" in output
     assert "#1 role owner, status active" in output
     assert "#2 role driver, status pending" in output
-    assert "names, emails, phone numbers, invites, and ids are redacted" in output
+    assert "#3 role guest, status active" in output
+    assert "Drivers: 1 additional driver row(s) hidden." in output
+    assert (
+        "names, emails, phone numbers, invite links, private ids, and hidden driver details are redacted"
+        in output
+    )
     assert "Result: command accepted" not in output
     assert "{" not in output
     assert "5YJ3E1EA7JF000001" not in output
     assert "Alice" not in output
     assert "Bob" not in output
+    assert "Carol" not in output
+    assert "Hidden Admin" not in output
     assert "alice@example.com" not in output
+    assert "hidden@example.com" not in output
     assert "+155****4567" not in output
     assert "driver-1234567890" not in output
     assert "secret-token" not in output
+    assert "hidden-secret" not in output
+    assert "12345678901234567" not in output
+    assert "administrator" not in output
+    assert "expired" in output
 
 
 def test_energy_slash_summary_lists_products_without_raw_payload() -> None:
