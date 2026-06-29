@@ -2379,6 +2379,11 @@ def test_service_slash_summary_handles_response_visit_lists_privately() -> None:
     assert output.startswith("/tescmd-service: success")
     assert "Service: maintenance status appointment pending for Fleet …4567" in output
     assert "2 service visits returned" in output
+    assert "Service: 1 additional visit(s) hidden for brevity." in output
+    assert (
+        "Service: appointment IDs, booking URLs, vehicle identifiers, and customer contact details stay out of slash summaries."
+        in output
+    )
     assert "appointment state confirmed" in output
     assert "time 2026-07-01T13:30:00Z" in output
     assert "center Tesla Service …0002, 123 Main St, Springfield" in output
