@@ -1475,6 +1475,7 @@ def _summarize_service_data(payload: dict[str, Any]) -> list[str]:
         service.get("service_visit"),
     )
     visit_count: int | None = None
+    hidden_visit_count = 0
     if appointment:
         visit_count = 1
     else:
@@ -1486,6 +1487,7 @@ def _summarize_service_data(payload: dict[str, Any]) -> list[str]:
                     (visit for visit in visits if isinstance(visit, dict)), {}
                 )
                 if appointment:
+                    hidden_visit_count = max(visit_count - 1, 0)
                     break
     if visit_count is not None:
         details.append(
@@ -1510,7 +1512,16 @@ def _summarize_service_data(payload: dict[str, Any]) -> list[str]:
             details.append("appointment " + ", ".join(appointment_bits[:4]))
 
     if details:
-        return ["Service: " + "; ".join(details)]
+        lines = ["Service: " + "; ".join(details)]
+        if hidden_visit_count:
+            lines.append(
+                f"Service: {hidden_visit_count} additional visit(s) hidden for brevity."
+            )
+        if visit_count:
+            lines.append(
+                "Service: appointment IDs, booking URLs, vehicle identifiers, and customer contact details stay out of slash summaries."
+            )
+        return lines
     return ["Service: data available (details redacted/summary-only)."]
 
 
