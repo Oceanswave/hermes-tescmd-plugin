@@ -1147,11 +1147,15 @@
     const entries = scheduleEntries(sectionPayload, ...entryKeys);
     const enabled = firstDefined(sectionPayload.enabled, sectionPayload.scheduled_charging_enabled, sectionPayload.scheduled_departure_enabled, sectionPayload.preconditioning_enabled);
     const nextStart = firstDefined(sectionPayload.next_start_time, sectionPayload.start_time, sectionPayload.departure_time);
+    const topEntries = entries.slice(0, 3).map((entry, index) => scheduleEntryLabel(entry, `schedule ${index + 1}`));
+    const hiddenCount = Math.max(0, entries.length - topEntries.length);
     return {
       entries,
       enabled: enabled === undefined ? "unknown" : String(enabled),
       nextStart: nextStart === undefined ? "unknown" : sanitizeDashboardText(nextStart, "time hidden"),
-      topEntries: entries.slice(0, 3).map((entry, index) => scheduleEntryLabel(entry, `schedule ${index + 1}`)),
+      topEntries,
+      hiddenCount,
+      hiddenText: hiddenCount ? `${hiddenCount} additional schedule entr${hiddenCount === 1 ? "y" : "ies"} hidden` : "",
     };
   }
 
@@ -1569,23 +1573,25 @@
       const summary = scheduleSummaryData(payload, ["charge_schedule", "charge_schedule_data"], ["charge_schedules", "charge_schedule"]);
       title = "Charge schedule summary";
       body = summary.topEntries.length
-        ? `Charge scheduling returned ${summary.entries.length} entr${summary.entries.length === 1 ? "y" : "ies"}. Top schedules: ${summary.topEntries.join("; ")}. Schedule IDs, vehicle identifiers, raw location fields, and precise coordinates stay out of the visible summary.`
+        ? `Charge scheduling returned ${summary.entries.length} entr${summary.entries.length === 1 ? "y" : "ies"}. Top schedules: ${summary.topEntries.join("; ")}${summary.hiddenText ? `. ${summary.hiddenText}` : ""}. Schedule IDs, vehicle identifiers, raw location fields, and precise coordinates stay out of the visible summary.`
         : "Charge scheduling returned without individual schedule entries. Use the redacted payload for troubleshooting; schedule IDs and vehicle identifiers stay hidden.";
       badges = [
         `${summary.entries.length} schedule${summary.entries.length === 1 ? "" : "s"}`,
         `enabled ${summary.enabled}`,
         `next/start ${summary.nextStart}`,
+        ...(summary.hiddenText ? [summary.hiddenText] : []),
       ];
     } else if (lastReadKind === "preconditioning-schedule") {
       const summary = scheduleSummaryData(payload, ["preconditioning_schedule", "preconditioning_schedule_data"], ["preconditioning_schedules", "preconditioning_schedule"]);
       title = "Preconditioning schedule summary";
       body = summary.topEntries.length
-        ? `Preconditioning scheduling returned ${summary.entries.length} entr${summary.entries.length === 1 ? "y" : "ies"}. Top schedules: ${summary.topEntries.join("; ")}. Schedule IDs, vehicle identifiers, cabin/location details, and precise coordinates stay out of the visible summary.`
+        ? `Preconditioning scheduling returned ${summary.entries.length} entr${summary.entries.length === 1 ? "y" : "ies"}. Top schedules: ${summary.topEntries.join("; ")}${summary.hiddenText ? `. ${summary.hiddenText}` : ""}. Schedule IDs, vehicle identifiers, cabin/location details, and precise coordinates stay out of the visible summary.`
         : "Preconditioning scheduling returned without individual schedule entries. Use the redacted payload for troubleshooting; schedule IDs and vehicle identifiers stay hidden.";
       badges = [
         `${summary.entries.length} schedule${summary.entries.length === 1 ? "" : "s"}`,
         `enabled ${summary.enabled}`,
         `next/start ${summary.nextStart}`,
+        ...(summary.hiddenText ? [summary.hiddenText] : []),
       ];
     } else if (lastReadKind === "release-notes") {
       const notes = releaseNoteItems(payload);
