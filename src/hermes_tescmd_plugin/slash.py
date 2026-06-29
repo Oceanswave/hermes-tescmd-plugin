@@ -1318,10 +1318,15 @@ def _summarize_drivers(payload: dict[str, Any]) -> list[str]:
     lines = [f"Drivers: {len(drivers)} associated driver(s) returned."]
     status_counts: dict[str, int] = {}
     labels: list[str] = []
-    for idx, driver in enumerate(drivers[:3], 1):
-        role, status = _driver_role_status(driver)
+    for driver in drivers:
+        _role, status = _driver_role_status(driver)
         if status:
             status_counts[status] = status_counts.get(status, 0) + 1
+
+    preview_drivers = drivers[:3]
+    hidden = max(len(drivers) - len(preview_drivers), 0)
+    for idx, driver in enumerate(preview_drivers, 1):
+        role, status = _driver_role_status(driver)
         bits = []
         if role:
             bits.append(f"role {role}")
@@ -1336,8 +1341,10 @@ def _summarize_drivers(payload: dict[str, Any]) -> list[str]:
         lines.append("Driver statuses: " + status_summary)
     if labels:
         lines.append("Top drivers: " + "; ".join(labels))
+    if hidden:
+        lines.append(f"Drivers: {hidden} additional driver row(s) hidden.")
     lines.append(
-        "Privacy: names, emails, phone numbers, invites, and ids are redacted."
+        "Privacy: names, emails, phone numbers, invite links, private ids, and hidden driver details are redacted."
     )
     return lines
 
