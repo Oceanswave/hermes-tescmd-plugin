@@ -542,8 +542,8 @@ def _redact_vehicle_identifier(value: Any) -> str | None:
     return f"…{ident[-4:]}"
 
 
-_VIN_PATTERN = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b")
-_LONG_NUMERIC_ID_PATTERN = re.compile(r"\b\d{10,}\b")
+_VIN_PATTERN = re.compile(r"(?<![A-HJ-NPR-Z0-9])[A-HJ-NPR-Z0-9]{17}(?![A-HJ-NPR-Z0-9])")
+_LONG_NUMERIC_ID_PATTERN = re.compile(r"(?<!\d)\d{10,}(?!\d)")
 _BEARER_TOKEN_PATTERN = re.compile(r"(?i)\b(bearer\s+)[A-Za-z0-9._~+/=-]{8,}")
 _SENSITIVE_QUERY_VALUE_PATTERN = re.compile(
     r"(?i)([?#&](?:code|state|token|access_token|refresh_token|id_token|client_secret|code_verifier|code_challenge|oauth_token)=)[^\s&#]+"
@@ -1349,6 +1349,25 @@ def _summarize_drivers(payload: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _mobile_access_containers(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return mobile-access wrapper dicts in priority order without duplicates."""
+
+    containers: list[dict[str, Any]] = []
+    seen: set[int] = set()
+    for candidate in (
+        payload,
+        payload.get("response") if isinstance(payload.get("response"), dict) else None,
+        payload.get("data") if isinstance(payload.get("data"), dict) else None,
+        _payload_section(payload, "vehicle_state"),
+        _payload_section(payload, "mobile_access"),
+    ):
+        if not isinstance(candidate, dict) or id(candidate) in seen:
+            continue
+        containers.append(candidate)
+        seen.add(id(candidate))
+    return containers
+
+
 def _mobile_access_value(payload: dict[str, Any]) -> Any:
     """Return mobile-access state across common Fleet wrapper shapes.
 
@@ -1357,26 +1376,71 @@ def _mobile_access_value(payload: dict[str, Any]) -> Any:
     are the most important status to report accurately.
     """
 
-    for container in (
-        payload,
-        payload.get("response") if isinstance(payload.get("response"), dict) else None,
-        payload.get("data") if isinstance(payload.get("data"), dict) else None,
-        _payload_section(payload, "vehicle_state"),
-    ):
-        if isinstance(container, dict) and "mobile_access_enabled" in container:
+    for container in _mobile_access_containers(payload):
+        if "mobile_access_enabled" in container:
             return container.get("mobile_access_enabled")
     return None
+
+
+def _mobile_access_readiness_details(payload: dict[str, Any]) -> list[str]:
+    """Return privacy-safe context for mobile-access readiness summaries."""
+
+    detail_keys = (
+        ("ready_for_vehicle_reads", "vehicle reads"),
+        ("ready_for_vehicle_commands", "vehicle commands"),
+        ("remote_access_enabled", "remote access"),
+        ("can_accept_navigation_requests", "nav sharing"),
+        ("command_signing_ready", "command signing"),
+    )
+    status_keys = ("status", "state", "source", "reason")
+    shown_keys = {"mobile_access_enabled"}
+    details: list[str] = []
+    hidden_extra = 0
+
+    for container in _mobile_access_containers(payload):
+        for key, label in detail_keys:
+            shown_keys.add(key)
+            value = container.get(key)
+            if value is True:
+                details.append(f"{label} ready")
+            elif value is False:
+                details.append(f"{label} not ready")
+        for key in status_keys:
+            shown_keys.add(key)
+            value = container.get(key)
+            if value is not None:
+                details.append(f"{key} {_redact_slash_text(value)}")
+        hidden_extra += sum(
+            1
+            for key, value in container.items()
+            if key not in shown_keys and value not in (None, "", [], {})
+        )
+
+    deduped = list(dict.fromkeys(details))[:5]
+    if hidden_extra:
+        deduped.append(
+            f"{hidden_extra} additional mobile-access field(s) hidden from chat output"
+        )
+    return deduped
 
 
 def _summarize_mobile_access(payload: dict[str, Any]) -> list[str]:
     enabled = _mobile_access_value(payload)
     if enabled is None:
-        return ["Mobile access: status not returned."]
-    if enabled is True:
-        return ["Mobile access: enabled."]
-    if enabled is False:
-        return ["Mobile access: disabled."]
-    return [f"Mobile access: {_redact_slash_text(_stringify(enabled))}."]
+        lines = ["Mobile access: status not returned."]
+    elif enabled is True:
+        lines = ["Mobile access: enabled."]
+    elif enabled is False:
+        lines = ["Mobile access: disabled."]
+    else:
+        lines = [f"Mobile access: {_redact_slash_text(_stringify(enabled))}."]
+    details = _mobile_access_readiness_details(payload)
+    if details:
+        lines.append("Mobile access readiness: " + "; ".join(details))
+        lines.append(
+            "Mobile access: account contact fields, tokens, vehicle identifiers, and raw payloads stay out of slash summaries."
+        )
+    return lines
 
 
 def _energy_product_label(product: Any) -> str:

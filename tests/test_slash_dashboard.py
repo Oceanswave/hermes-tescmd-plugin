@@ -2210,6 +2210,42 @@ def test_mobile_access_slash_summary_handles_nested_response_shapes() -> None:
         assert "{" not in output
 
 
+def test_mobile_access_slash_summary_adds_privacy_safe_readiness_context() -> None:
+    output = slash._format_command(
+        "tescmd-mobile-access",
+        {
+            "ok": True,
+            "vin": "5YJ3E1EA7JF000001",
+            "response": {
+                "mobile_access_enabled": True,
+                "ready_for_vehicle_reads": True,
+                "ready_for_vehicle_commands": False,
+                "remote_access_enabled": True,
+                "status": "ready_for_5YJ3E1EA7JF000001",
+                "reason": "OAuth callback code=super-secret&state=private-state",
+                "account_email": "driver@example.com",
+                "access_token": "secret-token",
+            },
+        },
+    )
+
+    assert output.startswith("/tescmd-mobile-access: success")
+    assert "Mobile access: enabled." in output
+    assert "vehicle reads ready" in output
+    assert "vehicle commands not ready" in output
+    assert "remote access ready" in output
+    assert "status ready_for_…0001" in output
+    assert "reason OAuth callback code=[REDACTED]&state=[REDACTED]" in output
+    assert "additional mobile-access field(s) hidden" in output
+    assert "account contact fields, tokens, vehicle identifiers" in output
+    assert "5YJ3E1EA7JF000001" not in output
+    assert "driver@example.com" not in output
+    assert "secret-token" not in output
+    assert "super-secret" not in output
+    assert "private-state" not in output
+    assert "{" not in output
+
+
 def test_alerts_slash_summary_counts_statuses_and_numbers_redacted_top_alerts() -> None:
     output = slash._format_command(
         "tescmd-alerts",
