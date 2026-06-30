@@ -1758,6 +1758,11 @@ def test_dashboard_release_notes_read_summary_is_useful_and_private() -> None:
     assert "Firmware ${version} · ${status}" in body
     assert "Top sections: ${topTitles.join" in body
     assert (
+        "const hiddenNoteCount = Math.max(0, notes.length - topTitles.length)" in body
+    )
+    assert "additional note section${hiddenNoteCount === 1" in body
+    assert "...(hiddenNoteText ? [hiddenNoteText] : [])" in body
+    assert (
         "Note bodies, URLs, route text, vehicle identifiers, and coordinates stay in the redacted payload"
         in body
     )
