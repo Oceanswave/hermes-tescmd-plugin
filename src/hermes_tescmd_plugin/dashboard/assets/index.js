@@ -1548,11 +1548,17 @@
       const visitCount = appointments.length || arrayCount(payload, ["appointments", "service_visits", "visits", "service_appointments", "upcoming_appointments"]);
       const status = sanitizeDashboardText(firstDefined(serviceValue(payload, "status", "service_status", "state", "maintenance_status", "appointment_status"), "status unknown"), "status unknown");
       const topVisits = appointments.slice(0, 3).map((appointment, index) => serviceAppointmentLabel(appointment, `visit ${index + 1}`));
+      const hiddenVisitCount = Math.max(0, appointments.length - topVisits.length);
+      const hiddenVisitText = hiddenVisitCount ? `${hiddenVisitCount} additional service visit${hiddenVisitCount === 1 ? "" : "s"} hidden` : "";
       title = "Service summary";
       body = topVisits.length
-        ? `Service ${status}. Top visits: ${topVisits.join("; ")}. Appointment IDs, service-center addresses, raw booking URLs, vehicle identifiers, and customer contact details stay in the redacted payload.`
+        ? `Service ${status}. Top visits: ${topVisits.join("; ")}${hiddenVisitText ? `. ${hiddenVisitText}` : ""}. Appointment IDs, service-center addresses, raw booking URLs, vehicle identifiers, and customer contact details stay in the redacted payload.`
         : "Service data returned without visit rows. The dashboard shows status/count hints while appointment IDs, service-center addresses, booking URLs, vehicle identifiers, and customer contact details stay hidden.";
-      badges = [status, `${visitCount == null ? "unknown" : visitCount} visit${visitCount === 1 ? "" : "s"}`];
+      badges = [
+        status,
+        `${visitCount == null ? "unknown" : visitCount} visit${visitCount === 1 ? "" : "s"}`,
+        ...(hiddenVisitText ? [hiddenVisitText] : []),
+      ];
     } else if (lastReadKind === "mobile-access") {
       const access = booleanLabel(mobileAccessValue(payload, "enabled", "mobile_access_enabled", "allow_mobile_access", "remote_access_enabled"));
       const status = mobileAccessBadge("status", payload, "status", "state", "access_status", "remote_access_status");
