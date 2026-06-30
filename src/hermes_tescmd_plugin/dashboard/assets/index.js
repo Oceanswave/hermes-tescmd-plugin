@@ -1514,13 +1514,16 @@
     } else if (lastReadKind === "alerts") {
       const alerts = alertItems(payload);
       const topStatuses = alerts.slice(0, 3).map((alert, index) => alertStatusLabel(alert, `alert ${index + 1}`));
+      const hiddenAlertCount = Math.max(0, alerts.length - topStatuses.length);
+      const hiddenAlertText = hiddenAlertCount ? `${hiddenAlertCount} additional alert${hiddenAlertCount === 1 ? "" : "s"} hidden` : "";
       title = "Alerts summary";
       body = topStatuses.length
-        ? `Recent vehicle alerts returned ${alerts.length} item${alerts.length === 1 ? "" : "s"}. Top statuses: ${topStatuses.join(", ")}. Alert messages, driver/location hints, callback URLs, and vehicle identifiers stay in the redacted payload.`
+        ? `Recent vehicle alerts returned ${alerts.length} item${alerts.length === 1 ? "" : "s"}. Top statuses: ${topStatuses.join(", ")}${hiddenAlertText ? `. ${hiddenAlertText}` : ""}. Alert messages, driver/location hints, callback URLs, and vehicle identifiers stay in the redacted payload.`
         : "Alert read returned without individual alert rows. Use the redacted payload for troubleshooting while message text, coordinates, URLs, and identifiers stay hidden.";
       badges = [
         `${alerts.length} alert${alerts.length === 1 ? "" : "s"}`,
         ...topStatuses.slice(0, 2),
+        ...(hiddenAlertText ? [hiddenAlertText] : []),
       ];
     } else if (lastReadKind === "drivers") {
       const driverRows = accessRows(payload, ["drivers", "users", "people", "members", "vehicle_drivers"]);

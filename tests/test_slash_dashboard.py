@@ -1638,6 +1638,16 @@ def test_dashboard_software_and_alert_summaries_are_useful_and_private() -> None
     assert "Alerts summary" in body
     assert "Top statuses: ${topStatuses.join" in body
     assert (
+        "const hiddenAlertCount = Math.max(0, alerts.length - topStatuses.length)"
+        in body
+    )
+    assert (
+        'const hiddenAlertText = hiddenAlertCount ? `${hiddenAlertCount} additional alert${hiddenAlertCount === 1 ? "" : "s"} hidden` : ""'
+        in body
+    )
+    assert 'hiddenAlertText ? `. ${hiddenAlertText}` : ""' in body
+    assert "...(hiddenAlertText ? [hiddenAlertText] : [])" in body
+    assert (
         "Alert messages, driver/location hints, callback URLs, and vehicle identifiers stay in the redacted payload"
         in body
     )
