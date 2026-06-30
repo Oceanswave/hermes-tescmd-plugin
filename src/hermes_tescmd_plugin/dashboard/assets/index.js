@@ -1603,14 +1603,17 @@
       const version = releaseNoteVersion(payload);
       const status = releaseNoteStatus(payload);
       const topTitles = notes.slice(0, 3).map((item, index) => releaseNoteTitle(item, `note ${index + 1}`));
+      const hiddenNoteCount = Math.max(0, notes.length - topTitles.length);
+      const hiddenNoteText = hiddenNoteCount ? `${hiddenNoteCount} additional note section${hiddenNoteCount === 1 ? "" : "s"} hidden` : "";
       title = "Release notes summary";
       body = topTitles.length
-        ? `Firmware ${version} · ${status}. Top sections: ${topTitles.join(", ")}. Note bodies, URLs, route text, vehicle identifiers, and coordinates stay in the redacted payload.`
+        ? `Firmware ${version} · ${status}. Top sections: ${topTitles.join(", ")}${hiddenNoteText ? `. ${hiddenNoteText}` : ""}. Note bodies, URLs, route text, vehicle identifiers, and coordinates stay in the redacted payload.`
         : `Firmware ${version} · ${status}. Release-note metadata returned without section titles; use the redacted payload for troubleshooting without exposing note bodies or URLs.`;
       badges = [
         `${notes.length} note section${notes.length === 1 ? "" : "s"}`,
         version,
         status,
+        ...(hiddenNoteText ? [hiddenNoteText] : []),
       ];
     } else if (lastReadKind === "warranty") {
       const terms = warrantyTerms(payload);
