@@ -1841,6 +1841,16 @@ def test_dashboard_service_read_summary_handles_nested_status_privately() -> Non
         '"maintenance_status", "appointment_status")' in body
     )
     assert "Top visits: ${topVisits.join" in body
+    assert (
+        "const hiddenVisitCount = Math.max(0, appointments.length - topVisits.length)"
+        in body
+    )
+    assert (
+        'const hiddenVisitText = hiddenVisitCount ? `${hiddenVisitCount} additional service visit${hiddenVisitCount === 1 ? "" : "s"} hidden` : ""'
+        in body
+    )
+    assert 'hiddenVisitText ? `. ${hiddenVisitText}` : ""' in body
+    assert "...(hiddenVisitText ? [hiddenVisitText] : [])" in body
     assert "Appointment IDs, service-center addresses, raw booking URLs" in body
     assert "vehicle identifiers, and customer contact details" in body
     assert "appointment.appointment_id" not in asset
