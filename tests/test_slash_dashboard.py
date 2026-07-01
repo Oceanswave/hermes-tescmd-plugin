@@ -1823,6 +1823,43 @@ def test_dashboard_drivers_read_summary_is_useful_and_private() -> None:
     assert "12345678901234567" not in body
 
 
+def test_dashboard_mobile_access_read_summary_is_useful_and_private() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    body = asset.split("function DashboardReadSummary", 1)[1].split(
+        "function vehicleAvailability", 1
+    )[0]
+
+    assert '["mobile-access", "Mobile access"]' in asset
+    assert "function mobileAccessContainers(payload)" in asset
+    assert "function mobileAccessValue(payload, ...keys)" in asset
+    assert "function mobileAccessHiddenFieldCount(payload)" in asset
+    assert 'lastReadKind === "mobile-access"' in body
+    assert "Mobile access summary" in body
+    assert (
+        'mobileAccessValue(payload, "enabled", "mobile_access_enabled", "allow_mobile_access", "remote_access_enabled")'
+        in body
+    )
+    assert (
+        'mobileAccessBadge("status", payload, "status", "state", "access_status", "remote_access_status")'
+        in body
+    )
+    assert "const hiddenFieldCount = mobileAccessHiddenFieldCount(payload)" in body
+    assert (
+        'const hiddenFieldText = hiddenFieldCount ? `${hiddenFieldCount} additional access field${hiddenFieldCount === 1 ? "" : "s"} hidden` : ""'
+        in body
+    )
+    assert "...(hiddenFieldText ? [hiddenFieldText] : [])" in body
+    assert "raw IDs, or raw access rows" in body
+    assert (
+        "account contact fields, tokens, callback values, vehicle identifiers" in body
+    )
+    assert '"email"' not in body
+    assert '"phone"' not in body
+    assert '"token"' not in body
+    assert "5YJ3E1EA7JF000001" not in body
+    assert "12345678901234567" not in body
+
+
 def test_dashboard_service_read_summary_handles_nested_status_privately() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     body = asset.split("function DashboardReadSummary", 1)[1].split(
