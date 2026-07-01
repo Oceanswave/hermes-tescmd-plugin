@@ -1948,13 +1948,24 @@ def _summarize_schedules(name: str, payload: dict[str, Any]) -> list[str]:
         prefix += " — " + ", ".join(details)
     lines = [prefix]
     if entries:
+        visible_entries = entries[:3]
+        hidden_count = max(0, len(entries) - len(visible_entries))
         lines.append(
             "Top schedules: "
             + "; ".join(
                 f"#{idx} {_schedule_entry_label(entry)}"
-                for idx, entry in enumerate(entries[:3], 1)
+                for idx, entry in enumerate(visible_entries, 1)
             )
         )
+        if hidden_count:
+            lines.append(
+                f"{label}: {hidden_count} additional schedule "
+                f"entr{'y' if hidden_count == 1 else 'ies'} hidden."
+            )
+            lines.append(
+                "Privacy: schedule IDs, vehicle identifiers, location details, "
+                "and raw schedule payloads stay out of slash summaries."
+            )
     else:
         lines.append("No schedule entries were returned.")
     return lines
