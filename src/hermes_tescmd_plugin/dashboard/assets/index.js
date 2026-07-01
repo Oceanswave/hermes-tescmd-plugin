@@ -1020,6 +1020,29 @@
     return `${label} ${sanitizeDashboardText(String(value).replace(/_/g, " "), "unknown")}`;
   }
 
+  function mobileAccessHiddenFieldCount(payload) {
+    const safeSummaryKeys = new Set([
+      "enabled", "mobile_access_enabled", "allow_mobile_access", "remote_access_enabled",
+      "status", "state", "access_status", "remote_access_status",
+      "ready_for_vehicle_reads", "read_access", "reads_enabled",
+      "ready_for_vehicle_commands", "command_access", "commands_enabled",
+      "source", "config_source", "grant_source", "scope_source",
+      "mobile_access", "response", "data",
+    ]);
+    const privateContainerKeys = new Set(["drivers", "users", "people", "members", "invites", "invitations", "accounts", "vehicles", "permissions", "raw"]);
+    const hiddenKeys = new Set();
+    for (const container of mobileAccessContainers(payload)) {
+      Object.keys(container).forEach((key) => {
+        if (safeSummaryKeys.has(key)) return;
+        hiddenKeys.add(key);
+      });
+      privateContainerKeys.forEach((key) => {
+        if (Array.isArray(container[key])) hiddenKeys.add(`${key}_rows`);
+      });
+    }
+    return hiddenKeys.size;
+  }
+
   function serviceContainers(payload) {
     const service = payload && payload.service;
     const response = payload && payload.response;
@@ -1565,9 +1588,11 @@
       const reads = `reads ${yesNoUnknown(mobileAccessValue(payload, "ready_for_vehicle_reads", "read_access", "reads_enabled"))}`;
       const commands = `commands ${yesNoUnknown(mobileAccessValue(payload, "ready_for_vehicle_commands", "command_access", "commands_enabled"))}`;
       const source = mobileAccessBadge("source", payload, "source", "config_source", "grant_source", "scope_source");
+      const hiddenFieldCount = mobileAccessHiddenFieldCount(payload);
+      const hiddenFieldText = hiddenFieldCount ? `${hiddenFieldCount} additional access field${hiddenFieldCount === 1 ? "" : "s"} hidden` : "";
       title = "Mobile access summary";
-      body = "Mobile access is summarized as remote access, read, command, status, and source hints so operators can triage app access without exposing account contact fields, tokens, callback values, vehicle identifiers, or raw access rows.";
-      badges = [`mobile access ${access}`, status, reads, commands, source];
+      body = `Mobile access is summarized as remote access, read, command, status, and source hints so operators can triage app access without exposing account contact fields, tokens, callback values, vehicle identifiers, raw IDs, or raw access rows.${hiddenFieldText ? ` ${hiddenFieldText}; inspect the redacted payload only when troubleshooting.` : ""}`;
+      badges = [`mobile access ${access}`, status, reads, commands, source, ...(hiddenFieldText ? [hiddenFieldText] : [])];
     } else if (lastReadKind === "nearby-chargers") {
       const superchargers = chargerSites(payload, "superchargers", "nearby_superchargers");
       const destinationChargers = chargerSites(payload, "destination_charging", "destination_chargers");
