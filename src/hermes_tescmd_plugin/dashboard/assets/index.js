@@ -1626,14 +1626,17 @@
       const status = warrantyMeta(payload, "status", "state", "eligibility", "coverage_status");
       const asOf = warrantyMeta(payload, "as_of", "asOf", "generated_at", "last_updated");
       const topTerms = terms.slice(0, 3).map((term, index) => warrantyTermLabel(term, `term ${index + 1}`));
+      const hiddenTermCount = Math.max(0, terms.length - topTerms.length);
+      const hiddenTermText = hiddenTermCount ? `${hiddenTermCount} additional warranty term${hiddenTermCount === 1 ? "" : "s"} hidden` : "";
       title = "Warranty summary";
       body = topTerms.length
-        ? `Warranty ${status} · as of ${asOf}. Top terms: ${topTerms.join("; ")}. Agreement IDs, URLs, vehicle identifiers, and raw coverage payload details stay in the redacted payload.`
+        ? `Warranty ${status} · as of ${asOf}. Top terms: ${topTerms.join("; ")}${hiddenTermText ? `. ${hiddenTermText}` : ""}. Agreement IDs, URLs, vehicle identifiers, and raw coverage payload details stay in the redacted payload.`
         : `Warranty ${status} · as of ${asOf}. Warranty data returned without term labels; use the redacted payload for troubleshooting without exposing agreement IDs or URLs.`;
       badges = [
         `${terms.length} warranty term${terms.length === 1 ? "" : "s"}`,
         status,
         `as of ${asOf}`,
+        ...(hiddenTermText ? [hiddenTermText] : []),
       ];
     } else if (lastReadKind === "energy") {
       const products = energyProducts(payload);
