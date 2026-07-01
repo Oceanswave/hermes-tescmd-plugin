@@ -1479,6 +1479,31 @@ def test_dashboard_admin_read_summaries_are_useful_and_private() -> None:
     assert "12345678901234567" not in body
 
 
+def test_dashboard_vehicle_list_read_summary_is_useful_and_private() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    body = asset.split('lastReadKind === "vehicles"', 1)[1].split(
+        'lastReadKind === "vehicle-status"', 1
+    )[0]
+
+    assert '["vehicles", "Vehicles"]' in asset
+    assert "function vehicleListRows(payload)" in asset
+    assert "function vehicleListFacets(rows, keys, fallback)" in asset
+    assert "function vehicleModelHints(rows)" in asset
+    assert 'lastReadKind === "vehicles"' in asset
+    assert "Vehicle list summary" in body
+    assert "State/model hints help pick the right target" in body
+    assert "display names, VINs, Fleet IDs, option codes, and account fields" in body
+    assert "additional vehicle row" in body
+    assert 'vehicleListFacets(vehicles, ["state", "vehicle_state", "status"]' in body
+    assert "models.map((model) => `model ${model}`)" in body
+    assert '"vehicles", "vehicle_list", "response", "data"' in asset
+    assert "display_name" not in body
+    assert "vehicle_name" not in body
+    assert "id_s" not in body
+    assert "5YJ3E1EA7JF000001" not in body
+    assert "12345678901234567" not in body
+
+
 def test_dashboard_core_status_read_summaries_are_useful_and_private() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     body = asset.split("function DashboardReadSummary", 1)[1].split(

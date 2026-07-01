@@ -19,7 +19,7 @@
   const api = (path, options) => SDK.fetchJSON(`/api/plugins/hermes-tescmd-plugin${path}`, options);
 
   const READ_GROUPS = [
-    ["Core", [["vehicle-status", "Vehicle"], ["drive", "Drive"], ["closures", "Closures"], ["charge", "Charge"], ["climate", "Climate"], ["location", "Location"]]],
+    ["Core", [["vehicles", "Vehicles"], ["vehicle-status", "Vehicle"], ["drive", "Drive"], ["closures", "Closures"], ["charge", "Charge"], ["climate", "Climate"], ["location", "Location"]]],
     ["Diagnostics", [["security", "Security"], ["software", "Software"], ["config", "Config"], ["gui", "GUI"], ["alerts", "Alerts"], ["release-notes", "Release notes"]]],
     ["Services", [["nearby-chargers", "Nearby chargers"], ["energy", "Energy"], ["mobile-access", "Mobile access"], ["drivers", "Drivers"], ["service", "Service"], ["warranty", "Warranty"], ["charge-schedule", "Charge schedules"], ["preconditioning-schedule", "Preconditioning"]]],
     ["Admin", [["auth-status", "Auth"], ["onboarding", "Onboarding"], ["key-show", "Key"], ["key-validate", "Validate key"], ["cache-status", "Cache"]]],
@@ -948,6 +948,47 @@
     return "unknown";
   }
 
+  function vehicleListRows(payload) {
+    for (const candidate of [payload, payload && payload.response, payload && payload.data]) {
+      if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) continue;
+      for (const key of ["vehicles", "vehicle_list", "response", "data"]) {
+        if (Array.isArray(candidate[key])) return candidate[key];
+      }
+    }
+    if (Array.isArray(payload)) return payload;
+    return [];
+  }
+
+  function vehicleListFacets(rows, keys, fallback) {
+    const counts = new Map();
+    rows.forEach((row) => {
+      if (!row || typeof row !== "object") return;
+      for (const key of keys) {
+        const value = row[key];
+        if (value != null && String(value).trim() !== "") {
+          const label = sanitizeDashboardText(String(value).replace(/_/g, " "), fallback);
+          counts.set(label, (counts.get(label) || 0) + 1);
+          return;
+        }
+      }
+    });
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 3)
+      .map(([label, count]) => `${label} ${count}`);
+  }
+
+  function vehicleModelHints(rows) {
+    const hints = [];
+    rows.forEach((row) => {
+      if (!row || typeof row !== "object") return;
+      const config = row.vehicle_config && typeof row.vehicle_config === "object" ? row.vehicle_config : {};
+      const model = firstDefined(row.car_type, row.model, config.car_type, config.model, row.trim_badging, config.trim_badging);
+      if (model != null) hints.push(sanitizeDashboardText(String(model).replace(/_/g, " "), "model"));
+    });
+    return Array.from(new Set(hints)).slice(0, 3);
+  }
+
   function accessContainers(payload) {
     return [
       payload,
@@ -1396,6 +1437,22 @@
         cacheCountLabel("stale/expired entry", expiredCount, "stale/expired entries"),
         `mode ${backend}`,
         cacheFreshnessLabel(payload),
+      ];
+    } else if (lastReadKind === "vehicles") {
+      const vehicles = vehicleListRows(payload);
+      const states = vehicleListFacets(vehicles, ["state", "vehicle_state", "status"], "state");
+      const models = vehicleModelHints(vehicles);
+      const hiddenVehicleCount = Math.max(0, vehicles.length - 3);
+      const hiddenVehicleText = hiddenVehicleCount ? `${hiddenVehicleCount} additional vehicle row${hiddenVehicleCount === 1 ? "" : "s"} hidden` : "";
+      title = "Vehicle list summary";
+      body = vehicles.length
+        ? `Vehicle list returned ${vehicles.length} vehicle record${vehicles.length === 1 ? "" : "s"}. State/model hints help pick the right target while display names, VINs, Fleet IDs, option codes, and account fields stay in the redacted payload.${hiddenVehicleText ? ` ${hiddenVehicleText}.` : ""}`
+        : "Vehicle list returned no vehicle rows. Use onboarding/auth readiness before troubleshooting; identifiers and account details stay out of visible dashboard copy.";
+      badges = [
+        `${vehicles.length} vehicle${vehicles.length === 1 ? "" : "s"}`,
+        ...(states.length ? states : ["state unknown"]),
+        ...(models.length ? models.map((model) => `model ${model}`) : ["model unknown"]),
+        ...(hiddenVehicleText ? [hiddenVehicleText] : []),
       ];
     } else if (lastReadKind === "vehicle-status") {
       const vehicleState = readObjectWithFields(payload, ["vehicle_name", "car_version", "locked", "is_user_present", "sentry_mode"], "vehicle_state", "vehicle_status", "state");
