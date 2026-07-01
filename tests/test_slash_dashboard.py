@@ -3006,7 +3006,15 @@ def test_schedule_slash_summaries_are_human_readable_and_privacy_safe() -> None:
                         "days_of_week": ["monday", "tuesday"],
                         "latitude": 37.7749295,
                         "longitude": -122.4194155,
-                    }
+                    },
+                    {"enabled": False, "start_time": 420, "end_time": 480},
+                    {"enabled": True, "start_time": 500, "end_time": 560},
+                    {
+                        "id": "11112222333344445555",
+                        "enabled": True,
+                        "start_time": 600,
+                        "location": "Garage at 123 Main St",
+                    },
                 ],
             },
         },
@@ -3024,7 +3032,16 @@ def test_schedule_slash_summaries_are_human_readable_and_privacy_safe() -> None:
                             "preconditioning_enabled": False,
                             "departure_time": "07:30",
                             "location": "123 Main St",
-                        }
+                        },
+                        {"preconditioning_enabled": True, "departure_time": "08:00"},
+                        {"preconditioning_enabled": True, "departure_time": "08:30"},
+                        {
+                            "schedule_id": "22223333444455556666",
+                            "preconditioning_enabled": True,
+                            "departure_time": "09:00",
+                            "latitude": 37.7749295,
+                        },
+                        {"preconditioning_enabled": False, "departure_time": "09:30"},
                     ],
                 }
             },
@@ -3032,11 +3049,22 @@ def test_schedule_slash_summaries_are_human_readable_and_privacy_safe() -> None:
     )
 
     assert charge_output.startswith("/tescmd-charge-schedule: success")
-    assert "Charge schedule: 1 entry returned — enabled, next/start 0" in charge_output
+    assert (
+        "Charge schedule: 4 entries returned — enabled, next/start 0" in charge_output
+    )
     assert "Top schedules: #1 id …6543, enabled yes, start 0, end 360" in charge_output
+    assert "#2 enabled no, start 420, end 480" in charge_output
+    assert "#3 enabled yes, start 500, end 560" in charge_output
+    assert "Charge schedule: 1 additional schedule entry hidden." in charge_output
+    assert (
+        "Privacy: schedule IDs, vehicle identifiers, location details, "
+        "and raw schedule payloads stay out of slash summaries." in charge_output
+    )
     assert "Result: command accepted" not in charge_output
     assert "5YJ3E1EA7JF000001" not in charge_output
     assert "98765432109876543" not in charge_output
+    assert "11112222333344445555" not in charge_output
+    assert "Garage at 123 Main St" not in charge_output
     assert "37.7749295" not in charge_output
     assert "-122.4194155" not in charge_output
     assert "{" not in charge_output
@@ -3045,13 +3073,19 @@ def test_schedule_slash_summaries_are_human_readable_and_privacy_safe() -> None:
         "/tescmd-preconditioning-schedule: success"
     )
     assert (
-        "Preconditioning schedule: 1 entry returned — disabled"
+        "Preconditioning schedule: 5 entries returned — disabled"
         in preconditioning_output
     )
     assert "preconditioning enabled no" in preconditioning_output
     assert "depart 07:30" in preconditioning_output
+    assert (
+        "Preconditioning schedule: 2 additional schedule entries hidden."
+        in preconditioning_output
+    )
     assert "5YJ3E1EA7JF000002" not in preconditioning_output
+    assert "22223333444455556666" not in preconditioning_output
     assert "123 Main St" not in preconditioning_output
+    assert "37.7749295" not in preconditioning_output
     assert "{" not in preconditioning_output
 
 
