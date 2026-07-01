@@ -1880,6 +1880,13 @@ def test_dashboard_warranty_read_summary_is_available_useful_and_private() -> No
     assert "Warranty summary" in body
     assert "Warranty ${status} · as of ${asOf}" in body
     assert "Top terms: ${topTerms.join" in body
+    assert "const hiddenTermCount = Math.max(0, terms.length - topTerms.length)" in body
+    assert (
+        'const hiddenTermText = hiddenTermCount ? `${hiddenTermCount} additional warranty term${hiddenTermCount === 1 ? "" : "s"} hidden` : ""'
+        in body
+    )
+    assert 'hiddenTermText ? `. ${hiddenTermText}` : ""' in body
+    assert "...(hiddenTermText ? [hiddenTermText] : [])" in body
     assert (
         "Agreement IDs, URLs, vehicle identifiers, and raw coverage payload details stay in the redacted payload"
         in body
@@ -4677,4 +4684,7 @@ def test_dashboard_assets_install_to_hermes_plugin_tree(tmp_path, monkeypatch) -
     assert (dashboard_dir / "manifest.json").exists()
     assert (dashboard_dir / "plugin_api.py").exists()
     assert (dashboard_dir / "assets" / "index.js").exists()
+    installed_asset = (dashboard_dir / "assets" / "index.js").read_text()
+    assert "additional warranty term" in installed_asset
+    assert "hiddenTermText" in installed_asset
     assert json.loads((dashboard_dir / "manifest.json").read_text())["label"] == "Tesla"
