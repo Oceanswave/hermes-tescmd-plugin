@@ -1633,14 +1633,21 @@
       const driverStatuses = accessFacetCounts(driverRows, ["status", "state", "account_status", "access_status"], "status");
       const inviteStatuses = accessFacetCounts(inviteRows, ["status", "state", "invite_status"], "invite");
       const accessHints = [...roleFacets, ...driverStatuses, ...inviteStatuses].slice(0, 4);
+      const hiddenDriverCount = Math.max(0, driverRows.length - 3);
+      const hiddenInviteCount = Math.max(0, inviteRows.length - 1);
+      const hiddenAccessText = [
+        hiddenDriverCount ? `${hiddenDriverCount} additional driver/user row${hiddenDriverCount === 1 ? "" : "s"} hidden` : "",
+        hiddenInviteCount ? `${hiddenInviteCount} additional invite row${hiddenInviteCount === 1 ? "" : "s"} hidden` : "",
+      ].filter(Boolean).join("; ");
       title = "Access summary";
       body = accessHints.length
-        ? `Driver/account access returned ${driverCount == null ? "unknown" : driverCount} driver/user record${driverCount === 1 ? "" : "s"} and ${inviteCount == null ? "unknown" : inviteCount} pending invite${inviteCount === 1 ? "" : "s"}. Top role/status hints: ${accessHints.join(", ")}. Names, emails, phone numbers, invite links, private IDs, and raw permission payloads stay in the redacted payload.`
-        : "Driver/account access data is summarized as counts and coarse status only; names, emails, phone numbers, invite links, private IDs, and raw permission payloads stay out of the dashboard copy.";
+        ? `Driver/account access returned ${driverCount == null ? "unknown" : driverCount} driver/user record${driverCount === 1 ? "" : "s"} and ${inviteCount == null ? "unknown" : inviteCount} pending invite${inviteCount === 1 ? "" : "s"}. Top role/status hints: ${accessHints.join(", ")}.${hiddenAccessText ? ` ${hiddenAccessText}.` : ""} Names, emails, phone numbers, invite links, private IDs, raw roles, hidden row details, and raw permission payloads stay in the redacted payload.`
+        : "Driver/account access data is summarized as counts and coarse status only; names, emails, phone numbers, invite links, private IDs, raw roles, hidden row details, and raw permission payloads stay out of the dashboard copy.";
       badges = [
         `${driverCount == null ? "unknown" : driverCount} driver/user record${driverCount === 1 ? "" : "s"}`,
         `${inviteCount == null ? "unknown" : inviteCount} pending invite${inviteCount === 1 ? "" : "s"}`,
         ...accessHints.slice(0, 3),
+        ...(hiddenAccessText ? [hiddenAccessText] : []),
       ];
     } else if (lastReadKind === "service") {
       const appointments = serviceAppointments(payload);

@@ -1878,6 +1878,13 @@ def test_dashboard_drivers_read_summary_is_useful_and_private() -> None:
     assert '["status", "state", "account_status", "access_status"]' in body
     assert '["status", "state", "invite_status"]' in body
     assert "raw permission payloads stay" in body
+    assert "const hiddenDriverCount = Math.max(0, driverRows.length - 3)" in body
+    assert "const hiddenInviteCount = Math.max(0, inviteRows.length - 1)" in body
+    assert "hiddenAccessText" in body
+    assert "additional driver/user row" in body
+    assert "additional invite row" in body
+    assert "...(hiddenAccessText ? [hiddenAccessText] : [])" in body
+    assert "raw roles, hidden row details" in body
     assert "...accessHints.slice(0, 3)" in body
     assert "payload && payload.access" in asset
     assert "invite links, private IDs" in body
