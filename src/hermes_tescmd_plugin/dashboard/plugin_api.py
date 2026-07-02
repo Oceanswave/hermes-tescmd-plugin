@@ -42,6 +42,9 @@ _QUICK_ACTION_TO_TOOL = {
     "media-volume-up": "tescmd_media_volume_up",
     "media-volume-down": "tescmd_media_volume_down",
     "media-volume-set": "tescmd_media_volume_set",
+    "parental-activate": "tescmd_parental_controls_activate",
+    "parental-setting": "tescmd_parental_controls_enable_setting",
+    "parental-speed-limit": "tescmd_parental_controls_set_speed_limit",
     "nav": "tescmd_navigation_send",
     "nav-gps": "tescmd_navigation_gps",
     "nav-waypoints": "tescmd_navigation_waypoints",
@@ -64,6 +67,9 @@ _ACTION_EXTRA_FIELDS: dict[str, tuple[str, ...]] = {
     "seat-heat-passenger": ("level",),
     "steering-heat-level": ("level",),
     "media-volume-set": ("volume",),
+    "parental-activate": ("pin",),
+    "parental-setting": ("setting", "enabled"),
+    "parental-speed-limit": ("limit_mph",),
     "nav": ("destination", "order"),
     "nav-gps": ("lat", "lon", "order"),
     "nav-waypoints": ("place_ids",),
@@ -336,6 +342,9 @@ class QuickActionBody(BaseModel):
     passenger_temp: float | None = None
     level: int | None = None
     volume: float | None = None
+    pin: str | None = None
+    setting: str | None = None
+    limit_mph: float | None = None
     destination: str | None = None
     order: int | None = None
     lat: float | None = None

@@ -2700,6 +2700,30 @@ _COMMANDS: dict[str, tuple[str, str, Callable[[dict[str, Any]], str]]] = {
             ),
         ),
     ),
+    "tescmd-parental-activate": (
+        "Activate Parental Controls with a four-digit PIN; requires confirm=true.",
+        "[vin] pin=1234 confirm=true",
+        lambda ctx: _format_command(
+            "tescmd-parental-activate",
+            _run_tool("tescmd_parental_controls_activate", ctx["raw_args"]),
+        ),
+    ),
+    "tescmd-parental-setting": (
+        "Enable or disable one Parental Controls setting while controls are not active; requires confirm=true.",
+        "[vin] setting=TheaterBlocked enabled=false confirm=true",
+        lambda ctx: _format_command(
+            "tescmd-parental-setting",
+            _run_tool("tescmd_parental_controls_enable_setting", ctx["raw_args"]),
+        ),
+    ),
+    "tescmd-parental-speed-limit": (
+        "Set the Parental Controls speed limit in miles per hour; requires confirm=true.",
+        "[vin] limit_mph=85 confirm=true",
+        lambda ctx: _format_command(
+            "tescmd-parental-speed-limit",
+            _run_tool("tescmd_parental_controls_set_speed_limit", ctx["raw_args"]),
+        ),
+    ),
     "tescmd-nav": (
         "Send navigation destination text; use vin=... for an explicit vehicle; requires confirm=true.",
         "'address or place' [vin=...] confirm=true",
