@@ -1704,8 +1704,19 @@ def test_dashboard_nearby_chargers_read_summary_is_useful_and_private() -> None:
     assert 'lastReadKind === "nearby-chargers"' in body
     assert "Nearby chargers summary" in body
     assert 'Top ${chargerOrderLabel(topSupercharger, "Supercharger", 1)}' in body
+    assert (
+        "const hiddenSuperchargerCount = Math.max(0, superchargers.length - 1)" in body
+    )
+    assert (
+        "const hiddenDestinationCount = Math.max(0, destinationChargers.length - 3)"
+        in body
+    )
+    assert "hiddenChargerText" in body
+    assert "additional Supercharger" in body
+    assert "additional destination charger" in body
+    assert "...(hiddenChargerText ? [hiddenChargerText] : [])" in body
     assert "tescmd_navigation_supercharger order=N confirm=true" in body
-    assert "charger names and coordinates stay hidden" in body
+    assert "charger names, coordinates, and omitted rows stay hidden" in body
     assert "destination charger" in body
     assert "nearby_superchargers" in body
     assert "destination_chargers" in body
@@ -1722,6 +1733,38 @@ def test_dashboard_nearby_chargers_read_summary_is_useful_and_private() -> None:
     assert "site.lat" not in body
     assert "site.lng" not in body
     assert "5YJ3E1EA7JF000001" not in body
+
+
+def test_nearby_chargers_slash_summary_reports_hidden_counts_privately() -> None:
+    output = slash._format_command(  # noqa: SLF001
+        "tescmd-nearby-chargers",
+        {
+            "ok": True,
+            "sites": {
+                "superchargers": [
+                    {
+                        "name": f"Supercharger {index}",
+                        "available_stalls": index,
+                        "total_stalls": 8,
+                    }
+                    for index in range(1, 6)
+                ],
+                "destination_chargers": [
+                    {"name": f"Destination charger {index}", "distance_miles": index}
+                    for index in range(1, 5)
+                ],
+            },
+        },
+    )
+
+    assert "Nearby chargers: 5 Supercharger(s), 4 destination charger(s)" in output
+    assert "#1 Supercharger 1" in output
+    assert "#3 Supercharger 3" in output
+    assert "Superchargers: 2 additional site(s) hidden" in output
+    assert "Destination chargers: 1 additional site(s) hidden" in output
+    assert "Supercharger 4" not in output
+    assert "Supercharger 5" not in output
+    assert "Destination charger 4" not in output
 
 
 def test_dashboard_schedule_read_summaries_are_useful_and_private() -> None:

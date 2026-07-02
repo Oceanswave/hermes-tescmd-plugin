@@ -1654,13 +1654,20 @@
       const superchargers = chargerSites(payload, "superchargers", "nearby_superchargers");
       const destinationChargers = chargerSites(payload, "destination_charging", "destination_chargers");
       const topSupercharger = superchargers[0];
+      const hiddenSuperchargerCount = Math.max(0, superchargers.length - 1);
+      const hiddenDestinationCount = Math.max(0, destinationChargers.length - 3);
+      const hiddenChargerText = [
+        hiddenSuperchargerCount ? `${hiddenSuperchargerCount} additional Supercharger${hiddenSuperchargerCount === 1 ? "" : "s"} hidden` : "",
+        hiddenDestinationCount ? `${hiddenDestinationCount} additional destination charger${hiddenDestinationCount === 1 ? "" : "s"} hidden` : "",
+      ].filter(Boolean).join("; ");
       title = "Nearby chargers summary";
       body = topSupercharger
-        ? `Top ${chargerOrderLabel(topSupercharger, "Supercharger", 1)} · ${chargerStallLabel(topSupercharger)} · ${chargerDistanceLabel(topSupercharger)}. Use tescmd_navigation_supercharger order=N confirm=true from the numbered list; charger names and coordinates stay hidden.`
+        ? `Top ${chargerOrderLabel(topSupercharger, "Supercharger", 1)} · ${chargerStallLabel(topSupercharger)} · ${chargerDistanceLabel(topSupercharger)}${hiddenChargerText ? `. ${hiddenChargerText}` : ""}. Use tescmd_navigation_supercharger order=N confirm=true from the numbered list; charger names, coordinates, and omitted rows stay hidden.`
         : "Nearby charging data returned without a Supercharger list. Use the redacted payload below for troubleshooting while coordinates stay hidden.";
       badges = [
         `${superchargers.length} Supercharger${superchargers.length === 1 ? "" : "s"}`,
         `${destinationChargers.length} destination charger${destinationChargers.length === 1 ? "" : "s"}`,
+        ...(hiddenChargerText ? [hiddenChargerText] : []),
       ];
     } else if (lastReadKind === "charge-schedule") {
       const summary = scheduleSummaryData(payload, ["charge_schedule", "charge_schedule_data"], ["charge_schedules", "charge_schedule"]);

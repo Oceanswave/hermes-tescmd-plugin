@@ -837,22 +837,35 @@ def _summarize_nearby_chargers(payload: dict[str, Any]) -> list[str]:
         parts.append(f"{len(destination)} destination charger(s)")
     lines = ["Nearby chargers: " + ", ".join(parts)]
     if superchargers:
+        shown_superchargers = superchargers[:3]
+        hidden_superchargers = len(superchargers) - len(shown_superchargers)
         lines.append(
             "Top Superchargers: "
             + "; ".join(
                 _charger_label(site, order=idx)
-                for idx, site in enumerate(superchargers[:3], 1)
+                for idx, site in enumerate(shown_superchargers, 1)
             )
         )
+        if hidden_superchargers > 0:
+            lines.append(
+                f"Superchargers: {hidden_superchargers} additional site(s) hidden; "
+                "use the numbered order from the full payload only when needed."
+            )
         lines.append(
             "Navigation: use tescmd_navigation_supercharger order=N confirm=true "
             "with the matching Supercharger number."
         )
     if destination:
+        shown_destination = destination[:3]
+        hidden_destination = len(destination) - len(shown_destination)
         lines.append(
             "Top destination chargers: "
-            + "; ".join(_charger_label(site) for site in destination[:3])
+            + "; ".join(_charger_label(site) for site in shown_destination)
         )
+        if hidden_destination > 0:
+            lines.append(
+                f"Destination chargers: {hidden_destination} additional site(s) hidden."
+            )
     return lines
 
 
