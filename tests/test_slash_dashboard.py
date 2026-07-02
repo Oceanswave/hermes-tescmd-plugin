@@ -201,6 +201,36 @@ def test_navigation_slash_commands_treat_bare_text_as_destination_or_query(
             "query",
         ),
     ]
+    assert "coffee shop" not in search_output
+
+
+def test_parental_control_slash_commands_route_to_new_tools(monkeypatch) -> None:
+    calls: list[tuple[str, str]] = []
+
+    def fake_run_tool(tool_name, raw_args="", *args, **kwargs):
+        calls.append((tool_name, raw_args))
+        return {"ok": True, "response": {"result": True}}
+
+    monkeypatch.setattr(slash, "_run_tool", fake_run_tool)
+    commands = slash.command_definitions()
+
+    assert "Result: yes" in commands["tescmd-parental-activate"]["handler"](
+        {"raw_args": "pin=1234 confirm=true"}
+    )
+    assert "Result: yes" in commands["tescmd-parental-setting"]["handler"](
+        {"raw_args": "setting=TheaterBlocked enabled=false confirm=true"}
+    )
+    assert "Result: yes" in commands["tescmd-parental-speed-limit"]["handler"](
+        {"raw_args": "limit_mph=85 confirm=true"}
+    )
+    assert calls == [
+        ("tescmd_parental_controls_activate", "pin=1234 confirm=true"),
+        (
+            "tescmd_parental_controls_enable_setting",
+            "setting=TheaterBlocked enabled=false confirm=true",
+        ),
+        ("tescmd_parental_controls_set_speed_limit", "limit_mph=85 confirm=true"),
+    ]
 
 
 def test_navigation_positional_parsing_preserves_explicit_named_vin() -> None:
@@ -376,6 +406,9 @@ def test_registers_tescmd_slash_commands_and_status_handler(
         "tescmd-media-volume-up",
         "tescmd-media-volume-down",
         "tescmd-media-volume-set",
+        "tescmd-parental-activate",
+        "tescmd-parental-setting",
+        "tescmd-parental-speed-limit",
         "tescmd-nav",
         "tescmd-nav-search",
         "tescmd-nav-waypoints",
@@ -391,6 +424,18 @@ def test_registers_tescmd_slash_commands_and_status_handler(
     )
     assert "vin=..." in by_name["tescmd-nav"]["description"]
     assert by_name["tescmd-nav-search"]["args_hint"] == "'address or place' [limit=5]"
+    assert (
+        by_name["tescmd-parental-activate"]["args_hint"]
+        == "[vin] pin=1234 confirm=true"
+    )
+    assert (
+        by_name["tescmd-parental-setting"]["args_hint"]
+        == "[vin] setting=TheaterBlocked enabled=false confirm=true"
+    )
+    assert (
+        by_name["tescmd-parental-speed-limit"]["args_hint"]
+        == "[vin] limit_mph=85 confirm=true"
+    )
 
     config.save_config(config.PluginConfig(profile="default", client_id="client-123"))
     output = by_name["tescmd-status"]["handler"]("")
@@ -1107,7 +1152,7 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
     assert "if (navigationAction) clearNavigationFields(action);" in asset
     assert "function routeReadiness(destination, lat, lon, placeIds)" in asset
     assert (
-        "function controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel)"
+        "function controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel, parentalLimit)"
         in asset
     )
     assert "function ActionRequirementsPanel" in asset
@@ -1143,7 +1188,7 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
     assert "enter both latitude and longitude" in asset
     assert "enter latitude from -90 to 90 and longitude from -180 to 180" in asset
     assert (
-        "h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume, heaterLevel })"
+        "h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume, heaterLevel, parentalPin, parentalLimit })"
         in asset
     )
     assert "aria-describedby" in asset
@@ -1201,7 +1246,7 @@ def test_dashboard_action_readiness_panel_explains_disabled_buttons_privately() 
 
     assert "function routeReadiness(destination, lat, lon, placeIds)" in asset
     assert (
-        "function controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel)"
+        "function controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel, parentalLimit)"
         in asset
     )
     assert "Quick action readiness checklist" in body
@@ -1243,7 +1288,7 @@ def test_dashboard_action_readiness_panel_explains_disabled_buttons_privately() 
     assert "latitude/longitude in range" in body
     assert "enter at least one place ID" in body
     assert (
-        "h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume, heaterLevel })"
+        "h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume, heaterLevel, parentalPin, parentalLimit })"
         in asset
     )
     assert ".tescmd-action-requirements" in style
@@ -3810,6 +3855,24 @@ def test_dashboard_catalog_includes_expanded_reads_and_actions() -> None:
     assert catalog["quick_actions"]["honk"] == "tescmd_honk"
     assert catalog["quick_actions"]["charge-limit"] == "tescmd_charge_limit"
     assert catalog["quick_actions"]["window-vent"] == "tescmd_vehicle_window_control"
+    assert (
+        catalog["quick_actions"]["parental-activate"]
+        == "tescmd_parental_controls_activate"
+    )
+    assert (
+        catalog["quick_actions"]["parental-setting"]
+        == "tescmd_parental_controls_enable_setting"
+    )
+    assert (
+        catalog["quick_actions"]["parental-speed-limit"]
+        == "tescmd_parental_controls_set_speed_limit"
+    )
+    assert catalog["action_extra_fields"]["parental-activate"] == ("pin",)
+    assert catalog["action_extra_fields"]["parental-setting"] == (
+        "setting",
+        "enabled",
+    )
+    assert catalog["action_extra_fields"]["parental-speed-limit"] == ("limit_mph",)
     assert catalog["quick_actions"]["nav"] == "tescmd_navigation_send"
 
 
@@ -3841,6 +3904,11 @@ def test_dashboard_command_catalog_is_generated_from_runtime_specs() -> None:
         is True
     )
     assert "tescmd_auth_status" in by_name
+    parental = by_name["tescmd_parental_controls_activate"]
+    assert parental["category"] == "parental"
+    assert parental["confirm_required"] is True
+    assert "secret_or_oauth_value" in parental["sensitive_parameters"]["pin"]
+    assert any("OAuth/secrets/PIN-like" in note for note in parental["safety_notes"])
     auth_complete = by_name["tescmd_auth_complete"]
     assert "secret_or_oauth_value" in auth_complete["sensitive_parameters"]["code"]
     assert "secret_or_oauth_value" in auth_complete["sensitive_parameters"]["state"]
@@ -4484,6 +4552,28 @@ def test_dashboard_quick_actions_explain_locked_and_armed_states() -> None:
     assert "controls disabled" not in asset
 
 
+def test_dashboard_quick_actions_include_parental_controls_safely() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+
+    assert '"Parental controls"' in asset
+    assert '"parental-activate", "Activate"' in asset
+    assert '"parental-setting", "Setting on/off"' in asset
+    assert '"parental-speed-limit", "Set speed limit"' in asset
+    assert "function parentalPinReady" in asset
+    assert "Parental PIN" in asset
+    assert 'type: "password"' in asset
+    assert "Required only for activating Parental Controls" in asset
+    assert "four digits are sent only after confirmation" in asset
+    assert "Parental setting" in asset
+    assert "Theater blocked" in asset
+    assert "Parental speed limit" in asset
+    assert "Allowed parental speed-limit range 50–90 mph" in asset
+    assert "Enter a four-digit PIN before activating Parental Controls" in asset
+    assert "Enter a parental speed limit from 50 to 90 mph" in asset
+    assert "Highest-risk flows like remote-start-drive" in asset
+    assert "speed limit PINs" not in asset
+
+
 def test_dashboard_empty_states_give_actionable_safe_guidance() -> None:
     asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
     style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
@@ -4706,6 +4796,54 @@ def test_dashboard_quick_action_passes_extra_action_arguments(monkeypatch) -> No
     ]
 
 
+def test_dashboard_quick_action_passes_parental_control_arguments(monkeypatch) -> None:
+    calls: list[tuple[str, dict]] = []
+
+    def fake_run(tool_name, args=None):
+        calls.append((tool_name, args or {}))
+        return {"ok": True}
+
+    monkeypatch.setattr("hermes_tescmd_plugin.dashboard.plugin_api._run", fake_run)
+
+    activate_payload = quick_action(
+        QuickActionBody(action="parental-activate", confirm=True, pin="1234")
+    )
+    setting_payload = quick_action(
+        QuickActionBody(
+            action="parental-setting",
+            confirm=True,
+            setting="TheaterBlocked",
+            enabled=False,
+        )
+    )
+    speed_payload = quick_action(
+        QuickActionBody(action="parental-speed-limit", confirm=True, limit_mph=85)
+    )
+
+    assert activate_payload["ok"] is True
+    assert setting_payload["ok"] is True
+    assert speed_payload["ok"] is True
+    assert calls == [
+        (
+            "tescmd_parental_controls_activate",
+            {"profile": "default", "confirm": True, "pin": "1234"},
+        ),
+        (
+            "tescmd_parental_controls_enable_setting",
+            {
+                "profile": "default",
+                "confirm": True,
+                "setting": "TheaterBlocked",
+                "enabled": False,
+            },
+        ),
+        (
+            "tescmd_parental_controls_set_speed_limit",
+            {"profile": "default", "confirm": True, "limit_mph": 85.0},
+        ),
+    ]
+
+
 def test_dashboard_quick_action_passes_heater_level_arguments(monkeypatch) -> None:
     calls: list[tuple[str, dict]] = []
 
@@ -4841,4 +4979,6 @@ def test_dashboard_assets_install_to_hermes_plugin_tree(tmp_path, monkeypatch) -
     installed_asset = (dashboard_dir / "assets" / "index.js").read_text()
     assert "additional warranty term" in installed_asset
     assert "hiddenTermText" in installed_asset
+    assert "Parental controls" in installed_asset
+    assert "Allowed parental speed-limit range 50–90 mph" in installed_asset
     assert json.loads((dashboard_dir / "manifest.json").read_text())["label"] == "Tesla"

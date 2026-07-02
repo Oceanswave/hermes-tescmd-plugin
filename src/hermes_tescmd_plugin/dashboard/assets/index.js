@@ -31,6 +31,7 @@
     ["Charging", [["charge-start", "Charge start"], ["charge-stop", "Charge stop"], ["charge-limit", "Set limit"], ["charge-amps", "Set amps"], ["charge-port-open", "Port open"], ["charge-port-close", "Port close"]]],
     ["Body", [["frunk", "Frunk"], ["trunk-open", "Trunk open"], ["trunk-close", "Trunk close"], ["window-vent", "Vent windows"], ["window-close", "Close windows"]]],
     ["Media & navigation", [["media-play", "Play/pause"], ["media-next", "Next"], ["media-prev", "Previous"], ["media-volume-up", "Vol +"], ["media-volume-down", "Vol -"], ["media-volume-set", "Set volume"], ["nav", "Navigate"], ["nav-gps", "Nav GPS"], ["nav-waypoints", "Waypoints"]]],
+    ["Parental controls", [["parental-activate", "Activate"], ["parental-setting", "Setting on/off"], ["parental-speed-limit", "Set speed limit"]]],
   ];
 
   function JsonBlock({ data }) {
@@ -518,13 +519,17 @@
     return Number.isFinite(Number(text));
   }
 
+  function parentalPinReady(pin) {
+    return /^\d{4}$/.test(String(pin || ""));
+  }
+
   function boundedNumberReady(text, min, max) {
     if (!numericTextReady(text)) return false;
     const value = Number(text);
     return value >= min && value <= max;
   }
 
-  function controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel) {
+  function controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel, parentalLimit) {
     const driverReady = boundedNumberReady(driverTemp, 50, 90);
     const passengerReady = boundedNumberReady(passengerTemp, 50, 90);
     return {
@@ -533,6 +538,7 @@
       temperatureReady: driverReady && passengerReady,
       heaterLevelReady: boundedNumberReady(heaterLevel, 0, 3),
       volumeReady: boundedNumberReady(volume, 0, 11),
+      parentalSpeedLimitReady: boundedNumberReady(parentalLimit, 50, 90),
     };
   }
 
@@ -556,9 +562,9 @@
     );
   }
 
-  function ActionRequirementsPanel({ confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume, heaterLevel }) {
+  function ActionRequirementsPanel({ confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume, heaterLevel, parentalPin, parentalLimit }) {
     const readiness = routeReadiness(destination, lat, lon, placeIds);
-    const controls = controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel);
+    const controls = controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel, parentalLimit);
     const requirements = [
       ["Physical confirmation", Boolean(confirm), confirm ? "armed for one action" : "check the confirmation box before any physical action"],
       ["Charge limit", controls.chargeLimitReady, controls.chargeLimitReady ? "percent ready" : "enter a charge limit from 1 to 100"],
@@ -566,6 +572,8 @@
       ["Cabin temperatures", controls.temperatureReady, controls.temperatureReady ? "temperatures ready" : "enter driver and passenger temperatures from 50° to 90°"],
       ["Seat/steering heat", controls.heaterLevelReady, controls.heaterLevelReady ? "heater level ready" : "enter a heater level from 0 to 3"],
       ["Media volume", controls.volumeReady, controls.volumeReady ? "volume ready" : "enter a volume level from 0 to 11"],
+      ["Parental PIN", parentalPinReady(parentalPin), parentalPinReady(parentalPin) ? "four-digit PIN ready" : "enter a four-digit PIN for activation"],
+      ["Parental speed limit", controls.parentalSpeedLimitReady, controls.parentalSpeedLimitReady ? "speed limit ready" : "enter a parental speed limit from 50 to 90 mph"],
       ["Navigate", readiness.navReady, readiness.navReady ? "destination ready" : "enter a destination"],
       ["GPS navigation", readiness.gpsReady, readiness.gpsReady ? "latitude/longitude in range" : readiness.gpsFieldsComplete ? "enter latitude from -90 to 90 and longitude from -180 to 180" : "enter both latitude and longitude"],
       ["Waypoints", readiness.waypointReady, readiness.waypointReady ? `${readiness.waypointCount} place ID${readiness.waypointCount === 1 ? "" : "s"} ready` : "enter at least one place ID"],
@@ -2174,6 +2182,9 @@
     const [passengerTemp, setPassengerTemp] = hooks.useState("70");
     const [heaterLevel, setHeaterLevel] = hooks.useState("1");
     const [volume, setVolume] = hooks.useState("3");
+    const [parentalPin, setParentalPin] = hooks.useState("");
+    const [parentalSetting, setParentalSetting] = hooks.useState("TheaterBlocked");
+    const [parentalLimit, setParentalLimit] = hooks.useState("85");
     const [destination, setDestination] = hooks.useState("");
     const [lat, setLat] = hooks.useState("");
     const [lon, setLon] = hooks.useState("");
@@ -2303,6 +2314,12 @@
       }
       if (action === "seat-heat-driver" || action === "seat-heat-passenger" || action === "steering-heat-level") body.level = numeric(heaterLevel);
       if (action === "media-volume-set") body.volume = numeric(volume);
+      if (action === "parental-activate") body.pin = parentalPin;
+      if (action === "parental-setting") {
+        body.setting = parentalSetting;
+        body.enabled = enabled;
+      }
+      if (action === "parental-speed-limit") body.limit_mph = numeric(parentalLimit);
       if (action === "nav") body.destination = destination.trim();
       if (action === "nav-gps") {
         body.lat = numeric(lat);
@@ -2313,12 +2330,14 @@
     }
 
     function actionDisabledReason(action) {
-      const controls = controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel);
+      const controls = controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel, parentalLimit);
       if (action === "charge-limit" && !controls.chargeLimitReady) return "Enter a charge limit from 1 to 100 before changing charging.";
       if (action === "charge-amps" && !controls.chargeAmpsReady) return "Enter charging amps from 1 to 80 before changing charging.";
       if (action === "set-temp" && !controls.temperatureReady) return "Enter driver and passenger temperatures from 50° to 90° before changing climate.";
       if (["seat-heat-driver", "seat-heat-passenger", "steering-heat-level"].includes(action) && !controls.heaterLevelReady) return "Enter a heater level from 0 to 3 before changing seat or steering heat.";
       if (action === "media-volume-set" && !controls.volumeReady) return "Enter a volume level from 0 to 11 before changing media volume.";
+      if (action === "parental-activate" && !parentalPinReady(parentalPin)) return "Enter a four-digit PIN before activating Parental Controls.";
+      if (action === "parental-speed-limit" && !controls.parentalSpeedLimitReady) return "Enter a parental speed limit from 50 to 90 mph before changing Parental Controls.";
       if (action === "nav" && !destination.trim()) return "Enter a destination before sending navigation.";
       if (action === "nav-gps" && !routeReadiness("", lat, lon, "").gpsReady) return "Enter latitude from -90 to 90 and longitude from -180 to 180 before sending GPS navigation.";
       if (action === "nav-waypoints" && !placeIds.split(",").map((x) => x.trim()).filter(Boolean).length) return "Enter at least one place ID before sending waypoints.";
@@ -2516,15 +2535,22 @@
                 h(TextInput, { label: "Volume", value: volume, setValue: setVolume, type: "number", min: "0", max: "11", step: "1", inputMode: "numeric", helpText: "Allowed volume range 0–11; invalid values keep media changes disabled." })
               ),
               h("div", { className: "tescmd-controls" },
+                h(TextInput, { label: "Parental PIN", value: parentalPin, setValue: setParentalPin, type: "password", inputMode: "numeric", helpText: "Required only for activating Parental Controls; four digits are sent only after confirmation." }),
+                h(Field, { label: "Parental setting" }, h("select", { className: "tescmd-select", value: parentalSetting, onChange: (event) => setParentalSetting(event.target.value) },
+                  h("option", { value: "SpeedLimit" }, "Speed limit"), h("option", { value: "Acceleration" }, "Acceleration"), h("option", { value: "SafetyFeatures" }, "Safety features"), h("option", { value: "Curfew" }, "Curfew"), h("option", { value: "BrowserBlocked" }, "Browser blocked"), h("option", { value: "TheaterBlocked" }, "Theater blocked"), h("option", { value: "ArcadeBlocked" }, "Arcade blocked")
+                )),
+                h(TextInput, { label: "Parental speed limit", value: parentalLimit, setValue: setParentalLimit, type: "number", min: "50", max: "90", step: "1", inputMode: "numeric", helpText: "Allowed parental speed-limit range 50–90 mph; invalid values keep the button disabled." })
+              ),
+              h("div", { className: "tescmd-controls" },
                 h(TextInput, { label: "Destination", value: destination, setValue: setDestination, placeholder: "address or place" }),
                 h(TextInput, { label: "Latitude", value: lat, setValue: setLat, type: "number", min: "-90", max: "90", step: "0.000001", inputMode: "decimal", helpText: "Latitude must be from -90 to 90; precise coordinates are cleared after attempts." }),
                 h(TextInput, { label: "Longitude", value: lon, setValue: setLon, type: "number", min: "-180", max: "180", step: "0.000001", inputMode: "decimal", helpText: "Longitude must be from -180 to 180; precise coordinates are never echoed in guidance." }),
                 h(TextInput, { label: "Place IDs", value: placeIds, setValue: setPlaceIds, placeholder: "id1,id2" })
               ),
               h(NavigationGuardPanel, { destination, lat, lon, placeIds, clearRouteFields: clearAllNavigationFields }),
-              h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume, heaterLevel }),
+              h(ActionRequirementsPanel, { confirm, destination, lat, lon, placeIds, percent, amps, driverTemp, passengerTemp, volume, heaterLevel, parentalPin, parentalLimit }),
               ACTION_GROUPS.map(([title, actions]) => h(ActionGroup, { key: title, title, actions, runAction, loading, confirm, actionDisabledReason })),
-              h("p", { className: "tescmd-muted" }, "Higher-risk flows like remote-start-drive, speed limit PINs, valet/PIN-to-drive, erase-user-data, and raw API calls remain tool-only with explicit confirm=true.")
+              h("p", { className: "tescmd-muted" }, "Highest-risk flows like remote-start-drive, valet/PIN-to-drive, erase-user-data, and raw API calls remain tool-only with explicit confirm=true.")
             )
           ),
           error ? h(Card, { className: "tescmd-error-card" }, h(CardContent, null, h("p", { className: "tescmd-error" }, error))) : null,
