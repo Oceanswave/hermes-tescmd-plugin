@@ -122,7 +122,7 @@ def test_register_adds_full_native_tools_and_skill_by_default(
     registered_names = [tool["name"] for tool in ctx.tools]
     assert registered_names == [spec.name for spec in runtime.list_tool_specs()]
     assert registered_names == [spec.name for spec in registered_tool_specs()]
-    assert len(ctx.tools) == 187
+    assert len(ctx.tools) == 190
     assert "tescmd_auth_status" in registered_names
     assert "tescmd_onboarding_status" in registered_names
     assert "tescmd_vehicle_status" in registered_names
@@ -363,6 +363,9 @@ def test_runtime_keeps_parity_critical_native_tools() -> None:
     assert "tescmd_precondition_schedules_clear" in names
     assert "tescmd_power_keep_accessory_mode" in names
     assert "tescmd_power_low_power_mode" in names
+    assert "tescmd_parental_controls_activate" in names
+    assert "tescmd_parental_controls_enable_setting" in names
+    assert "tescmd_parental_controls_set_speed_limit" in names
     for name in {
         "tescmd_vehicle_drive_status",
         "tescmd_vehicle_closures_status",
@@ -752,6 +755,104 @@ def test_trunk_close_uses_explicit_rear_closure_close_payload(
         build_command_payload("actuate_trunk", {"which_trunk": "rear"})
         == b"\x22\x02\x28\x01"
     )
+
+
+def test_parental_control_tools_map_new_vehicle_commands(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    config.save_config(
+        config.PluginConfig(
+            profile="default",
+            client_id="client-123",
+            region="na",
+            default_vin="5YJ3E1EA7JF000001",
+        )
+    )
+    config.save_auth_state(
+        config.AuthState(profile="default", access_token="token", region="na")
+    )
+    handlers = {
+        spec.name: runtime.make_handler(spec) for spec in runtime.list_tool_specs()
+    }
+    calls = []
+
+    def fake_command(self, vin, command_name, body=None):
+        calls.append((vin, command_name, body))
+        return {"result": True}
+
+    monkeypatch.setattr(client.TeslaFleetClient, "vehicle_command", fake_command)
+
+    assert (
+        json.loads(
+            handlers["tescmd_parental_controls_activate"](
+                {"confirm": True, "pin": "1234"}
+            )
+        )["ok"]
+        is True
+    )
+    assert (
+        json.loads(
+            handlers["tescmd_parental_controls_enable_setting"](
+                {"confirm": True, "setting": "TheaterBlocked", "enabled": False}
+            )
+        )["ok"]
+        is True
+    )
+    assert (
+        json.loads(
+            handlers["tescmd_parental_controls_set_speed_limit"](
+                {"confirm": True, "limit_mph": 85}
+            )
+        )["ok"]
+        is True
+    )
+
+    assert calls == [
+        (
+            "5YJ3E1EA7JF000001",
+            "parental_controls_activate",
+            {"activate": True, "pin": "1234"},
+        ),
+        (
+            "5YJ3E1EA7JF000001",
+            "parental_controls_enable_setting",
+            {"setting": "TheaterBlocked", "enable": False},
+        ),
+        (
+            "5YJ3E1EA7JF000001",
+            "parental_controls_set_speed_limit",
+            {"limit_mph": 85},
+        ),
+    ]
+
+
+def test_parental_control_and_media_payloads_match_latest_car_server_proto() -> None:
+    assert (
+        build_command_payload(
+            "parental_controls_activate", {"activate": True, "pin": "1234"}
+        )
+        == b"\x12\x0b\xfa\x06\x08\x08\x01\x12\x041234"
+    )
+    assert (
+        build_command_payload(
+            "parental_controls_enable_setting",
+            {"setting": "TheaterBlocked", "enable": False},
+        )
+        == b"\x12\x07\x82\x07\x04\x08\x05\x10\x00"
+    )
+    assert (
+        build_command_payload("parental_controls_set_speed_limit", {"limit_mph": 85})
+        == b"\x12\x0c\x8a\x07\x09\x09\x00\x00\x00\x00\x00\x40U@"
+    )
+    assert (
+        build_command_payload("media_volume_up", {}) == b"\x12\x05\x82\x01\x02\x08\x02"
+    )
+
+
+def test_parental_controls_activate_requires_four_digit_pin() -> None:
+    with pytest.raises(ValueError, match="four-digit"):
+        build_command_payload(
+            "parental_controls_activate", {"activate": True, "pin": "12"}
+        )
 
 
 def test_navigation_place_search_requires_key_and_returns_candidates(

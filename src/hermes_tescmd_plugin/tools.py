@@ -654,6 +654,9 @@ HIGH_RISK_VEHICLE_COMMANDS = {
     "reset_pin_to_drive_pin",
     "clear_pin_to_drive_admin",
     "speed_limit_clear_pin_admin",
+    "parental_controls_activate",
+    "parental_controls_enable_setting",
+    "parental_controls_set_speed_limit",
     "guest_mode",
     "erase_user_data",
 }
