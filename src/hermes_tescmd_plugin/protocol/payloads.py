@@ -10,6 +10,7 @@ Field numbers match Tesla's vehicle-command proto definitions:
 
 from __future__ import annotations
 
+import struct
 from collections.abc import Callable
 from typing import Any
 
@@ -159,6 +160,11 @@ _VA_REMOVE_PRECONDITION_SCHEDULE = 100
 _VA_BOOMBOX = 64  # VehicleControlRemoteBoomboxAction
 _VA_BATCH_REMOVE_PRECONDITION = 107
 _VA_BATCH_REMOVE_CHARGE = 108
+_VA_PARENTAL_CONTROLS_CLEAR_PIN = 109
+_VA_PARENTAL_CONTROLS_CLEAR_PIN_ADMIN = 110
+_VA_PARENTAL_CONTROLS = 111
+_VA_PARENTAL_CONTROLS_ENABLE_SETTINGS = 112
+_VA_PARENTAL_CONTROLS_SET_SPEED_LIMIT = 113
 _VA_SET_LOW_POWER_MODE = 130
 _VA_KEEP_ACCESSORY_POWER = 138
 
@@ -259,6 +265,17 @@ def _encode_tag_raw(field_number: int, wire_type: int) -> bytes:
     return _encode_tag(field_number, wire_type)
 
 
+def _encode_sint32_field(field_number: int, value: int) -> bytes:
+    """Encode a protobuf sint32 field using ZigZag varint encoding."""
+    zigzag = (int(value) << 1) ^ (int(value) >> 31)
+    return _encode_varint_field(field_number, zigzag)
+
+
+def _encode_double_field(field_number: int, value: float) -> bytes:
+    """Encode a protobuf double field (wire type 1)."""
+    return _encode_tag_raw(field_number, 1) + struct.pack("<d", float(value))
+
+
 def _set_preconditioning_max(body: dict[str, Any]) -> bytes:
     """HvacSetPreconditioningMaxAction: on (field 1), manual_override (field 2)."""
     on = body.get("on", True)
@@ -355,19 +372,78 @@ def _speed_limit_set(body: dict[str, Any]) -> bytes:
     return _wrap_vehicle_action(_VA_DRIVING_SET_SPEED_LIMIT, inner)
 
 
+_PARENTAL_CONTROL_SETTINGS = {
+    "speedlimit": 0,
+    "speed_limit": 0,
+    "acceleration": 1,
+    "safetyfeatures": 2,
+    "safety_features": 2,
+    "curfew": 3,
+    "browserblocked": 4,
+    "browser_blocked": 4,
+    "theaterblocked": 5,
+    "theater_blocked": 5,
+    "arcadeblocked": 6,
+    "arcade_blocked": 6,
+}
+
+
+def _parental_controls_activate(body: dict[str, Any]) -> bytes:
+    """ParentalControlsAction: activate (field 1), pin (field 2)."""
+    pin = str(body.get("pin", ""))
+    if not pin.isdigit() or len(pin) != 4:
+        raise ValueError("parental_controls_activate requires a four-digit PIN.")
+    activate = body.get("activate", True)
+    inner = _encode_varint_field(1, 1 if activate else 0)
+    inner += _encode_length_delimited(2, pin.encode())
+    return _wrap_vehicle_action(_VA_PARENTAL_CONTROLS, inner)
+
+
+def _parental_controls_enable_setting(body: dict[str, Any]) -> bytes:
+    """ParentalControlsEnableSettingsAction: setting (field 1), enable (field 2)."""
+    raw_setting = body.get("setting")
+    setting: int | None
+    if isinstance(raw_setting, int):
+        setting = raw_setting
+    else:
+        key = str(raw_setting or "").strip().replace("-", "_").lower()
+        setting = _PARENTAL_CONTROL_SETTINGS.get(key)
+    if setting is None or setting not in range(0, 7):
+        supported = ", ".join(
+            [
+                "SpeedLimit",
+                "Acceleration",
+                "SafetyFeatures",
+                "Curfew",
+                "BrowserBlocked",
+                "TheaterBlocked",
+                "ArcadeBlocked",
+            ]
+        )
+        raise ValueError(
+            f"Unsupported parental controls setting. Expected one of: {supported}."
+        )
+    inner = _encode_varint_field(1, int(setting))
+    inner += _encode_varint_field(2, 1 if body.get("enable", True) else 0)
+    return _wrap_vehicle_action(_VA_PARENTAL_CONTROLS_ENABLE_SETTINGS, inner)
+
+
+def _parental_controls_set_speed_limit(body: dict[str, Any]) -> bytes:
+    """ParentalControlsSetSpeedLimitAction: limit_mph (field 1 double)."""
+    if body.get("limit_mph") is None:
+        raise ValueError("parental_controls_set_speed_limit requires limit_mph.")
+    inner = _encode_double_field(1, float(body["limit_mph"]))
+    return _wrap_vehicle_action(_VA_PARENTAL_CONTROLS_SET_SPEED_LIMIT, inner)
+
+
 def _media_volume(body: dict[str, Any]) -> bytes:
-    """MediaUpdateVolume: volume_delta (field 1) or volume_absolute_float (field 3)."""
+    """MediaUpdateVolume: sint32 volume_delta (field 1) or absolute float (field 3)."""
     inner = b""
     if "volume" in body:
-        import struct
-
         vol = float(body["volume"])
         inner = _encode_tag_raw(3, 5) + struct.pack("<f", vol)
     elif "volume_delta" in body:
-        import struct
-
-        delta = float(body["volume_delta"])
-        inner = _encode_tag_raw(1, 5) + struct.pack("<f", delta)
+        inner = _encode_sint32_field(1, int(body["volume_delta"]))
     return _wrap_vehicle_action(_VA_MEDIA_UPDATE_VOLUME, inner)
 
 
@@ -707,6 +783,9 @@ _BUILDERS: dict[str, _PayloadBuilder] = {
     "speed_limit_clear_pin_admin": lambda _: _void_vehicle_action(
         _VA_CLEAR_SPEED_LIMIT_PIN_ADMIN
     ),
+    "parental_controls_activate": _parental_controls_activate,
+    "parental_controls_enable_setting": _parental_controls_enable_setting,
+    "parental_controls_set_speed_limit": _parental_controls_set_speed_limit,
     "honk_horn": lambda _: _void_vehicle_action(_VA_HONK_HORN),
     "flash_lights": lambda _: _void_vehicle_action(_VA_FLASH_LIGHTS),
     "set_pin_to_drive": _set_pin_to_drive,
@@ -720,10 +799,10 @@ _BUILDERS: dict[str, _PayloadBuilder] = {
     "media_next_fav": lambda _: _void_vehicle_action(_VA_MEDIA_NEXT_FAV),
     "media_prev_fav": lambda _: _void_vehicle_action(_VA_MEDIA_PREV_FAV),
     "media_volume_up": lambda body: _media_volume(
-        {"volume_delta": body.get("volume_delta", 0.5)},
+        {"volume_delta": body.get("volume_delta", 1)},
     ),
     "media_volume_down": lambda body: _media_volume(
-        {"volume_delta": body.get("volume_delta", -0.5)},
+        {"volume_delta": body.get("volume_delta", -1)},
     ),
     "adjust_volume": _media_volume,
     # Navigation

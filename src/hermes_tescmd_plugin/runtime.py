@@ -779,6 +779,51 @@ _TOOL_SPECS: tuple[ToolSpec, ...] = (
         payload_fields=(("pin", "pin"),),
     ),
     _vehicle_command_tool(
+        name="tescmd_parental_controls_activate",
+        description="Activate Parental Controls with a four-digit PIN.",
+        command_name="parental_controls_activate",
+        params=(ParamSpec("pin", "Four-digit Parental Controls PIN.", required=True),),
+        fixed_payload={"activate": True},
+        payload_fields=(("pin", "pin"),),
+    ),
+    _vehicle_command_tool(
+        name="tescmd_parental_controls_enable_setting",
+        description="Enable or disable an individual parental controls setting while Parental Controls is not active.",
+        command_name="parental_controls_enable_setting",
+        params=(
+            ParamSpec(
+                "setting",
+                "Parental controls setting to change.",
+                required=True,
+                enum=(
+                    "SpeedLimit",
+                    "Acceleration",
+                    "SafetyFeatures",
+                    "Curfew",
+                    "BrowserBlocked",
+                    "TheaterBlocked",
+                    "ArcadeBlocked",
+                ),
+            ),
+            _ENABLED_REQUIRED,
+        ),
+        payload_fields=(("setting", "setting"), ("enabled", "enable")),
+    ),
+    _vehicle_command_tool(
+        name="tescmd_parental_controls_set_speed_limit",
+        description="Set the parental controls speed limit in miles per hour.",
+        command_name="parental_controls_set_speed_limit",
+        params=(
+            ParamSpec(
+                "limit_mph",
+                "Parental controls speed limit in miles per hour.",
+                value_type="number",
+                required=True,
+            ),
+        ),
+        payload_fields=(("limit_mph", "limit_mph"),),
+    ),
+    _vehicle_command_tool(
         name="tescmd_security_pin_to_drive",
         description="Enable or disable PIN to Drive.",
         command_name="set_pin_to_drive",
