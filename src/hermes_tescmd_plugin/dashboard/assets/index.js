@@ -1369,6 +1369,25 @@
     return "unknown";
   }
 
+  function energyProductFacetCounts(products, keys, fallback) {
+    const counts = new Map();
+    products.forEach((product) => {
+      if (!product || typeof product !== "object") return;
+      for (const key of keys) {
+        const value = product[key];
+        if (value != null && String(value).trim() !== "") {
+          const label = sanitizeDashboardText(String(value).replace(/_/g, " "), fallback);
+          counts.set(label, (counts.get(label) || 0) + 1);
+          return;
+        }
+      }
+    });
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 3)
+      .map(([label, count]) => `${label} ${count}`);
+  }
+
   function energyPowerBadge(label, value) {
     const number = numericValue(value);
     return number == null ? `${label} unknown` : `${label} ${number.toFixed(1).replace(/\.0$/, "")} kW`;
@@ -1733,9 +1752,14 @@
       const backup = energyMeta(payload, "backup_reserve_percent", "backup_reserve", "reserve_percent", "battery_backup_reserve");
       const solarPower = firstDefined(payload.solar_power, payload.solar_power_kw, payload.solar_power_w, payload.response && payload.response.solar_power, payload.data && payload.data.solar_power);
       const gridPower = firstDefined(payload.grid_power, payload.grid_power_kw, payload.grid_power_w, payload.response && payload.response.grid_power, payload.data && payload.data.grid_power);
+      const typeFacets = energyProductFacetCounts(products, ["resource_type", "product_type", "type", "site_type", "device_type"], "type");
+      const stateFacets = energyProductFacetCounts(products, ["status", "state", "operation_mode", "grid_status"], "status");
+      const hiddenProductCount = Math.max(0, products.length - 3);
+      const hiddenProductText = hiddenProductCount ? `${hiddenProductCount} additional energy product${hiddenProductCount === 1 ? "" : "s"} hidden` : "";
+      const productHints = [...typeFacets, ...stateFacets].slice(0, 4);
       title = "Energy summary";
       body = products.length
-        ? `Energy returned ${products.length} product/site record${products.length === 1 ? "" : "s"}. Status ${status}. Site IDs, addresses, coordinates, vehicle identifiers, account/customer details, and raw telemetry rows stay in the redacted payload.`
+        ? `Energy returned ${products.length} product/site record${products.length === 1 ? "" : "s"}. ${productHints.length ? `Top type/status hints: ${productHints.join(", ")}. ` : ""}Status ${status}.${hiddenProductText ? ` ${hiddenProductText}.` : ""} Site IDs, addresses, coordinates, vehicle identifiers, account/customer details, and raw telemetry rows stay in the redacted payload.`
         : `Energy status ${status}. Live power and backup hints are summarized without exposing site IDs, addresses, coordinates, vehicle identifiers, account/customer details, or raw telemetry rows.`;
       badges = [
         `${products.length} energy product${products.length === 1 ? "" : "s"}`,
@@ -1743,6 +1767,8 @@
         `backup ${backup}`,
         energyPowerBadge("solar", solarPower),
         energyPowerBadge("grid", gridPower),
+        ...productHints.slice(0, 3),
+        ...(hiddenProductText ? [hiddenProductText] : []),
       ];
     } else {
       return null;

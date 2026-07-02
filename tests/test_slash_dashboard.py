@@ -2028,10 +2028,18 @@ def test_dashboard_energy_read_summary_is_useful_and_private() -> None:
     assert "function energyContainers(payload)" in asset
     assert "function energyProducts(payload)" in asset
     assert "function energyMeta(payload, ...keys)" in asset
+    assert "function energyProductFacetCounts(products, keys, fallback)" in asset
     assert "function energyPowerBadge(label, value)" in asset
     assert 'lastReadKind === "energy"' in body
     assert "Energy summary" in body
     assert "Energy returned ${products.length} product/site record" in body
+    assert "Top type/status hints: ${productHints.join" in body
+    assert "const hiddenProductCount = Math.max(0, products.length - 3)" in body
+    assert (
+        'const hiddenProductText = hiddenProductCount ? `${hiddenProductCount} additional energy product${hiddenProductCount === 1 ? "" : "s"} hidden` : ""'
+        in body
+    )
+    assert "...(hiddenProductText ? [hiddenProductText] : [])" in body
     assert "Live power and backup hints are summarized" in body
     assert (
         '["products", "energy_products", "sites", "energy_sites", "resources"]' in asset
