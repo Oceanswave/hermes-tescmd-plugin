@@ -111,7 +111,7 @@ def write_legacy_config(tmp_path: Path, profile: str, payload: dict[str, Any]) -
     (plugin_home / "config.json").write_text(json.dumps({profile: payload}))
 
 
-def test_register_adds_full_native_tools_and_skill_by_default(
+def test_register_adds_compact_tools_and_skill_by_default(
     tmp_path, monkeypatch
 ) -> None:
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
@@ -120,16 +120,7 @@ def test_register_adds_full_native_tools_and_skill_by_default(
     register(ctx)
 
     registered_names = [tool["name"] for tool in ctx.tools]
-    assert registered_names == [spec.name for spec in runtime.list_tool_specs()]
-    assert registered_names == [spec.name for spec in registered_tool_specs()]
-    assert len(ctx.tools) == 190
-    assert "tescmd_auth_status" in registered_names
-    assert "tescmd_onboarding_status" in registered_names
-    assert "tescmd_vehicle_status" in registered_names
-    assert "tescmd_raw_get" in registered_names
-    assert "tescmd_raw_post" in registered_names
-    assert "tescmd_key_deploy" in registered_names
-    assert "tescmd_vehicle_enterprise_roles" in registered_names
+    assert registered_names == ["tescmd_catalog", "tescmd_execute"]
     assert ctx.skills
     assert ctx.skills[0][0] == "tescmd-operator"
     assert ctx.skills[0][1].name == "SKILL.md"
@@ -139,6 +130,7 @@ def test_register_adds_full_native_tools_and_skill_by_default(
     assert config_schema["category"] == "tesla"
     assert config_schema["category_label"] == "Tesla"
     schema_text = json.dumps(config_schema)
+    assert "tool_mode" in schema_text
     assert "client_id" in schema_text
     assert "default_vin" in schema_text
     assert "redirect_port" not in schema_text
@@ -165,6 +157,95 @@ def test_register_adds_full_native_tools_and_skill_by_default(
     )
     assert dashboard_manifest.exists()
     assert json.loads(dashboard_manifest.read_text())["tab"]["path"] == "/tescmd"
+
+
+def test_register_adds_full_native_tools_when_configured(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    install_fake_hermes_config(
+        monkeypatch,
+        {
+            "plugins": {
+                "entries": {"hermes-tescmd-plugin": {"config": {"tool_mode": "full"}}}
+            }
+        },
+    )
+
+    ctx = FakeContext()
+    register(ctx)
+
+    registered_names = [tool["name"] for tool in ctx.tools]
+    assert registered_names == [spec.name for spec in runtime.list_tool_specs()]
+    assert registered_names == [spec.name for spec in registered_tool_specs()]
+    assert len(ctx.tools) == 190
+    assert "tescmd_auth_status" in registered_names
+    assert "tescmd_vehicle_status" in registered_names
+    assert "tescmd_raw_post" in registered_names
+
+
+def test_compact_catalog_and_execute_preserve_validation(monkeypatch) -> None:
+    full_schema_bytes = len(
+        json.dumps([schemas.build_schema(spec) for spec in runtime.list_tool_specs()])
+    )
+    compact_schema_bytes = len(
+        json.dumps(
+            [
+                schemas.build_compact_catalog_schema(),
+                schemas.build_compact_execute_schema(),
+            ]
+        )
+    )
+    assert compact_schema_bytes < full_schema_bytes * 0.05
+
+    catalog = json.loads(
+        runtime.compact_catalog({"query": "charge limit", "limit": 10})
+    )
+    assert catalog["ok"] is True
+    match = next(
+        item
+        for item in catalog["matches"]
+        if item["tool_name"] == "tescmd_charge_limit"
+    )
+    assert match["arguments"]["additionalProperties"] is False
+    assert "confirm" in match["arguments"]["required"]
+
+    calls = []
+
+    def fake_execute(spec: Any, args: dict[str, Any]) -> dict[str, bool]:
+        calls.append((spec, args))
+        return {"ok": True}
+
+    monkeypatch.setattr(tools, "execute", fake_execute)
+    denied = json.loads(
+        runtime.compact_execute(
+            {"tool_name": "tescmd_charge_limit", "arguments": {"percent": 80}}
+        )
+    )
+    assert denied["ok"] is False
+    assert "confirm=true" in denied["error"]
+    assert calls == []
+
+    bypass_denied = json.loads(
+        runtime.compact_execute(
+            {
+                "tool_name": "tescmd_charge_limit",
+                "arguments": {"percent": 80, "confirm": True},
+            }
+        )
+    )
+    assert bypass_denied["ok"] is False
+    assert calls == []
+
+    allowed = json.loads(
+        runtime.compact_execute(
+            {
+                "tool_name": "tescmd_charge_limit",
+                "arguments": {"percent": 80},
+                "confirm": True,
+            }
+        )
+    )
+    assert allowed["ok"] is True
+    assert calls[0][1]["confirm"] is True
 
 
 def test_config_store_values_override_legacy_non_secrets_without_exposing_secrets(

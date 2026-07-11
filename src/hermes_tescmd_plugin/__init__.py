@@ -11,25 +11,36 @@ SKILL_NAME = "tescmd-operator"
 
 
 def registered_tool_specs() -> tuple[runtime.ToolSpec, ...]:
-    """Return the full native Tesla Fleet tool surface.
-
-    Keep registration exhaustive by default. The bottleneck to optimize is command
-    invocation latency, not tool catalog loading, and hiding dedicated tools makes
-    normal Tesla operations harder to discover.
-    """
+    """Return the full native Tesla Fleet catalog for specialist mode."""
     return tuple(runtime.list_tool_specs())
 
 
 def register(ctx) -> None:
     config.register_editable_config(ctx)
 
-    for spec in registered_tool_specs():
+    if config.get_tool_mode() == "full":
+        for spec in registered_tool_specs():
+            ctx.register_tool(
+                name=spec.name,
+                toolset=TOOLSET_NAME,
+                schema=schemas.build_schema(spec),
+                handler=runtime.make_handler(spec),
+                description=spec.description,
+            )
+    else:
         ctx.register_tool(
-            name=spec.name,
+            name="tescmd_catalog",
             toolset=TOOLSET_NAME,
-            schema=schemas.build_schema(spec),
-            handler=runtime.make_handler(spec),
-            description=spec.description,
+            schema=schemas.build_compact_catalog_schema(),
+            handler=runtime.compact_catalog,
+            description="Discover Tesla Fleet operations and exact argument schemas on demand.",
+        )
+        ctx.register_tool(
+            name="tescmd_execute",
+            toolset=TOOLSET_NAME,
+            schema=schemas.build_compact_execute_schema(),
+            handler=runtime.compact_execute,
+            description="Execute any catalogued Tesla operation with full validation and confirmation guards.",
         )
 
     if hasattr(ctx, "register_command"):

@@ -10,6 +10,12 @@ This plugin is a **native Hermes Tesla plugin**.
 
 It does not shell out to or depend on the upstream `tescmd` CLI at runtime.
 
+## Tool-surface modes
+
+- `compact` is the intended default for ordinary profiles. Use `tescmd_catalog` to retrieve the exact schema for a relevant operation, then call `tescmd_execute` with that operation name and arguments. For side effects, pass top-level `confirm: true`; the dispatcher forwards it into the original operation's confirmation guard. The dispatcher otherwise reuses the original validator, audit trail, and redaction; functionality is not reduced.
+- `full` registers every dedicated `tescmd_*` tool and is intended for a dedicated Tesla specialist profile.
+- Slash commands and the dashboard are unchanged in either mode.
+
 ## Preferred usage
 
 1. Do Tesla Developer app creation/callback/scope setup outside Hermes, following `docs/ONBOARDING.md` and the README. Tesla app callback URLs must be public HTTPS URLs; configure `domain` for the default `https://<domain>/callback` or set `oauth_redirect_uri` explicitly. Non-secret fields (`client_id`, `region`, `domain`, `oauth_redirect_uri`, `default_vin`, `scopes`) can be edited in the Hermes plugin config store at `plugins.entries.hermes-tescmd-plugin.config.profiles.<profile>` when the host exposes plugin-provided config. Legacy `HERMES_HOME/plugins/hermes-tescmd-plugin/config.json` still works and migrates non-secret values into the Hermes store when available. Keep secrets (`client_secret`, vehicle-command key paths, Google Maps API keys, tokens, PINs) out of dashboard-editable config; there is intentionally no `tescmd_setup` tool.
