@@ -80,11 +80,13 @@ on:
 It then:
 
 1. checks out the release tag
-2. verifies the tag name matches `project.version` in `pyproject.toml` (`v0.5.0a22` or `0.5.0a22` are accepted)
-3. builds the sdist and wheel
-4. runs `twine check dist/*`
-5. uploads the distributions as a GitHub Actions artifact
-6. publishes to PyPI with PyPI Trusted Publishing via OIDC (`pypa/gh-action-pypi-publish@release/v1`)
+2. installs the package and release tooling
+3. runs pytest, Ruff lint/format, Mypy, Vulture, compileall, and dashboard JavaScript syntax checks
+4. verifies the tag name matches `project.version` in `pyproject.toml` (`v0.5.0a23` or `0.5.0a23` are accepted)
+5. builds the sdist and wheel
+6. runs `twine check dist/*`
+7. uploads the distributions as a GitHub Actions artifact
+8. publishes to PyPI with PyPI Trusted Publishing via OIDC (`pypa/gh-action-pypi-publish@release/v1`)
 
 No PyPI API token or GitHub Actions secret is needed.
 
@@ -116,14 +118,14 @@ The GitHub workflow uses the `pypi` environment. GitHub will create that environ
 4. Create and push a matching tag, usually prefixed with `v`:
 
 ```bash
-git tag v0.5.0a22
+git tag v0.5.0a23
 git push origin main --tags
 ```
 
 5. Publish a GitHub Release from that tag:
 
 ```bash
-gh release create v0.5.0a22 --title "v0.5.0a22" --generate-notes --prerelease
+gh release create v0.5.0a23 --title "v0.5.0a23" --generate-notes --prerelease
 ```
 
 Publishing the release triggers the PyPI workflow automatically.
