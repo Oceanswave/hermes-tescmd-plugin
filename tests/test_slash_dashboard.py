@@ -4000,6 +4000,10 @@ def test_dashboard_commands_tab_uses_dynamic_catalog_endpoint() -> None:
     assert "CommandCatalog" in asset
     assert "activeTab" in asset
     assert "Tesla dashboard tabs" in asset
+    assert 'role: "tablist"' in asset
+    assert 'role: "tab"' in asset
+    assert '"aria-selected": activeTab === key' in asset
+    assert 'role: "tabpanel"' in asset
     assert "Live catalog pulled from the plugin runtime tool specs" in asset
     assert "not maintained by dashboard copy" in asset
     assert "commandSafetyBadges" in asset
@@ -4088,11 +4092,36 @@ def test_dashboard_command_catalog_has_loading_error_and_filtered_empty_states()
     assert "setCommandCatalogLoading(true)" in asset
     assert "setCommandCatalogLoading(false)" in asset
     assert "loading: commandCatalogLoading" in asset
-    assert "setCommandCatalogError(dashboardErrorMessage(err))" in asset
+    catalog_loader = asset.split("const loadCommandCatalog", 1)[1].split(
+        "hooks.useEffect", 1
+    )[0]
+    assert "setCommandCatalogError(dashboardErrorMessage(err))" in catalog_loader
+    assert "setError(dashboardErrorMessage(err))" not in catalog_loader
+
+
+def test_dashboard_command_catalog_is_lazy_loaded_on_first_commands_tab_visit() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+
+    assert 'activeTab === "commands" && !commandCatalog' in asset
+    assert "loadCommandCatalog();" in asset
     assert (
-        "setError(dashboardErrorMessage(err))"
-        not in asset.split('api("/commands")', 1)[1].split("return () =>", 1)[0]
+        "[activeTab, commandCatalog, commandCatalogLoading, commandCatalogError, loadCommandCatalog]"
+        in asset
     )
+
+
+def test_dashboard_surfaces_refresh_freshness_and_hides_false_ready_setup_card() -> (
+    None
+):
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+
+    assert "function overviewFreshnessLabel(timestamp)" in asset
+    assert "setLastOverviewAt(Date.now())" in asset
+    assert "overviewFreshnessLabel(lastOverviewAt)" in asset
+    assert ".tescmd-refresh-time" in style
+    assert 'next === "ready"' in asset
+    assert "!missing.length" in asset
 
 
 def test_dashboard_command_catalog_can_reset_active_filters() -> None:
@@ -4260,7 +4289,9 @@ def test_dashboard_shows_sleep_status_with_wake_button() -> None:
     assert "is asleep" in asset
     assert "Wake vehicle" in asset
     assert 'runAction("wake")' in asset
-    assert "Turn on action confirmation to wake the vehicle." in asset
+    assert "Review wake controls" in asset
+    assert "Review the confirmation control before waking the vehicle." in asset
+    assert 'document.getElementById("tescmd-action-confirm")' in asset
     assert (
         "const rawName = vehicle && (vehicle.display_name || vehicle.vehicle_name || vehicle.name);"
         in asset
@@ -4268,7 +4299,7 @@ def test_dashboard_shows_sleep_status_with_wake_button() -> None:
     assert 'const name = visibleVehicleText(rawName, "Vehicle");' in asset
     assert "`${name} is asleep`" in asset
     assert (
-        "h(VehicleSnapshot, { overview, runAction, loading, confirm, locationPrecision })"
+        "h(VehicleSnapshot, { overview, runAction, loading, confirm, locationPrecision, focusActionControls })"
         in asset
     )
     assert ".tescmd-sleep-status" in style

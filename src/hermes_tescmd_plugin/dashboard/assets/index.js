@@ -107,7 +107,11 @@
 
   function onboardingOperational(onboarding) {
     const readiness = (onboarding && onboarding.readiness) || {};
-    return bootstrapOperational(readiness);
+    const missing = Array.isArray(onboarding && onboarding.missing_prerequisites)
+      ? onboarding.missing_prerequisites
+      : [];
+    const next = String((onboarding && (onboarding.next_tool || onboarding.next_action)) || "").trim().toLowerCase();
+    return bootstrapOperational(readiness) || (!missing.length && (!next || next === "ready"));
   }
 
   function boundedPreview(items, limit) {
@@ -229,6 +233,11 @@
       h("strong", null, initial ? "Loading Tesla dashboard…" : "Updating Tesla data…"),
       h("span", null, initial ? "Fetching setup and vehicle status." : "This can take a moment while Tesla responds.")
     );
+  }
+
+  function overviewFreshnessLabel(timestamp) {
+    if (!timestamp) return "Overview not refreshed yet";
+    return `Updated ${new Date(timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
   }
 
   function EmptyState({ title, body, steps, note, action }) {
@@ -1816,19 +1825,21 @@
     return { sleeping: false, label: state ? `${name} is ${state}` : "Vehicle status unknown", detail: "" };
   }
 
-  function VehicleSleepStatus({ availability, runAction, loading, confirm }) {
+  function VehicleSleepStatus({ availability, runAction, loading, confirm, focusActionControls }) {
     if (!availability || !availability.sleeping) return null;
     return h("div", { className: "tescmd-sleep-status" },
       h("div", null,
         h("strong", null, availability.label),
         h("small", null, availability.detail)
       ),
-      h(Button, { onClick: () => runAction("wake"), disabled: loading || !confirm }, loading ? "Waking..." : "Wake vehicle"),
-      !confirm ? h("small", { className: "tescmd-muted" }, "Turn on action confirmation to wake the vehicle.") : null
+      confirm
+        ? h(Button, { onClick: () => runAction("wake"), disabled: loading }, loading ? "Waking..." : "Wake vehicle")
+        : h(Button, { onClick: focusActionControls, disabled: loading }, "Review wake controls"),
+      !confirm ? h("small", { className: "tescmd-muted" }, "Review the confirmation control before waking the vehicle.") : null
     );
   }
 
-  function VehicleSnapshot({ overview, runAction, loading, confirm, locationPrecision }) {
+  function VehicleSnapshot({ overview, runAction, loading, confirm, locationPrecision, focusActionControls }) {
     const charge = chargeSummary(overview);
     const climate = climateSummary(overview);
     const security = securitySummary(overview);
@@ -1841,7 +1852,7 @@
       ? `Open: ${security.openLabels.slice(0, 3).join(", ")}${security.openLabels.length > 3 ? ` +${security.openLabels.length - 3} more` : ""}`
       : "No open closures reported";
     return h("div", null,
-      h(VehicleSleepStatus, { availability, runAction, loading, confirm }),
+      h(VehicleSleepStatus, { availability, runAction, loading, confirm, focusActionControls }),
       h(VehicleIdentityCard, { identity }),
       h(SectionHealthPanel, { overview }),
       h("div", { className: "tescmd-visual-grid" },
@@ -2196,6 +2207,7 @@
     const [commandSearch, setCommandSearch] = hooks.useState("");
     const [commandCategory, setCommandCategory] = hooks.useState("all");
     const [commandSafetyFilter, setCommandSafetyFilter] = hooks.useState("all");
+    const [lastOverviewAt, setLastOverviewAt] = hooks.useState(null);
 
     const query = (includeReadFlags) => {
       const params = new URLSearchParams();
@@ -2234,6 +2246,7 @@
         setStatus(statusPayload);
         setVehicles(Array.isArray(vehiclePayload.vehicles) ? vehiclePayload.vehicles : []);
         setDetail(overviewPayload);
+        setLastOverviewAt(Date.now());
       } catch (err) {
         setError(dashboardErrorMessage(err));
       } finally {
@@ -2259,24 +2272,18 @@
     }, []);
 
     hooks.useEffect(() => {
-      let cancelled = false;
-      setCommandCatalogLoading(true);
-      setCommandCatalogError("");
-      api("/commands")
-        .then((payload) => {
-          if (!cancelled) setCommandCatalog(payload);
-        })
-        .catch((err) => {
-          if (!cancelled) {
-            setCommandCatalog(null);
-            setCommandCatalogError(dashboardErrorMessage(err));
-          }
-        })
-        .finally(() => {
-          if (!cancelled) setCommandCatalogLoading(false);
-        });
-      return () => { cancelled = true; };
-    }, []);
+      if (activeTab === "commands" && !commandCatalog && !commandCatalogLoading && !commandCatalogError) {
+        loadCommandCatalog();
+      }
+    }, [activeTab, commandCatalog, commandCatalogLoading, commandCatalogError, loadCommandCatalog]);
+
+    function focusActionControls() {
+      const control = document.getElementById("tescmd-action-confirm");
+      if (!control) return;
+      control.scrollIntoView({ behavior: "smooth", block: "center" });
+      const checkbox = control.querySelector('input[type="checkbox"]');
+      if (checkbox) checkbox.focus({ preventScroll: true });
+    }
 
     async function runRead(kind) {
       setLoading(true);
@@ -2450,16 +2457,25 @@
         ),
         h("div", { className: "tescmd-hero-actions" },
           h(Badge, { className: confirm ? "tescmd-warn" : "tescmd-ok" }, confirm ? "actions armed" : "read-only"),
+          h("span", { className: "tescmd-refresh-time", role: "status", "aria-live": "polite" }, overviewFreshnessLabel(lastOverviewAt)),
           h(Button, { onClick: () => refresh("refresh"), disabled: loading }, loading ? (loadingMode === "initial" ? "Loading..." : "Updating...") : "Refresh overview")
         )
       ),
       h(BusyBanner, { loading, mode: loadingMode }),
-      h("nav", { className: "tescmd-tabs", "aria-label": "Tesla dashboard tabs" },
+      h("nav", { className: "tescmd-tabs", role: "tablist", "aria-label": "Tesla dashboard tabs" },
         [["overview", "Overview"], ["commands", "Commands"]].map(([key, label]) =>
-          h(Button, { key, className: activeTab === key ? "tescmd-tab-active" : "", onClick: () => setActiveTab(key) }, label)
+          h(Button, {
+            key,
+            id: `tescmd-tab-${key}`,
+            role: "tab",
+            "aria-selected": activeTab === key,
+            "aria-controls": `tescmd-panel-${key}`,
+            className: activeTab === key ? "tescmd-tab-active" : "",
+            onClick: () => setActiveTab(key),
+          }, label)
         )
       ),
-      activeTab === "commands" ? h(CommandCatalog, {
+      activeTab === "commands" ? h("section", { id: "tescmd-panel-commands", role: "tabpanel", "aria-labelledby": "tescmd-tab-commands" }, h(CommandCatalog, {
         catalog: commandCatalog,
         search: commandSearch,
         setSearch: setCommandSearch,
@@ -2470,11 +2486,11 @@
         loading: commandCatalogLoading,
         catalogError: commandCatalogError,
         retryCatalog: loadCommandCatalog,
-      }) : [
+      })) : h("section", { id: "tescmd-panel-overview", role: "tabpanel", "aria-labelledby": "tescmd-tab-overview" }, [
         overview && overview.onboarding ? h(OnboardingCard, { key: "onboarding", onboarding: overview.onboarding }) : null,
         h(Card, { key: "overview", className: "tescmd-overview-card" },
           h(CardHeader, null, h(CardTitle, null, "Vehicle overview")),
-          h(CardContent, null, overview ? h(VehicleSnapshot, { overview, runAction, loading, confirm, locationPrecision }) : h(EmptyState, {
+          h(CardContent, null, overview ? h(VehicleSnapshot, { overview, runAction, loading, confirm, locationPrecision, focusActionControls }) : h(EmptyState, {
             title: "No vehicle overview loaded",
             body: "Start with a read-only refresh to populate charge, climate, security, and map widgets.",
             steps: ["Check profile, region, and vehicle override if the configured default is not the target vehicle.", "Use no-cache when you need fresh Fleet API data.", "Only enable wake + confirm when you intentionally want to wake a sleeping vehicle."],
@@ -2524,7 +2540,7 @@
             h(CardHeader, null, h(CardTitle, null, "Guarded quick actions")),
             h(CardContent, null,
               h(ActionSafetyPanel, { confirm, loading, lastActionStatus }),
-              h("label", { className: "tescmd-confirm" }, h("input", { type: "checkbox", checked: confirm, onChange: (event) => setConfirm(event.target.checked) }), h("span", null, "I confirm this physical Tesla side effect")),
+              h("label", { id: "tescmd-action-confirm", className: "tescmd-confirm" }, h("input", { type: "checkbox", checked: confirm, onChange: (event) => setConfirm(event.target.checked) }), h("span", null, "I confirm this physical Tesla side effect")),
               h("div", { className: "tescmd-controls" },
                 h(Field, { label: "Sentry" }, h("select", { className: "tescmd-select", value: enabled ? "true" : "false", onChange: (event) => setEnabled(event.target.value === "true") }, h("option", { value: "true" }, "Enable"), h("option", { value: "false" }, "Disable"))),
                 h(TextInput, { label: "Charge limit %", value: percent, setValue: setPercent, type: "number", min: "1", max: "100", step: "1", inputMode: "numeric", helpText: "Allowed range 1–100%; the value is never echoed in status copy until a confirmed action runs." }),
@@ -2569,7 +2585,7 @@
             )
           )
         )
-      ]
+      ])
     );
   }
 

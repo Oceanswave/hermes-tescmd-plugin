@@ -52,6 +52,12 @@
   flex-shrink: 0;
 }
 
+.tescmd-refresh-time {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
 .tescmd-controls,
 .tescmd-actions,
 .tescmd-readiness {

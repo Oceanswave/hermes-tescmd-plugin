@@ -342,8 +342,12 @@ class TeslaFleetClient:
             else:
                 config.save_auth_state(refreshed)
                 self._apply_auth_state(refreshed)
-        assert self.auth_state.access_token is not None
-        return self.auth_state.access_token
+        token = self.auth_state.access_token
+        if not token:
+            raise TeslaAPIError(
+                "Tesla authentication recovery completed without an access token."
+            )
+        return token
 
     def _headers(self) -> dict[str, str]:
         token = self._ensure_access_token()

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0a23
+
+- Made compact mode the default ordinary-profile tool surface while preserving every Tesla Fleet operation through schema-aware catalog discovery and guarded dispatch; full native schemas remain available in the dedicated Tesla profile.
+- Tightened compact-tool runtime validation so malformed limits, non-boolean confirmation values, and unknown envelope fields fail closed before any handler or network I/O runs.
+- Improved the Tesla dashboard by lazy-loading the large command catalog only when the Commands tab is opened, surfacing the latest successful overview refresh time, and replacing a dead disabled wake button with a keyboard-focusable path to the explicit confirmation control.
+- Fixed the setup banner remaining visible when onboarding reports `Ready` with no missing prerequisites.
+- Replaced optimization-sensitive runtime assertions with explicit errors and documented Tesla's protocol-mandated SHA-1 ECDH truncation as a non-collision-security KDF use.
+- Raised the minimum `cryptography` version to 48.0.1 and synchronized the package and dashboard manifest versions.
+
 ## 0.5.0a22
 
 - Added privacy-safe `/tescmd` dashboard summaries for software and alert reads so operators see version/update state and alert counts/statuses without exposing messages, identifiers, URLs, or coordinates.

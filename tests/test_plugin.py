@@ -248,6 +248,33 @@ def test_compact_catalog_and_execute_preserve_validation(monkeypatch) -> None:
     assert calls[0][1]["confirm"] is True
 
 
+def test_compact_tools_reject_invalid_or_unknown_envelope_fields(monkeypatch) -> None:
+    calls: list[object] = []
+    monkeypatch.setattr(
+        tools, "execute", lambda spec, args: calls.append((spec, args)) or {"ok": True}
+    )
+
+    catalog_cases = [
+        {"query": 7},
+        {"limit": True},
+        {"limit": 0},
+        {"limit": 51},
+        {"query": "charge", "unexpected": "value"},
+    ]
+    for args in catalog_cases:
+        result = json.loads(runtime.compact_catalog(args))
+        assert result["ok"] is False
+
+    execute_cases = [
+        {"tool_name": "tescmd_charge_status", "arguments": {}, "unexpected": True},
+        {"tool_name": "tescmd_charge_status", "arguments": {}, "confirm": "true"},
+    ]
+    for args in execute_cases:
+        result = json.loads(runtime.compact_execute(args))
+        assert result["ok"] is False
+    assert calls == []
+
+
 def test_config_store_values_override_legacy_non_secrets_without_exposing_secrets(
     tmp_path, monkeypatch
 ) -> None:
