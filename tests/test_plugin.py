@@ -209,9 +209,12 @@ def test_compact_catalog_and_execute_preserve_validation(monkeypatch) -> None:
     assert "confirm" in match["arguments"]["required"]
 
     calls = []
-    monkeypatch.setattr(
-        tools, "execute", lambda spec, args: calls.append((spec, args)) or {"ok": True}
-    )
+
+    def fake_execute(spec: Any, args: dict[str, Any]) -> dict[str, bool]:
+        calls.append((spec, args))
+        return {"ok": True}
+
+    monkeypatch.setattr(tools, "execute", fake_execute)
     denied = json.loads(
         runtime.compact_execute(
             {"tool_name": "tescmd_charge_limit", "arguments": {"percent": 80}}

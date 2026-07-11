@@ -86,21 +86,10 @@ jobs:
           ctx = Context()
           hermes_tescmd_plugin.register(ctx)
           names = {tool["name"] for tool in ctx.tools}
-          required = {
-              "tescmd_status",
-              "tescmd_auth_login",
-              "tescmd_auth_complete",
-              "tescmd_key_generate",
-              "tescmd_key_deploy",
-              "tescmd_vehicle_list",
-              "tescmd_vehicle_status",
-              "tescmd_security_flash_lights",
-              "tescmd_raw_get",
-              "tescmd_raw_post",
-          }
+          required = {"tescmd_catalog", "tescmd_execute"}
           missing = sorted(required - names)
-          if len(ctx.tools) != 190:
-              raise SystemExit(f"expected 190 tools, got {len(ctx.tools)}")
+          if len(ctx.tools) != 2:
+              raise SystemExit(f"expected 2 compact tools, got {len(ctx.tools)}")
           if len(ctx.skills) != 1:
               raise SystemExit(f"expected 1 skill, got {len(ctx.skills)}")
           if missing:
