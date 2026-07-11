@@ -539,10 +539,10 @@
   }
 
   function controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel, parentalLimit) {
-    const driverReady = boundedNumberReady(driverTemp, 50, 90);
-    const passengerReady = boundedNumberReady(passengerTemp, 50, 90);
+    const driverReady = boundedNumberReady(driverTemp, 15, 28);
+    const passengerReady = boundedNumberReady(passengerTemp, 15, 28);
     return {
-      chargeLimitReady: boundedNumberReady(percent, 1, 100),
+      chargeLimitReady: boundedNumberReady(percent, 50, 100),
       chargeAmpsReady: boundedNumberReady(amps, 1, 80),
       temperatureReady: driverReady && passengerReady,
       heaterLevelReady: boundedNumberReady(heaterLevel, 0, 3),
@@ -576,9 +576,9 @@
     const controls = controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel, parentalLimit);
     const requirements = [
       ["Physical confirmation", Boolean(confirm), confirm ? "armed for one action" : "check the confirmation box before any physical action"],
-      ["Charge limit", controls.chargeLimitReady, controls.chargeLimitReady ? "percent ready" : "enter a charge limit from 1 to 100"],
+      ["Charge limit", controls.chargeLimitReady, controls.chargeLimitReady ? "percent ready" : "enter a charge limit from 50 to 100"],
       ["Charge amps", controls.chargeAmpsReady, controls.chargeAmpsReady ? "amps ready" : "enter charging amps from 1 to 80"],
-      ["Cabin temperatures", controls.temperatureReady, controls.temperatureReady ? "temperatures ready" : "enter driver and passenger temperatures from 50° to 90°"],
+      ["Cabin temperatures", controls.temperatureReady, controls.temperatureReady ? "temperatures ready" : "enter driver and passenger temperatures from 15° to 28° C"],
       ["Seat/steering heat", controls.heaterLevelReady, controls.heaterLevelReady ? "heater level ready" : "enter a heater level from 0 to 3"],
       ["Media volume", controls.volumeReady, controls.volumeReady ? "volume ready" : "enter a volume level from 0 to 11"],
       ["Parental PIN", parentalPinReady(parentalPin), parentalPinReady(parentalPin) ? "four-digit PIN ready" : "enter a four-digit PIN for activation"],
@@ -2189,8 +2189,8 @@
     const [enabled, setEnabled] = hooks.useState(true);
     const [percent, setPercent] = hooks.useState("80");
     const [amps, setAmps] = hooks.useState("32");
-    const [driverTemp, setDriverTemp] = hooks.useState("70");
-    const [passengerTemp, setPassengerTemp] = hooks.useState("70");
+    const [driverTemp, setDriverTemp] = hooks.useState("21");
+    const [passengerTemp, setPassengerTemp] = hooks.useState("21");
     const [heaterLevel, setHeaterLevel] = hooks.useState("1");
     const [volume, setVolume] = hooks.useState("3");
     const [parentalPin, setParentalPin] = hooks.useState("");
@@ -2338,9 +2338,9 @@
 
     function actionDisabledReason(action) {
       const controls = controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel, parentalLimit);
-      if (action === "charge-limit" && !controls.chargeLimitReady) return "Enter a charge limit from 1 to 100 before changing charging.";
+      if (action === "charge-limit" && !controls.chargeLimitReady) return "Enter a charge limit from 50 to 100 before changing charging.";
       if (action === "charge-amps" && !controls.chargeAmpsReady) return "Enter charging amps from 1 to 80 before changing charging.";
-      if (action === "set-temp" && !controls.temperatureReady) return "Enter driver and passenger temperatures from 50° to 90° before changing climate.";
+      if (action === "set-temp" && !controls.temperatureReady) return "Enter driver and passenger temperatures from 15° to 28° C before changing climate.";
       if (["seat-heat-driver", "seat-heat-passenger", "steering-heat-level"].includes(action) && !controls.heaterLevelReady) return "Enter a heater level from 0 to 3 before changing seat or steering heat.";
       if (action === "media-volume-set" && !controls.volumeReady) return "Enter a volume level from 0 to 11 before changing media volume.";
       if (action === "parental-activate" && !parentalPinReady(parentalPin)) return "Enter a four-digit PIN before activating Parental Controls.";
@@ -2543,10 +2543,10 @@
               h("label", { id: "tescmd-action-confirm", className: "tescmd-confirm" }, h("input", { type: "checkbox", checked: confirm, onChange: (event) => setConfirm(event.target.checked) }), h("span", null, "I confirm this physical Tesla side effect")),
               h("div", { className: "tescmd-controls" },
                 h(Field, { label: "Sentry" }, h("select", { className: "tescmd-select", value: enabled ? "true" : "false", onChange: (event) => setEnabled(event.target.value === "true") }, h("option", { value: "true" }, "Enable"), h("option", { value: "false" }, "Disable"))),
-                h(TextInput, { label: "Charge limit %", value: percent, setValue: setPercent, type: "number", min: "1", max: "100", step: "1", inputMode: "numeric", helpText: "Allowed range 1–100%; the value is never echoed in status copy until a confirmed action runs." }),
+                h(TextInput, { label: "Charge limit %", value: percent, setValue: setPercent, type: "number", min: "50", max: "100", step: "1", inputMode: "numeric", helpText: "Allowed range 50–100%; the value is never echoed in status copy until a confirmed action runs." }),
                 h(TextInput, { label: "Charge amps", value: amps, setValue: setAmps, type: "number", min: "1", max: "80", step: "1", inputMode: "numeric", helpText: "Allowed range 1–80 amps; invalid values keep the charging button disabled." }),
-                h(TextInput, { label: "Driver temp", value: driverTemp, setValue: setDriverTemp, type: "number", min: "50", max: "90", step: "0.5", inputMode: "decimal", helpText: "Cabin temperature guardrail: 50°–90°." }),
-                h(TextInput, { label: "Passenger temp", value: passengerTemp, setValue: setPassengerTemp, type: "number", min: "50", max: "90", step: "0.5", inputMode: "decimal", helpText: "Cabin temperature guardrail: 50°–90°." }),
+                h(TextInput, { label: "Driver temp °C", value: driverTemp, setValue: setDriverTemp, type: "number", min: "15", max: "28", step: "0.5", inputMode: "decimal", helpText: "Tesla cabin setpoint in Celsius: 15°–28° C." }),
+                h(TextInput, { label: "Passenger temp °C", value: passengerTemp, setValue: setPassengerTemp, type: "number", min: "15", max: "28", step: "0.5", inputMode: "decimal", helpText: "Tesla cabin setpoint in Celsius: 15°–28° C." }),
                 h(TextInput, { label: "Heater level", value: heaterLevel, setValue: setHeaterLevel, type: "number", min: "0", max: "3", step: "1", inputMode: "numeric", helpText: "Seat and steering heat guardrail: 0 off, 1–3 warming levels; invalid values keep heater buttons disabled." }),
                 h(TextInput, { label: "Volume", value: volume, setValue: setVolume, type: "number", min: "0", max: "11", step: "1", inputMode: "numeric", helpText: "Allowed volume range 0–11; invalid values keep media changes disabled." })
               ),

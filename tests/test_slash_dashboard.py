@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+from fastapi import HTTPException
 
 from hermes_tescmd_plugin import config, slash, tools as tescmd_tools
 from hermes_tescmd_plugin.dashboard import ensure_dashboard_installed
@@ -1166,19 +1167,19 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
         in asset
     )
     assert "check the confirmation box before any physical action" in asset
-    assert "enter a charge limit from 1 to 100" in asset
+    assert "enter a charge limit from 50 to 100" in asset
     assert "enter charging amps from 1 to 80" in asset
-    assert "enter driver and passenger temperatures from 50° to 90°" in asset
+    assert "enter driver and passenger temperatures from 15° to 28° C" in asset
     assert "enter a heater level from 0 to 3" in asset
     assert "enter a volume level from 0 to 11" in asset
-    assert "Enter a charge limit from 1 to 100 before changing charging." in asset
+    assert "Enter a charge limit from 50 to 100 before changing charging." in asset
     assert "Enter charging amps from 1 to 80 before changing charging." in asset
     assert (
-        "Enter driver and passenger temperatures from 50° to 90° before changing climate."
+        "Enter driver and passenger temperatures from 15° to 28° C before changing climate."
         in asset
     )
-    assert "const driverReady = boundedNumberReady(driverTemp, 50, 90);" in asset
-    assert "const passengerReady = boundedNumberReady(passengerTemp, 50, 90);" in asset
+    assert "const driverReady = boundedNumberReady(driverTemp, 15, 28);" in asset
+    assert "const passengerReady = boundedNumberReady(passengerTemp, 15, 28);" in asset
     assert "heaterLevelReady: boundedNumberReady(heaterLevel, 0, 3)" in asset
     assert (
         "Enter a heater level from 0 to 3 before changing seat or steering heat."
@@ -1194,9 +1195,9 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
     assert "aria-describedby" in asset
     assert 'helpText ? h("small"' in asset
     assert 'label: "Charge limit %"' in asset
-    assert 'min: "1", max: "100", step: "1", inputMode: "numeric"' in asset
+    assert 'min: "50", max: "100", step: "1", inputMode: "numeric"' in asset
     assert (
-        "Allowed range 1–100%; the value is never echoed in status copy until a confirmed action runs."
+        "Allowed range 50–100%; the value is never echoed in status copy until a confirmed action runs."
         in asset
     )
     assert 'label: "Charge amps"' in asset
@@ -1205,9 +1206,9 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
         "Allowed range 1–80 amps; invalid values keep the charging button disabled."
         in asset
     )
-    assert 'label: "Driver temp"' in asset
-    assert 'min: "50", max: "90", step: "0.5", inputMode: "decimal"' in asset
-    assert "Cabin temperature guardrail: 50°–90°." in asset
+    assert 'label: "Driver temp °C"' in asset
+    assert 'min: "15", max: "28", step: "0.5", inputMode: "decimal"' in asset
+    assert "Tesla cabin setpoint in Celsius: 15°–28° C." in asset
     assert 'label: "Heater level"' in asset
     assert 'min: "0", max: "3", step: "1", inputMode: "numeric"' in asset
     assert (
@@ -1264,16 +1265,16 @@ def test_dashboard_action_readiness_panel_explains_disabled_buttons_privately() 
     assert "Cabin temperatures" in body
     assert "Seat/steering heat" in body
     assert "Media volume" in body
-    assert "enter a charge limit from 1 to 100" in body
+    assert "enter a charge limit from 50 to 100" in body
     assert "enter charging amps from 1 to 80" in body
-    assert "enter driver and passenger temperatures from 50° to 90°" in body
+    assert "enter driver and passenger temperatures from 15° to 28° C" in body
     assert "enter a heater level from 0 to 3" in body
     assert "enter a volume level from 0 to 11" in body
-    assert "boundedNumberReady(driverTemp, 50, 90)" in asset
-    assert "boundedNumberReady(passengerTemp, 50, 90)" in asset
+    assert "boundedNumberReady(driverTemp, 15, 28)" in asset
+    assert "boundedNumberReady(passengerTemp, 15, 28)" in asset
     assert "boundedNumberReady(heaterLevel, 0, 3)" in asset
     assert (
-        "Enter driver and passenger temperatures from 50° to 90° before changing climate."
+        "Enter driver and passenger temperatures from 15° to 28° C before changing climate."
         in asset
     )
     assert (
@@ -4945,10 +4946,10 @@ def test_dashboard_quick_action_requires_confirm_before_network(
         "hermes_tescmd_plugin.client.TeslaFleetClient.vehicle_command", fail_if_called
     )
 
-    payload = quick_action(QuickActionBody(action="honk", confirm=False))
+    with pytest.raises(HTTPException, match="confirm=true is required") as exc_info:
+        quick_action(QuickActionBody(action="honk", confirm=False))
 
-    assert payload["ok"] is False
-    assert "confirm=true is required" in payload["error"]
+    assert exc_info.value.status_code == 400
     assert calls == []
 
 
