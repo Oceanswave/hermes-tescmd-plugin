@@ -215,7 +215,7 @@ Hermes also registers a broader quick-command surface for frequent reads and gua
 | Readiness/admin | `/tescmd-status`, `/tescmd-auth-status`, `/tescmd-onboarding`, `/tescmd-key-show`, `/tescmd-key-validate`, `/tescmd-cache-status`, `/tescmd-cache-clear confirm=true` |
 | Vehicle reads | `/tescmd-vehicles`, `/tescmd-vehicle-status`, `/tescmd-drive`, `/tescmd-closures`, `/tescmd-config`, `/tescmd-gui`, `/tescmd-charge-schedule`, `/tescmd-preconditioning-schedule`, `/tescmd-security-status`, `/tescmd-software`, `/tescmd-nearby-chargers`, `/tescmd-alerts`, `/tescmd-drivers`, `/tescmd-release-notes`, `/tescmd-mobile-access`, `/tescmd-energy`, `/tescmd-service`, `/tescmd-warranty`, `/tescmd-charge`, `/tescmd-climate`, `/tescmd-location` |
 | Security/attention | `/tescmd-wake`, `/tescmd-flash`, `/tescmd-honk`, `/tescmd-lock`, `/tescmd-unlock`, `/tescmd-sentry enabled=true|false` |
-| Climate/charging | `/tescmd-climate-start`, `/tescmd-climate-stop`, `/tescmd-set-temp driver_temp=70 passenger_temp=70`, `/tescmd-charge-start`, `/tescmd-charge-stop`, `/tescmd-charge-limit percent=80`, `/tescmd-charge-amps amps=32`, `/tescmd-charge-port-open`, `/tescmd-charge-port-close` |
+| Climate/charging | `/tescmd-climate-start`, `/tescmd-climate-stop`, `/tescmd-set-temp driver_temp=21 passenger_temp=21` (Celsius), `/tescmd-charge-start`, `/tescmd-charge-stop`, `/tescmd-charge-limit percent=80`, `/tescmd-charge-amps amps=32`, `/tescmd-charge-port-open`, `/tescmd-charge-port-close` |
 | Body/media/navigation | `/tescmd-frunk`, `/tescmd-trunk-open`, `/tescmd-trunk-close`, `/tescmd-window-vent`, `/tescmd-window-close`, `/tescmd-media-play`, `/tescmd-media-next`, `/tescmd-media-prev`, `/tescmd-media-volume-up`, `/tescmd-media-volume-down`, `/tescmd-media-volume-set volume=3`, `/tescmd-nav 'address' confirm=true`, `/tescmd-nav 'address' vin=... confirm=true`, `/tescmd-nav-search 'place'`, `/tescmd-nav-waypoints place_ids=id1,id2` |
 | Parental controls | `/tescmd-parental-activate pin=1234`, `/tescmd-parental-setting setting=TheaterBlocked enabled=false`, `/tescmd-parental-speed-limit limit_mph=85` |
 
@@ -228,7 +228,7 @@ The Hermes web dashboard gets a native Tesla tab at `/tescmd`. It uses the same 
 
 ## Tool surface
 
-The plugin registers the complete 175-tool Hermes surface by default. Tool-load minimization is intentionally not used; if a call feels slow, profile command invocation, auth/cache behavior, and Tesla network latency rather than hiding tools from Hermes.
+The plugin registers two model-facing tools by default: `tescmd_catalog` and `tescmd_execute`. They preserve access to all 190 catalogued operations while avoiding the context cost of injecting every dedicated schema. The dedicated Tesla profile uses `tool_mode: full` when direct first-class `tescmd_*` tools are preferable.
 
 High-level families:
 

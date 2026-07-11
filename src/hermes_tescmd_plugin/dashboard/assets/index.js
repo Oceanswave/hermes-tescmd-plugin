@@ -107,7 +107,11 @@
 
   function onboardingOperational(onboarding) {
     const readiness = (onboarding && onboarding.readiness) || {};
-    return bootstrapOperational(readiness);
+    const missing = Array.isArray(onboarding && onboarding.missing_prerequisites)
+      ? onboarding.missing_prerequisites
+      : [];
+    const next = String((onboarding && (onboarding.next_tool || onboarding.next_action)) || "").trim().toLowerCase();
+    return bootstrapOperational(readiness) || (!missing.length && (!next || next === "ready"));
   }
 
   function boundedPreview(items, limit) {
@@ -229,6 +233,11 @@
       h("strong", null, initial ? "Loading Tesla dashboard…" : "Updating Tesla data…"),
       h("span", null, initial ? "Fetching setup and vehicle status." : "This can take a moment while Tesla responds.")
     );
+  }
+
+  function overviewFreshnessLabel(timestamp) {
+    if (!timestamp) return "Overview not refreshed yet";
+    return `Updated ${new Date(timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
   }
 
   function EmptyState({ title, body, steps, note, action }) {
@@ -530,10 +539,10 @@
   }
 
   function controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel, parentalLimit) {
-    const driverReady = boundedNumberReady(driverTemp, 50, 90);
-    const passengerReady = boundedNumberReady(passengerTemp, 50, 90);
+    const driverReady = boundedNumberReady(driverTemp, 15, 28);
+    const passengerReady = boundedNumberReady(passengerTemp, 15, 28);
     return {
-      chargeLimitReady: boundedNumberReady(percent, 1, 100),
+      chargeLimitReady: boundedNumberReady(percent, 50, 100),
       chargeAmpsReady: boundedNumberReady(amps, 1, 80),
       temperatureReady: driverReady && passengerReady,
       heaterLevelReady: boundedNumberReady(heaterLevel, 0, 3),
@@ -567,9 +576,9 @@
     const controls = controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel, parentalLimit);
     const requirements = [
       ["Physical confirmation", Boolean(confirm), confirm ? "armed for one action" : "check the confirmation box before any physical action"],
-      ["Charge limit", controls.chargeLimitReady, controls.chargeLimitReady ? "percent ready" : "enter a charge limit from 1 to 100"],
+      ["Charge limit", controls.chargeLimitReady, controls.chargeLimitReady ? "percent ready" : "enter a charge limit from 50 to 100"],
       ["Charge amps", controls.chargeAmpsReady, controls.chargeAmpsReady ? "amps ready" : "enter charging amps from 1 to 80"],
-      ["Cabin temperatures", controls.temperatureReady, controls.temperatureReady ? "temperatures ready" : "enter driver and passenger temperatures from 50° to 90°"],
+      ["Cabin temperatures", controls.temperatureReady, controls.temperatureReady ? "temperatures ready" : "enter driver and passenger temperatures from 15° to 28° C"],
       ["Seat/steering heat", controls.heaterLevelReady, controls.heaterLevelReady ? "heater level ready" : "enter a heater level from 0 to 3"],
       ["Media volume", controls.volumeReady, controls.volumeReady ? "volume ready" : "enter a volume level from 0 to 11"],
       ["Parental PIN", parentalPinReady(parentalPin), parentalPinReady(parentalPin) ? "four-digit PIN ready" : "enter a four-digit PIN for activation"],
@@ -1816,19 +1825,21 @@
     return { sleeping: false, label: state ? `${name} is ${state}` : "Vehicle status unknown", detail: "" };
   }
 
-  function VehicleSleepStatus({ availability, runAction, loading, confirm }) {
+  function VehicleSleepStatus({ availability, runAction, loading, confirm, focusActionControls }) {
     if (!availability || !availability.sleeping) return null;
     return h("div", { className: "tescmd-sleep-status" },
       h("div", null,
         h("strong", null, availability.label),
         h("small", null, availability.detail)
       ),
-      h(Button, { onClick: () => runAction("wake"), disabled: loading || !confirm }, loading ? "Waking..." : "Wake vehicle"),
-      !confirm ? h("small", { className: "tescmd-muted" }, "Turn on action confirmation to wake the vehicle.") : null
+      confirm
+        ? h(Button, { onClick: () => runAction("wake"), disabled: loading }, loading ? "Waking..." : "Wake vehicle")
+        : h(Button, { onClick: focusActionControls, disabled: loading }, "Review wake controls"),
+      !confirm ? h("small", { className: "tescmd-muted" }, "Review the confirmation control before waking the vehicle.") : null
     );
   }
 
-  function VehicleSnapshot({ overview, runAction, loading, confirm, locationPrecision }) {
+  function VehicleSnapshot({ overview, runAction, loading, confirm, locationPrecision, focusActionControls }) {
     const charge = chargeSummary(overview);
     const climate = climateSummary(overview);
     const security = securitySummary(overview);
@@ -1841,7 +1852,7 @@
       ? `Open: ${security.openLabels.slice(0, 3).join(", ")}${security.openLabels.length > 3 ? ` +${security.openLabels.length - 3} more` : ""}`
       : "No open closures reported";
     return h("div", null,
-      h(VehicleSleepStatus, { availability, runAction, loading, confirm }),
+      h(VehicleSleepStatus, { availability, runAction, loading, confirm, focusActionControls }),
       h(VehicleIdentityCard, { identity }),
       h(SectionHealthPanel, { overview }),
       h("div", { className: "tescmd-visual-grid" },
@@ -2178,8 +2189,8 @@
     const [enabled, setEnabled] = hooks.useState(true);
     const [percent, setPercent] = hooks.useState("80");
     const [amps, setAmps] = hooks.useState("32");
-    const [driverTemp, setDriverTemp] = hooks.useState("70");
-    const [passengerTemp, setPassengerTemp] = hooks.useState("70");
+    const [driverTemp, setDriverTemp] = hooks.useState("21");
+    const [passengerTemp, setPassengerTemp] = hooks.useState("21");
     const [heaterLevel, setHeaterLevel] = hooks.useState("1");
     const [volume, setVolume] = hooks.useState("3");
     const [parentalPin, setParentalPin] = hooks.useState("");
@@ -2196,6 +2207,7 @@
     const [commandSearch, setCommandSearch] = hooks.useState("");
     const [commandCategory, setCommandCategory] = hooks.useState("all");
     const [commandSafetyFilter, setCommandSafetyFilter] = hooks.useState("all");
+    const [lastOverviewAt, setLastOverviewAt] = hooks.useState(null);
 
     const query = (includeReadFlags) => {
       const params = new URLSearchParams();
@@ -2234,6 +2246,7 @@
         setStatus(statusPayload);
         setVehicles(Array.isArray(vehiclePayload.vehicles) ? vehiclePayload.vehicles : []);
         setDetail(overviewPayload);
+        setLastOverviewAt(Date.now());
       } catch (err) {
         setError(dashboardErrorMessage(err));
       } finally {
@@ -2259,24 +2272,18 @@
     }, []);
 
     hooks.useEffect(() => {
-      let cancelled = false;
-      setCommandCatalogLoading(true);
-      setCommandCatalogError("");
-      api("/commands")
-        .then((payload) => {
-          if (!cancelled) setCommandCatalog(payload);
-        })
-        .catch((err) => {
-          if (!cancelled) {
-            setCommandCatalog(null);
-            setCommandCatalogError(dashboardErrorMessage(err));
-          }
-        })
-        .finally(() => {
-          if (!cancelled) setCommandCatalogLoading(false);
-        });
-      return () => { cancelled = true; };
-    }, []);
+      if (activeTab === "commands" && !commandCatalog && !commandCatalogLoading && !commandCatalogError) {
+        loadCommandCatalog();
+      }
+    }, [activeTab, commandCatalog, commandCatalogLoading, commandCatalogError, loadCommandCatalog]);
+
+    function focusActionControls() {
+      const control = document.getElementById("tescmd-action-confirm");
+      if (!control) return;
+      control.scrollIntoView({ behavior: "smooth", block: "center" });
+      const checkbox = control.querySelector('input[type="checkbox"]');
+      if (checkbox) checkbox.focus({ preventScroll: true });
+    }
 
     async function runRead(kind) {
       setLoading(true);
@@ -2331,9 +2338,9 @@
 
     function actionDisabledReason(action) {
       const controls = controlReadiness(percent, amps, driverTemp, passengerTemp, volume, heaterLevel, parentalLimit);
-      if (action === "charge-limit" && !controls.chargeLimitReady) return "Enter a charge limit from 1 to 100 before changing charging.";
+      if (action === "charge-limit" && !controls.chargeLimitReady) return "Enter a charge limit from 50 to 100 before changing charging.";
       if (action === "charge-amps" && !controls.chargeAmpsReady) return "Enter charging amps from 1 to 80 before changing charging.";
-      if (action === "set-temp" && !controls.temperatureReady) return "Enter driver and passenger temperatures from 50° to 90° before changing climate.";
+      if (action === "set-temp" && !controls.temperatureReady) return "Enter driver and passenger temperatures from 15° to 28° C before changing climate.";
       if (["seat-heat-driver", "seat-heat-passenger", "steering-heat-level"].includes(action) && !controls.heaterLevelReady) return "Enter a heater level from 0 to 3 before changing seat or steering heat.";
       if (action === "media-volume-set" && !controls.volumeReady) return "Enter a volume level from 0 to 11 before changing media volume.";
       if (action === "parental-activate" && !parentalPinReady(parentalPin)) return "Enter a four-digit PIN before activating Parental Controls.";
@@ -2450,16 +2457,25 @@
         ),
         h("div", { className: "tescmd-hero-actions" },
           h(Badge, { className: confirm ? "tescmd-warn" : "tescmd-ok" }, confirm ? "actions armed" : "read-only"),
+          h("span", { className: "tescmd-refresh-time", role: "status", "aria-live": "polite" }, overviewFreshnessLabel(lastOverviewAt)),
           h(Button, { onClick: () => refresh("refresh"), disabled: loading }, loading ? (loadingMode === "initial" ? "Loading..." : "Updating...") : "Refresh overview")
         )
       ),
       h(BusyBanner, { loading, mode: loadingMode }),
-      h("nav", { className: "tescmd-tabs", "aria-label": "Tesla dashboard tabs" },
+      h("nav", { className: "tescmd-tabs", role: "tablist", "aria-label": "Tesla dashboard tabs" },
         [["overview", "Overview"], ["commands", "Commands"]].map(([key, label]) =>
-          h(Button, { key, className: activeTab === key ? "tescmd-tab-active" : "", onClick: () => setActiveTab(key) }, label)
+          h(Button, {
+            key,
+            id: `tescmd-tab-${key}`,
+            role: "tab",
+            "aria-selected": activeTab === key,
+            "aria-controls": `tescmd-panel-${key}`,
+            className: activeTab === key ? "tescmd-tab-active" : "",
+            onClick: () => setActiveTab(key),
+          }, label)
         )
       ),
-      activeTab === "commands" ? h(CommandCatalog, {
+      activeTab === "commands" ? h("section", { id: "tescmd-panel-commands", role: "tabpanel", "aria-labelledby": "tescmd-tab-commands" }, h(CommandCatalog, {
         catalog: commandCatalog,
         search: commandSearch,
         setSearch: setCommandSearch,
@@ -2470,11 +2486,11 @@
         loading: commandCatalogLoading,
         catalogError: commandCatalogError,
         retryCatalog: loadCommandCatalog,
-      }) : [
+      })) : h("section", { id: "tescmd-panel-overview", role: "tabpanel", "aria-labelledby": "tescmd-tab-overview" }, [
         overview && overview.onboarding ? h(OnboardingCard, { key: "onboarding", onboarding: overview.onboarding }) : null,
         h(Card, { key: "overview", className: "tescmd-overview-card" },
           h(CardHeader, null, h(CardTitle, null, "Vehicle overview")),
-          h(CardContent, null, overview ? h(VehicleSnapshot, { overview, runAction, loading, confirm, locationPrecision }) : h(EmptyState, {
+          h(CardContent, null, overview ? h(VehicleSnapshot, { overview, runAction, loading, confirm, locationPrecision, focusActionControls }) : h(EmptyState, {
             title: "No vehicle overview loaded",
             body: "Start with a read-only refresh to populate charge, climate, security, and map widgets.",
             steps: ["Check profile, region, and vehicle override if the configured default is not the target vehicle.", "Use no-cache when you need fresh Fleet API data.", "Only enable wake + confirm when you intentionally want to wake a sleeping vehicle."],
@@ -2524,13 +2540,13 @@
             h(CardHeader, null, h(CardTitle, null, "Guarded quick actions")),
             h(CardContent, null,
               h(ActionSafetyPanel, { confirm, loading, lastActionStatus }),
-              h("label", { className: "tescmd-confirm" }, h("input", { type: "checkbox", checked: confirm, onChange: (event) => setConfirm(event.target.checked) }), h("span", null, "I confirm this physical Tesla side effect")),
+              h("label", { id: "tescmd-action-confirm", className: "tescmd-confirm" }, h("input", { type: "checkbox", checked: confirm, onChange: (event) => setConfirm(event.target.checked) }), h("span", null, "I confirm this physical Tesla side effect")),
               h("div", { className: "tescmd-controls" },
                 h(Field, { label: "Sentry" }, h("select", { className: "tescmd-select", value: enabled ? "true" : "false", onChange: (event) => setEnabled(event.target.value === "true") }, h("option", { value: "true" }, "Enable"), h("option", { value: "false" }, "Disable"))),
-                h(TextInput, { label: "Charge limit %", value: percent, setValue: setPercent, type: "number", min: "1", max: "100", step: "1", inputMode: "numeric", helpText: "Allowed range 1–100%; the value is never echoed in status copy until a confirmed action runs." }),
+                h(TextInput, { label: "Charge limit %", value: percent, setValue: setPercent, type: "number", min: "50", max: "100", step: "1", inputMode: "numeric", helpText: "Allowed range 50–100%; the value is never echoed in status copy until a confirmed action runs." }),
                 h(TextInput, { label: "Charge amps", value: amps, setValue: setAmps, type: "number", min: "1", max: "80", step: "1", inputMode: "numeric", helpText: "Allowed range 1–80 amps; invalid values keep the charging button disabled." }),
-                h(TextInput, { label: "Driver temp", value: driverTemp, setValue: setDriverTemp, type: "number", min: "50", max: "90", step: "0.5", inputMode: "decimal", helpText: "Cabin temperature guardrail: 50°–90°." }),
-                h(TextInput, { label: "Passenger temp", value: passengerTemp, setValue: setPassengerTemp, type: "number", min: "50", max: "90", step: "0.5", inputMode: "decimal", helpText: "Cabin temperature guardrail: 50°–90°." }),
+                h(TextInput, { label: "Driver temp °C", value: driverTemp, setValue: setDriverTemp, type: "number", min: "15", max: "28", step: "0.5", inputMode: "decimal", helpText: "Tesla cabin setpoint in Celsius: 15°–28° C." }),
+                h(TextInput, { label: "Passenger temp °C", value: passengerTemp, setValue: setPassengerTemp, type: "number", min: "15", max: "28", step: "0.5", inputMode: "decimal", helpText: "Tesla cabin setpoint in Celsius: 15°–28° C." }),
                 h(TextInput, { label: "Heater level", value: heaterLevel, setValue: setHeaterLevel, type: "number", min: "0", max: "3", step: "1", inputMode: "numeric", helpText: "Seat and steering heat guardrail: 0 off, 1–3 warming levels; invalid values keep heater buttons disabled." }),
                 h(TextInput, { label: "Volume", value: volume, setValue: setVolume, type: "number", min: "0", max: "11", step: "1", inputMode: "numeric", helpText: "Allowed volume range 0–11; invalid values keep media changes disabled." })
               ),
@@ -2569,7 +2585,7 @@
             )
           )
         )
-      ]
+      ])
     );
   }
 

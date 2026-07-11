@@ -247,6 +247,81 @@ def test_compact_catalog_and_execute_preserve_validation(monkeypatch) -> None:
     assert allowed["ok"] is True
     assert calls[0][1]["confirm"] is True
 
+    status_read = json.loads(
+        runtime.compact_execute({"tool_name": "tescmd_charge_status", "arguments": {}})
+    )
+    assert status_read["ok"] is True
+
+
+def test_compact_catalog_handles_natural_language_queries() -> None:
+    cases = {
+        "is my car still charging?": "charge",
+        "warm the cabin to 70 before I leave": "climate",
+        "lock the Cybertruck if it is unlocked": "lock",
+        "OAuth token and virtual key ready": "auth",
+    }
+    for query, expected_fragment in cases.items():
+        payload = json.loads(runtime.compact_catalog({"query": query, "limit": 10}))
+        assert payload["ok"] is True
+        assert payload["matches"], query
+        assert any(
+            expected_fragment in item["tool_name"] for item in payload["matches"]
+        )
+
+
+def test_full_handler_denies_false_confirmation_before_audit_or_execution(
+    monkeypatch,
+) -> None:
+    spec = next(
+        item for item in runtime.list_tool_specs() if item.name == "tescmd_charge_limit"
+    )
+    calls: list[str] = []
+
+    def record_audit(*_args, **_kwargs) -> None:
+        calls.append("audit")
+
+    def record_execute(*_args, **_kwargs) -> dict[str, bool]:
+        calls.append("execute")
+        return {"ok": True}
+
+    monkeypatch.setattr(runtime.audit, "append_command_event", record_audit)
+    monkeypatch.setattr(runtime.tools, "execute", record_execute)
+
+    payload = json.loads(runtime.make_handler(spec)({"percent": 80, "confirm": False}))
+    assert payload["ok"] is False
+    assert "confirm=true" in payload["error"]
+    assert calls == []
+
+
+def test_compact_tools_reject_invalid_or_unknown_envelope_fields(monkeypatch) -> None:
+    calls: list[object] = []
+
+    def fake_execute(spec, args):
+        calls.append((spec, args))
+        return {"ok": True}
+
+    monkeypatch.setattr(tools, "execute", fake_execute)
+
+    catalog_cases: list[dict[str, Any]] = [
+        {"query": 7},
+        {"limit": True},
+        {"limit": 0},
+        {"limit": 51},
+        {"query": "charge", "unexpected": "value"},
+    ]
+    for args in catalog_cases:
+        result = json.loads(runtime.compact_catalog(args))
+        assert result["ok"] is False
+
+    execute_cases: list[dict[str, Any]] = [
+        {"tool_name": "tescmd_charge_status", "arguments": {}, "unexpected": True},
+        {"tool_name": "tescmd_charge_status", "arguments": {}, "confirm": "true"},
+    ]
+    for args in execute_cases:
+        result = json.loads(runtime.compact_execute(args))
+        assert result["ok"] is False
+    assert calls == []
+
 
 def test_config_store_values_override_legacy_non_secrets_without_exposing_secrets(
     tmp_path, monkeypatch
@@ -1840,7 +1915,7 @@ def test_command_audit_logs_wake_attempts_and_redacts_target(
     audit_payload = json.loads(tools_by_name["tescmd_audit_log"]({"limit": 10}))
     assert audit_payload["ok"] is True
     events = audit_payload["events"]
-    assert [event["stage"] for event in events] == ["denied", "attempt", "result"]
+    assert [event["stage"] for event in events] == ["attempt", "result"]
     assert all(event["tool"] == "tescmd_vehicle_wake" for event in events)
     assert all(event["wake"] is True for event in events)
     assert all(
@@ -1860,7 +1935,7 @@ def test_command_audit_logs_wake_attempts_and_redacts_target(
     )
     assert "tescmd command audit event" in caplog.text
     assert "tescmd_vehicle_wake" in caplog.text
-    assert '"stage":"denied"' in caplog.text
+    assert '"stage":"denied"' not in caplog.text
     assert '"stage":"attempt"' in caplog.text
     assert '"stage":"result"' in caplog.text
     assert "5YJ3E1EA7JF000001" not in caplog.text

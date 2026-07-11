@@ -22,8 +22,18 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install build tooling
-        run: python -m pip install --upgrade build twine
+      - name: Install package and release tooling
+        run: python -m pip install --upgrade -e ".[dev]" build twine
+
+      - name: Run release quality gates
+        run: |
+          pytest -q
+          ruff check src tests
+          ruff format --check src tests
+          mypy src tests
+          vulture src tests --min-confidence 90
+          python -m compileall -q src tests
+          node --check src/hermes_tescmd_plugin/dashboard/assets/index.js
 
       - name: Verify release tag matches package version
         run: |

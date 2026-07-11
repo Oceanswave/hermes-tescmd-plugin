@@ -961,7 +961,8 @@ def handle_key_show(args: dict[str, Any]) -> dict[str, Any]:
             "status": "not_found",
             "key_dir": str(config.get_plugin_home() / "keys" / profile),
         }
-    assert public_path is not None
+    if public_path is None:
+        raise client.TeslaAPIError("Tesla public-key path could not be resolved.")
     return {
         "ok": True,
         "profile": profile,

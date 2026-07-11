@@ -336,20 +336,20 @@ class QuickActionBody(BaseModel):
     region: str | None = None
     confirm: bool = False
     enabled: bool | None = None
-    percent: int | None = None
-    amps: int | None = None
-    driver_temp: float | None = None
-    passenger_temp: float | None = None
-    level: int | None = None
-    volume: float | None = None
-    pin: str | None = None
+    percent: int | None = Field(default=None, ge=50, le=100)
+    amps: int | None = Field(default=None, ge=1, le=80)
+    driver_temp: float | None = Field(default=None, ge=15, le=28)
+    passenger_temp: float | None = Field(default=None, ge=15, le=28)
+    level: int | None = Field(default=None, ge=0, le=3)
+    volume: float | None = Field(default=None, ge=0, le=11)
+    pin: str | None = Field(default=None, pattern=r"^\d{4}$")
     setting: str | None = None
-    limit_mph: float | None = None
-    destination: str | None = None
-    order: int | None = None
-    lat: float | None = None
-    lon: float | None = None
-    place_ids: list[str] | None = None
+    limit_mph: float | None = Field(default=None, ge=50, le=90)
+    destination: str | None = Field(default=None, min_length=1, max_length=512)
+    order: int | None = Field(default=None, ge=1)
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lon: float | None = Field(default=None, ge=-180, le=180)
+    place_ids: list[str] | None = Field(default=None, min_length=1, max_length=10)
 
 
 def _base_vehicle_args(
@@ -800,8 +800,13 @@ def quick_action(body: QuickActionBody) -> dict[str, Any]:
         raise HTTPException(
             status_code=404, detail=f"Unknown quick action: {body.action}"
         )
+    if body.confirm is not True:
+        raise HTTPException(
+            status_code=400,
+            detail="confirm=true is required before this side-effecting operation will run.",
+        )
     args = _base_vehicle_args(body.profile, body.vin, body.region)
-    args["confirm"] = bool(body.confirm)
+    args["confirm"] = True
     args.update(_ACTION_DEFAULTS.get(body.action, {}))
     for field in _ACTION_EXTRA_FIELDS.get(body.action, ()):
         value = getattr(body, field)

@@ -549,15 +549,19 @@ _TOOL_SPECS: tuple[ToolSpec, ...] = (
         params=(
             ParamSpec(
                 "driver_temp",
-                "Driver temperature setpoint.",
+                "Driver temperature setpoint in Celsius, 15 through 28.",
                 value_type="number",
                 required=True,
+                minimum=15,
+                maximum=28,
             ),
             ParamSpec(
                 "passenger_temp",
-                "Passenger temperature setpoint.",
+                "Passenger temperature setpoint in Celsius, 15 through 28.",
                 value_type="number",
                 required=True,
+                minimum=15,
+                maximum=28,
             ),
         ),
         payload_fields=(
@@ -1866,27 +1870,116 @@ def list_tool_specs() -> list[ToolSpec]:
     return list(_TOOL_SPECS)
 
 
+def _compact_error(message: str) -> str:
+    return json.dumps({"ok": False, "error": message})
+
+
+def _validate_compact_envelope(
+    args: dict[str, Any], *, allowed: set[str]
+) -> str | None:
+    if not isinstance(args, dict):
+        return "Arguments must be an object."
+    unknown = sorted(set(args) - allowed)
+    if unknown:
+        return f"Unsupported compact-tool argument(s): {', '.join(unknown)}"
+    return None
+
+
+def _requires_confirmation(spec: ToolSpec, args: dict[str, Any]) -> bool:
+    confirm_param = next(
+        (param for param in spec.params if param.name == "confirm"), None
+    )
+    if confirm_param is None:
+        return False
+    if confirm_param.required:
+        return True
+    return args.get("wake") is True or bool(args.get("output_path"))
+
+
+_CATALOG_STOP_WORDS = {
+    "a",
+    "an",
+    "and",
+    "before",
+    "car",
+    "do",
+    "for",
+    "i",
+    "if",
+    "is",
+    "it",
+    "me",
+    "my",
+    "of",
+    "please",
+    "the",
+    "to",
+    "vehicle",
+}
+_CATALOG_ALIASES = {
+    "charging": ("charge",),
+    "charged": ("charge",),
+    "warm": ("climate", "temperature", "precondition"),
+    "cabin": ("climate",),
+    "cybertruck": ("vehicle",),
+    "key": ("key", "auth"),
+    "ready": ("status", "onboarding"),
+    "locked": ("lock", "security"),
+    "unlocked": ("unlock", "lock", "security"),
+}
+
+
+def _catalog_terms(query: str) -> set[str]:
+    terms: set[str] = set()
+    for token in re.findall(r"[a-z0-9]+", query.lower()):
+        if token in _CATALOG_STOP_WORDS:
+            continue
+        terms.add(token)
+        terms.update(_CATALOG_ALIASES.get(token, ()))
+    return terms
+
+
+def _catalog_score(spec: ToolSpec, query: str, terms: set[str]) -> int:
+    corpus = f"{spec.name} {spec.operation} {spec.description}".lower()
+    if query and query in corpus:
+        return 1000
+    return sum(
+        4 if term in spec.name.lower() else 1 for term in terms if term in corpus
+    )
+
+
 def compact_catalog(args: dict[str, Any]) -> str:
     from . import schemas
 
-    query = str(args.get("query") or "").strip().lower()
-    try:
-        limit = max(1, min(int(args.get("limit", 20)), 50))
-    except (TypeError, ValueError):
-        limit = 20
-    matches = []
-    for spec in _TOOL_SPECS:
-        if query and query not in f"{spec.name} {spec.description}".lower():
+    envelope_error = _validate_compact_envelope(args, allowed={"query", "limit"})
+    if envelope_error:
+        return _compact_error(envelope_error)
+    query_value = args.get("query")
+    if query_value is not None and not isinstance(query_value, str):
+        return _compact_error("query must be a string.")
+    limit_value = args.get("limit", 20)
+    if isinstance(limit_value, bool) or not isinstance(limit_value, int):
+        return _compact_error("limit must be an integer from 1 to 50.")
+    if not 1 <= limit_value <= 50:
+        return _compact_error("limit must be from 1 to 50.")
+    query = (query_value or "").strip().lower()
+    limit = limit_value
+    terms = _catalog_terms(query)
+    ranked = []
+    for index, spec in enumerate(_TOOL_SPECS):
+        score = _catalog_score(spec, query, terms)
+        if query and score <= 0:
             continue
-        matches.append(
-            {
-                "tool_name": spec.name,
-                "description": spec.description,
-                "arguments": schemas.build_schema(spec)["parameters"],
-            }
-        )
-        if len(matches) >= limit:
-            break
+        ranked.append((score, -index, spec))
+    ranked.sort(reverse=True, key=lambda item: (item[0], item[1]))
+    matches = [
+        {
+            "tool_name": spec.name,
+            "description": spec.description,
+            "arguments": schemas.build_schema(spec)["parameters"],
+        }
+        for _, _, spec in ranked[:limit]
+    ]
     return json.dumps(
         {
             "ok": True,
@@ -1900,8 +1993,14 @@ def compact_catalog(args: dict[str, Any]) -> str:
 
 
 def compact_execute(args: dict[str, Any]) -> str:
-    if not isinstance(args, dict):
-        return json.dumps({"ok": False, "error": "Arguments must be an object."})
+    envelope_error = _validate_compact_envelope(
+        args, allowed={"tool_name", "arguments", "confirm"}
+    )
+    if envelope_error:
+        return _compact_error(envelope_error)
+    confirm = args.get("confirm", False)
+    if not isinstance(confirm, bool):
+        return _compact_error("confirm must be a boolean.")
     tool_name = args.get("tool_name")
     operation_args = args.get("arguments")
     if not isinstance(tool_name, str) or not tool_name.startswith("tescmd_"):
@@ -1918,9 +2017,8 @@ def compact_execute(args: dict[str, Any]) -> str:
         return json.dumps(
             {"ok": False, "error": f"Unknown Tesla operation: {tool_name}"}
         )
-    has_confirmation_gate = any(param.name == "confirm" for param in spec.params)
-    if has_confirmation_gate:
-        if args.get("confirm") is not True:
+    if _requires_confirmation(spec, operation_args):
+        if confirm is not True:
             return json.dumps(
                 {
                     "ok": False,
@@ -2058,11 +2156,7 @@ def _validate_args(spec: ToolSpec, args: dict[str, Any]) -> dict[str, Any]:
             raise client.TeslaAPIError(f"{name} is required.")
         if name in validated:
             validated[name] = _coerce_and_validate_param(param, validated[name])
-    if (
-        validated.get("wake")
-        and params.get("confirm") is not None
-        and not validated.get("confirm")
-    ):
+    if _requires_confirmation(spec, validated) and validated.get("confirm") is not True:
         raise client.TeslaAPIError(
             "confirm=true is required before this side-effecting operation will run."
         )
@@ -2101,19 +2195,6 @@ def make_handler(spec: ToolSpec) -> Callable[[dict[str, Any]], str]:
             Exception
         ) as exc:  # pragma: no cover - verified by handler contract tests indirectly
             payload = _error_payload(exc, spec.operation)
-            if should_audit:
-                audit.append_command_event(
-                    tool_name=spec.name,
-                    operation=spec.operation,
-                    command_name=spec.command_name,
-                    args=raw_args,
-                    stage="denied",
-                    ok=False,
-                    status_code=payload.get("status_code")
-                    if isinstance(payload, dict)
-                    else None,
-                    error=payload.get("error") if isinstance(payload, dict) else exc,
-                )
             return json.dumps(_redact(payload))
         should_audit = should_audit or _is_audited_invocation(spec, validated_args)
         if should_audit:

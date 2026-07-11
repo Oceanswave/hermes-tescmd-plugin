@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+from fastapi import HTTPException
 
 from hermes_tescmd_plugin import config, slash, tools as tescmd_tools
 from hermes_tescmd_plugin.dashboard import ensure_dashboard_installed
@@ -1166,19 +1167,19 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
         in asset
     )
     assert "check the confirmation box before any physical action" in asset
-    assert "enter a charge limit from 1 to 100" in asset
+    assert "enter a charge limit from 50 to 100" in asset
     assert "enter charging amps from 1 to 80" in asset
-    assert "enter driver and passenger temperatures from 50° to 90°" in asset
+    assert "enter driver and passenger temperatures from 15° to 28° C" in asset
     assert "enter a heater level from 0 to 3" in asset
     assert "enter a volume level from 0 to 11" in asset
-    assert "Enter a charge limit from 1 to 100 before changing charging." in asset
+    assert "Enter a charge limit from 50 to 100 before changing charging." in asset
     assert "Enter charging amps from 1 to 80 before changing charging." in asset
     assert (
-        "Enter driver and passenger temperatures from 50° to 90° before changing climate."
+        "Enter driver and passenger temperatures from 15° to 28° C before changing climate."
         in asset
     )
-    assert "const driverReady = boundedNumberReady(driverTemp, 50, 90);" in asset
-    assert "const passengerReady = boundedNumberReady(passengerTemp, 50, 90);" in asset
+    assert "const driverReady = boundedNumberReady(driverTemp, 15, 28);" in asset
+    assert "const passengerReady = boundedNumberReady(passengerTemp, 15, 28);" in asset
     assert "heaterLevelReady: boundedNumberReady(heaterLevel, 0, 3)" in asset
     assert (
         "Enter a heater level from 0 to 3 before changing seat or steering heat."
@@ -1194,9 +1195,9 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
     assert "aria-describedby" in asset
     assert 'helpText ? h("small"' in asset
     assert 'label: "Charge limit %"' in asset
-    assert 'min: "1", max: "100", step: "1", inputMode: "numeric"' in asset
+    assert 'min: "50", max: "100", step: "1", inputMode: "numeric"' in asset
     assert (
-        "Allowed range 1–100%; the value is never echoed in status copy until a confirmed action runs."
+        "Allowed range 50–100%; the value is never echoed in status copy until a confirmed action runs."
         in asset
     )
     assert 'label: "Charge amps"' in asset
@@ -1205,9 +1206,9 @@ def test_dashboard_navigation_actions_require_targets_and_clear_route_fields() -
         "Allowed range 1–80 amps; invalid values keep the charging button disabled."
         in asset
     )
-    assert 'label: "Driver temp"' in asset
-    assert 'min: "50", max: "90", step: "0.5", inputMode: "decimal"' in asset
-    assert "Cabin temperature guardrail: 50°–90°." in asset
+    assert 'label: "Driver temp °C"' in asset
+    assert 'min: "15", max: "28", step: "0.5", inputMode: "decimal"' in asset
+    assert "Tesla cabin setpoint in Celsius: 15°–28° C." in asset
     assert 'label: "Heater level"' in asset
     assert 'min: "0", max: "3", step: "1", inputMode: "numeric"' in asset
     assert (
@@ -1264,16 +1265,16 @@ def test_dashboard_action_readiness_panel_explains_disabled_buttons_privately() 
     assert "Cabin temperatures" in body
     assert "Seat/steering heat" in body
     assert "Media volume" in body
-    assert "enter a charge limit from 1 to 100" in body
+    assert "enter a charge limit from 50 to 100" in body
     assert "enter charging amps from 1 to 80" in body
-    assert "enter driver and passenger temperatures from 50° to 90°" in body
+    assert "enter driver and passenger temperatures from 15° to 28° C" in body
     assert "enter a heater level from 0 to 3" in body
     assert "enter a volume level from 0 to 11" in body
-    assert "boundedNumberReady(driverTemp, 50, 90)" in asset
-    assert "boundedNumberReady(passengerTemp, 50, 90)" in asset
+    assert "boundedNumberReady(driverTemp, 15, 28)" in asset
+    assert "boundedNumberReady(passengerTemp, 15, 28)" in asset
     assert "boundedNumberReady(heaterLevel, 0, 3)" in asset
     assert (
-        "Enter driver and passenger temperatures from 50° to 90° before changing climate."
+        "Enter driver and passenger temperatures from 15° to 28° C before changing climate."
         in asset
     )
     assert (
@@ -4000,6 +4001,10 @@ def test_dashboard_commands_tab_uses_dynamic_catalog_endpoint() -> None:
     assert "CommandCatalog" in asset
     assert "activeTab" in asset
     assert "Tesla dashboard tabs" in asset
+    assert 'role: "tablist"' in asset
+    assert 'role: "tab"' in asset
+    assert '"aria-selected": activeTab === key' in asset
+    assert 'role: "tabpanel"' in asset
     assert "Live catalog pulled from the plugin runtime tool specs" in asset
     assert "not maintained by dashboard copy" in asset
     assert "commandSafetyBadges" in asset
@@ -4088,11 +4093,36 @@ def test_dashboard_command_catalog_has_loading_error_and_filtered_empty_states()
     assert "setCommandCatalogLoading(true)" in asset
     assert "setCommandCatalogLoading(false)" in asset
     assert "loading: commandCatalogLoading" in asset
-    assert "setCommandCatalogError(dashboardErrorMessage(err))" in asset
+    catalog_loader = asset.split("const loadCommandCatalog", 1)[1].split(
+        "hooks.useEffect", 1
+    )[0]
+    assert "setCommandCatalogError(dashboardErrorMessage(err))" in catalog_loader
+    assert "setError(dashboardErrorMessage(err))" not in catalog_loader
+
+
+def test_dashboard_command_catalog_is_lazy_loaded_on_first_commands_tab_visit() -> None:
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+
+    assert 'activeTab === "commands" && !commandCatalog' in asset
+    assert "loadCommandCatalog();" in asset
     assert (
-        "setError(dashboardErrorMessage(err))"
-        not in asset.split('api("/commands")', 1)[1].split("return () =>", 1)[0]
+        "[activeTab, commandCatalog, commandCatalogLoading, commandCatalogError, loadCommandCatalog]"
+        in asset
     )
+
+
+def test_dashboard_surfaces_refresh_freshness_and_hides_false_ready_setup_card() -> (
+    None
+):
+    asset = Path("src/hermes_tescmd_plugin/dashboard/assets/index.js").read_text()
+    style = Path("src/hermes_tescmd_plugin/dashboard/assets/style.css").read_text()
+
+    assert "function overviewFreshnessLabel(timestamp)" in asset
+    assert "setLastOverviewAt(Date.now())" in asset
+    assert "overviewFreshnessLabel(lastOverviewAt)" in asset
+    assert ".tescmd-refresh-time" in style
+    assert 'next === "ready"' in asset
+    assert "!missing.length" in asset
 
 
 def test_dashboard_command_catalog_can_reset_active_filters() -> None:
@@ -4260,7 +4290,9 @@ def test_dashboard_shows_sleep_status_with_wake_button() -> None:
     assert "is asleep" in asset
     assert "Wake vehicle" in asset
     assert 'runAction("wake")' in asset
-    assert "Turn on action confirmation to wake the vehicle." in asset
+    assert "Review wake controls" in asset
+    assert "Review the confirmation control before waking the vehicle." in asset
+    assert 'document.getElementById("tescmd-action-confirm")' in asset
     assert (
         "const rawName = vehicle && (vehicle.display_name || vehicle.vehicle_name || vehicle.name);"
         in asset
@@ -4268,7 +4300,7 @@ def test_dashboard_shows_sleep_status_with_wake_button() -> None:
     assert 'const name = visibleVehicleText(rawName, "Vehicle");' in asset
     assert "`${name} is asleep`" in asset
     assert (
-        "h(VehicleSnapshot, { overview, runAction, loading, confirm, locationPrecision })"
+        "h(VehicleSnapshot, { overview, runAction, loading, confirm, locationPrecision, focusActionControls })"
         in asset
     )
     assert ".tescmd-sleep-status" in style
@@ -4914,10 +4946,10 @@ def test_dashboard_quick_action_requires_confirm_before_network(
         "hermes_tescmd_plugin.client.TeslaFleetClient.vehicle_command", fail_if_called
     )
 
-    payload = quick_action(QuickActionBody(action="honk", confirm=False))
+    with pytest.raises(HTTPException, match="confirm=true is required") as exc_info:
+        quick_action(QuickActionBody(action="honk", confirm=False))
 
-    assert payload["ok"] is False
-    assert "confirm=true is required" in payload["error"]
+    assert exc_info.value.status_code == 400
     assert calls == []
 
 

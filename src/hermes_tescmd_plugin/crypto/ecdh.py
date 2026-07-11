@@ -39,7 +39,9 @@ def derive_session_key(
         ec.SECP256R1(), vehicle_public_key_bytes
     )
     shared_secret = private_key.exchange(ec.ECDH(), vehicle_pub)
-    return hashlib.sha1(shared_secret).digest()[:16]
+    # Tesla's VCSEC protocol specifies this SHA-1 truncation as a KDF primitive;
+    # it is not used here for password hashing, signatures, or collision resistance.
+    return hashlib.sha1(shared_secret, usedforsecurity=False).digest()[:16]
 
 
 def get_uncompressed_public_key(private_key: ec.EllipticCurvePrivateKey) -> bytes:
