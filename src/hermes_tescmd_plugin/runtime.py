@@ -1866,6 +1866,72 @@ def list_tool_specs() -> list[ToolSpec]:
     return list(_TOOL_SPECS)
 
 
+def compact_catalog(args: dict[str, Any]) -> str:
+    from . import schemas
+
+    query = str(args.get("query") or "").strip().lower()
+    try:
+        limit = max(1, min(int(args.get("limit", 20)), 50))
+    except (TypeError, ValueError):
+        limit = 20
+    matches = []
+    for spec in _TOOL_SPECS:
+        if query and query not in f"{spec.name} {spec.description}".lower():
+            continue
+        matches.append(
+            {
+                "tool_name": spec.name,
+                "description": spec.description,
+                "arguments": schemas.build_schema(spec)["parameters"],
+            }
+        )
+        if len(matches) >= limit:
+            break
+    return json.dumps(
+        {
+            "ok": True,
+            "query": query or None,
+            "matches": matches,
+            "returned": len(matches),
+            "total_tools": len(_TOOL_SPECS),
+            "next": "Call tescmd_execute with an exact tool_name and matching arguments.",
+        }
+    )
+
+
+def compact_execute(args: dict[str, Any]) -> str:
+    if not isinstance(args, dict):
+        return json.dumps({"ok": False, "error": "Arguments must be an object."})
+    tool_name = args.get("tool_name")
+    operation_args = args.get("arguments")
+    if not isinstance(tool_name, str) or not tool_name.startswith("tescmd_"):
+        return json.dumps(
+            {
+                "ok": False,
+                "error": "tool_name must be an exact tescmd_* operation name.",
+            }
+        )
+    if not isinstance(operation_args, dict):
+        return json.dumps({"ok": False, "error": "arguments must be an object."})
+    spec = next((item for item in _TOOL_SPECS if item.name == tool_name), None)
+    if spec is None:
+        return json.dumps(
+            {"ok": False, "error": f"Unknown Tesla operation: {tool_name}"}
+        )
+    has_confirmation_gate = any(param.name == "confirm" for param in spec.params)
+    if has_confirmation_gate:
+        if args.get("confirm") is not True:
+            return json.dumps(
+                {
+                    "ok": False,
+                    "error": "confirm=true is required before this side-effecting operation will run.",
+                }
+            )
+        operation_args = dict(operation_args)
+        operation_args["confirm"] = True
+    return make_handler(spec)(operation_args)
+
+
 SECRET_FIELD_NAMES = {
     "access_token",
     "refresh_token",

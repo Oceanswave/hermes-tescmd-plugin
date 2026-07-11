@@ -66,3 +66,63 @@ def build_schema(spec: ToolSpec) -> dict[str, Any]:
             "additionalProperties": False,
         },
     }
+
+
+def build_compact_catalog_schema() -> dict[str, Any]:
+    return {
+        "name": "tescmd_catalog",
+        "description": "Discover Tesla operations and their exact argument schemas on demand.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Optional name/description search such as climate, charge, lock, or status.",
+                },
+                "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50,
+                    "default": 20,
+                    "description": "Maximum matching operations to return.",
+                },
+            },
+            "required": [],
+            "additionalProperties": False,
+        },
+    }
+
+
+def build_compact_execute_schema() -> dict[str, Any]:
+    return {
+        "name": "tescmd_execute",
+        "description": (
+            "Execute any operation returned by tescmd_catalog. Original argument "
+            "validation and confirm=true guards remain enforced by the operation handler."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "tool_name": {
+                    "type": "string",
+                    "description": "Exact tescmd_* operation name returned by tescmd_catalog.",
+                },
+                "arguments": {
+                    "type": "object",
+                    "description": "Arguments matching the catalogued operation schema.",
+                    "additionalProperties": True,
+                },
+                "confirm": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": (
+                        "Required as true for any catalogued side effect. The dispatcher "
+                        "forwards it into the original operation's confirmation guard."
+                    ),
+                    "x-confirmation-required": True,
+                },
+            },
+            "required": ["tool_name", "arguments"],
+            "additionalProperties": False,
+        },
+    }

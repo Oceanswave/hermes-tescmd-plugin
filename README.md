@@ -20,7 +20,7 @@ The plugin exposes OAuth/admin checks, vehicle reads, signed vehicle commands, c
 
 - **Natural-language Tesla operations.** Ask Hermes for the outcome, not the exact command. Hermes can inspect vehicle state, resolve the target vehicle, choose the right tool, and summarize the result.
 - **Works wherever Hermes runs.** Use the same Tesla controls from the terminal, gateway chats, cron jobs, webhooks, or other Hermes entry points.
-- **Agent-friendly tool surface.** The plugin registers 190 typed, JSON-returning tools through the `hermes_agent.plugins` entry point. Hermes sees schemas, required args, confirmation markers, and structured errors instead of parsing terminal output.
+- **Agent-friendly without permanent prompt bloat.** Compact mode is the default: Hermes gets an on-demand catalog plus a validated dispatcher, while all 190 operations remain available. A dedicated Tesla profile can opt into the full typed catalog for maximum discoverability.
 - **Fast daily controls.** `/tescmd-*` slash commands cover common reads and guarded quick actions; the `/tescmd` dashboard gives you status panels and confirm-gated buttons for security, climate, charging, body, media, navigation, and parental-controls operations.
 - **Real-world safety gates.** Side-effecting commands require `confirm: true` and fail before network/file side effects when confirmation is missing. Wake-with-read is also treated as a side effect when applicable.
 - **Signed commands without agent-side crypto.** Known Vehicle Command Protocol operations use the plugin-owned P-256 key when required and fail closed if signing prerequisites are missing.
@@ -59,6 +59,32 @@ pip install dist/hermes_tescmd_plugin-*.whl
 Restart Hermes after installation so plugin entry points reload.
 
 For editable development, TestPyPI/prerelease installs, uninstall steps, and smoke checks, see `INSTALL.md`.
+
+## Intended Hermes profile setup
+
+The intended deployment is a small compact surface in ordinary Hermes conversations and the full native catalog in a dedicated `tesla` profile. This retains every Fleet operation while avoiding roughly 190 dedicated schemas in every unrelated model request.
+
+Compact mode is the default and registers two tools:
+
+- `tescmd_catalog` searches the complete operation catalog and returns exact argument schemas on demand.
+- `tescmd_execute` invokes the selected operation through its original validator, audit path, redaction, and safety gates. Side effects require top-level `confirm: true`; the dispatcher forwards that acknowledgement into the original operation's own confirmation guard.
+
+Create the specialist profile and enable full mode there:
+
+```bash
+hermes profile create tesla --clone-from default \
+  --description "Dedicated Tesla Fleet specialist with the full native tescmd catalog."
+hermes --profile tesla config set \
+  plugins.entries.hermes-tescmd-plugin.config.tool_mode full
+```
+
+Keep the default profile explicit if desired:
+
+```bash
+hermes config set plugins.entries.hermes-tescmd-plugin.config.tool_mode compact
+```
+
+`compact` and `full` differ only in model-facing registration. Slash commands, the dashboard, OAuth/auth state, signing, telemetry, and operation behavior are unchanged. Full mode registers all dedicated tools and is intended for the `tesla` specialist profile; compact mode is intended everywhere else.
 
 ## First-time setup at a glance
 

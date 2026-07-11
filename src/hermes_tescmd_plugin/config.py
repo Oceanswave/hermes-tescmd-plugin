@@ -18,6 +18,8 @@ from urllib.parse import urlparse
 PLUGIN_DIRNAME = "hermes-tescmd-plugin"
 DEFAULT_REGION = "na"
 DEFAULT_PROFILE = "default"
+DEFAULT_TOOL_MODE = "compact"
+SUPPORTED_TOOL_MODES = ("compact", "full")
 HERMES_CONFIG_SECTION = ["plugins", "entries", PLUGIN_DIRNAME, "config"]
 HERMES_CONFIG_PROFILES_KEY = "profiles"
 EDITABLE_CONFIG_FIELDS = (
@@ -253,6 +255,18 @@ def get_editable_config_schema() -> dict[str, Any]:
         "profiles_path": ".".join([*HERMES_CONFIG_SECTION, HERMES_CONFIG_PROFILES_KEY]),
         "fields": [
             {
+                "key": f"{'.'.join(HERMES_CONFIG_SECTION)}.tool_mode",
+                "type": "select",
+                "label": "Agent tool surface",
+                "options": list(SUPPORTED_TOOL_MODES),
+                "description": (
+                    "Compact preserves all operations through an on-demand catalog and "
+                    "validated dispatcher with a much smaller prompt. Full registers every "
+                    "dedicated Tesla tool and is intended for a Tesla specialist profile."
+                ),
+                "secret": False,
+            },
+            {
                 "key": f"{base}.client_id",
                 "type": "string",
                 "label": "Tesla app client ID",
@@ -326,6 +340,21 @@ def _nested_dict(
             node[part] = child
         node = child
     return node if isinstance(node, dict) else None
+
+
+def get_tool_mode() -> str:
+    """Return the active Hermes tool-surface mode for this profile."""
+
+    module = _hermes_config_module()
+    if module is None:
+        return DEFAULT_TOOL_MODE
+    try:
+        root = module.load_config()
+    except Exception:
+        return DEFAULT_TOOL_MODE
+    section = _nested_dict(root, HERMES_CONFIG_SECTION)
+    mode = section.get("tool_mode") if isinstance(section, dict) else None
+    return mode if mode in SUPPORTED_TOOL_MODES else DEFAULT_TOOL_MODE
 
 
 def _load_hermes_config_profiles() -> dict[str, Any]:
