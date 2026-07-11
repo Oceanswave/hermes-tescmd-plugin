@@ -7,6 +7,7 @@ import json
 import logging
 import stat
 import sys
+import tomllib
 import types
 from pathlib import Path
 from typing import Any, cast
@@ -14,6 +15,7 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 import pytest
+import hermes_tescmd_plugin
 
 from hermes_tescmd_plugin import register, registered_tool_specs
 from hermes_tescmd_plugin import auth
@@ -47,6 +49,22 @@ from hermes_tescmd_plugin.protocol.protobuf.messages import (
     _encode_varint_field,
 )
 from hermes_tescmd_plugin.protocol.signer import derive_session_info_key
+
+
+def test_release_version_is_synchronized_across_packaged_surfaces() -> None:
+    project_version = tomllib.loads(Path("pyproject.toml").read_text())["project"][
+        "version"
+    ]
+    manifest_version = json.loads(
+        Path("src/hermes_tescmd_plugin/dashboard/manifest.json").read_text()
+    )["version"]
+    skill_text = Path(
+        "src/hermes_tescmd_plugin/skills/tescmd-operator/SKILL.md"
+    ).read_text()
+
+    assert hermes_tescmd_plugin.__version__ == project_version
+    assert manifest_version == project_version
+    assert f"version: {project_version}" in skill_text
 
 
 class FakeContext:
