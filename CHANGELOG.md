@@ -2,6 +2,7 @@
 
 ## 0.5.0a23
 
+- Translate Tesla Fleet API HTTP 429 responses into `RateLimitError`, expose valid `Retry-After` timing to structured tool callers, and deliberately avoid automatic retries for vehicle operations.
 - Made compact mode the default ordinary-profile tool surface while preserving every Tesla Fleet operation through schema-aware catalog discovery and guarded dispatch; full native schemas remain available in the dedicated Tesla profile.
 - Tightened compact-tool runtime validation so malformed limits, non-boolean confirmation values, and unknown envelope fields fail closed before any handler or network I/O runs.
 - Improved the Tesla dashboard by lazy-loading the large command catalog only when the Commands tab is opened, surfacing the latest successful overview refresh time, and replacing a dead disabled wake button with a keyboard-focusable path to the explicit confirmation control.
