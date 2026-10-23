@@ -9,6 +9,7 @@ import stat
 import sys
 import tomllib
 import types
+from email.utils import formatdate
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import parse_qs, urlparse
@@ -95,9 +96,96 @@ def make_response(
     *,
     status_code: int = 200,
     json_body: dict | list | None = None,
+    headers: dict[str, str] | None = None,
 ) -> httpx.Response:
     request = httpx.Request(method, url)
-    return httpx.Response(status_code, json=json_body, request=request)
+    return httpx.Response(status_code, json=json_body, headers=headers, request=request)
+
+
+def test_fleet_request_rate_limit_uses_retry_after_without_retrying(
+    monkeypatch,
+) -> None:
+    calls: list[str] = []
+
+    def fake_request(method: str, url: str, **kwargs):
+        calls.append(url)
+        return make_response(
+            method,
+            url,
+            status_code=429,
+            json_body={
+                "error": "rate_limited",
+                "access_token": "raw-access-secret",
+                "refresh_token": "raw-refresh-secret",
+            },
+            headers={"Retry-After": "30"},
+        )
+
+    monkeypatch.setattr(client.httpx, "request", fake_request)
+
+    with pytest.raises(client.RateLimitError) as exc_info:
+        client.request("GET", "https://fleet-api.example.test/api/1/vehicles")
+
+    exc = exc_info.value
+    assert exc.status_code == 429
+    assert exc.retry_after == 30
+    assert str(exc) == "Tesla Fleet API rate limit exceeded; retry in 30 seconds."
+    assert exc.payload["access_token"] == "[REDACTED]"
+    assert exc.payload["refresh_token"] == "[REDACTED]"
+    assert calls == ["https://fleet-api.example.test/api/1/vehicles"]
+
+
+def test_retry_after_accepts_http_date_with_pinned_clock(monkeypatch) -> None:
+    now = 1_700_000_000.0
+    monkeypatch.setattr(client.time, "time", lambda: now)
+    response = httpx.Response(
+        429,
+        headers={"Retry-After": formatdate(now + 30, usegmt=True)},
+    )
+
+    assert client._retry_after_seconds(response) == 30
+
+
+@pytest.mark.parametrize("value", ["", "-1", "later", "1.5"])
+def test_retry_after_rejects_missing_or_malformed_values(value: str) -> None:
+    response = httpx.Response(429, headers={"Retry-After": value})
+
+    assert client._retry_after_seconds(response) is None
+
+
+def test_retry_after_returns_none_when_header_is_missing() -> None:
+    assert client._retry_after_seconds(httpx.Response(429)) is None
+
+
+def test_rate_limit_error_payload_exposes_retry_after() -> None:
+    payload = runtime._error_payload(
+        client.RateLimitError(retry_after=12, payload={"message": "busy"}),
+        "vehicle_status",
+    )
+
+    assert payload["status_code"] == 429
+    assert payload["retry_after"] == 12
+    assert payload["payload"] == {"message": "busy"}
+
+
+def test_non_rate_limit_responses_keep_existing_behavior(monkeypatch) -> None:
+    calls: list[str] = []
+
+    def fake_request(method: str, url: str, **kwargs):
+        calls.append(url)
+        status_code = 403 if len(calls) == 1 else 200
+        return make_response(
+            method, url, status_code=status_code, json_body={"ok": True}
+        )
+
+    monkeypatch.setattr(client.httpx, "request", fake_request)
+
+    with pytest.raises(client.TeslaAPIError) as exc_info:
+        client.request("GET", "https://fleet-api.example.test/api/1/vehicles")
+
+    assert not isinstance(exc_info.value, client.RateLimitError)
+    assert exc_info.value.status_code == 403
+    assert calls == ["https://fleet-api.example.test/api/1/vehicles"]
 
 
 def install_fake_hermes_config(

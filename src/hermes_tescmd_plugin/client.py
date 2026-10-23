@@ -3,10 +3,13 @@ from __future__ import annotations
 import asyncio
 import base64
 import json as json_module
-import threading
+import math
 import re
+import threading
 import time
 from dataclasses import dataclass
+from datetime import timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +18,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
 from . import config
-from .errors import NetworkError, TeslaAPIError
+from .errors import NetworkError, RateLimitError, TeslaAPIError
 from .protocol.commands import get_command_spec
 from .protocol.encoder import (
     build_signed_command,
@@ -111,6 +114,28 @@ def _json_or_text(response: httpx.Response) -> Any:
         return response.text
 
 
+def _retry_after_seconds(
+    response: httpx.Response, *, now: float | None = None
+) -> int | None:
+    """Parse a standard Retry-After response value into a nonnegative delay."""
+    value = response.headers.get("Retry-After")
+    if value is None:
+        return None
+    value = value.strip()
+    if re.fullmatch(r"[0-9]+", value):
+        return int(value)
+    try:
+        retry_at = parsedate_to_datetime(value)
+        if retry_at.tzinfo is None:
+            retry_at = retry_at.replace(tzinfo=timezone.utc)
+        delay = retry_at.timestamp() - (time.time() if now is None else now)
+    except (OverflowError, OSError, TypeError, ValueError):
+        return None
+    if delay < 0:
+        return None
+    return math.ceil(delay)
+
+
 def request(method: str, url: str, **kwargs: Any) -> TeslaResponse:
     try:
         response = httpx.request(
@@ -119,6 +144,16 @@ def request(method: str, url: str, **kwargs: Any) -> TeslaResponse:
     except httpx.HTTPError as exc:
         raise NetworkError(f"Tesla API network request failed: {exc}") from exc
     payload = _json_or_text(response)
+    if response.status_code == 429:
+        retry_after = _retry_after_seconds(response)
+        if retry_after is None:
+            message = "Tesla Fleet API rate limit exceeded; retry later."
+        else:
+            unit = "second" if retry_after == 1 else "seconds"
+            message = (
+                f"Tesla Fleet API rate limit exceeded; retry in {retry_after} {unit}."
+            )
+        raise RateLimitError(message, retry_after=retry_after, payload=payload)
     if response.status_code >= 400:
         message = (
             response.text.strip()

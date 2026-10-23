@@ -2165,13 +2165,16 @@ def _validate_args(spec: ToolSpec, args: dict[str, Any]) -> dict[str, Any]:
 
 def _error_payload(exc: Exception, operation: str) -> dict[str, Any]:
     if isinstance(exc, client.TeslaAPIError):
-        return {
+        payload = {
             "ok": False,
             "operation": operation,
             "error": _redact(str(exc)),
             "status_code": exc.status_code,
             "payload": _redact(exc.payload),
         }
+        if isinstance(exc, client.RateLimitError):
+            payload["retry_after"] = exc.retry_after
+        return payload
     return {
         "ok": False,
         "operation": operation,
